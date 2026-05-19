@@ -21,7 +21,9 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
+import { getSupabaseClient } from "@/lib/supabase/client";
 import { clearAuthSession } from "@/lib/auth/mock-auth";
+import { useOctaneStore } from "@/lib/store/octane-store";
 import { OctaneAdvisorPanel } from "@/components/modules/advisor";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -77,8 +79,19 @@ const NEW_ITEMS = [
 
 export function AppTopbar() {
   const router = useRouter();
+  const profileName = useOctaneStore((s) => s.profile?.name ?? "");
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [advisorOpen, setAdvisorOpen] = useState(false);
+
+  // Derive initials from name
+  const initials = profileName
+    ? profileName
+        .split(" ")
+        .map((w) => w[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 2)
+    : "OA";
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -91,7 +104,13 @@ export function AppTopbar() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      const supabase = getSupabaseClient();
+      await supabase.auth.signOut();
+    } catch {
+      // ignore signout errors
+    }
     clearAuthSession();
     router.push("/login");
     router.refresh();
@@ -166,14 +185,25 @@ export function AppTopbar() {
               }
             >
               <Avatar>
-                <AvatarFallback>OA</AvatarFallback>
+                <AvatarFallback>{initials}</AvatarFallback>
               </Avatar>
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="end"
               className="w-44 bg-zinc-900 text-zinc-100"
             >
-              <DropdownMenuLabel>Octane Operator</DropdownMenuLabel>
+              <DropdownMenuLabel>
+                {profileName || "Octane Operator"}
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem render={<Link href="/settings" />}>
+                <User className="size-4" />
+                Settings
+              </DropdownMenuItem>
+              <DropdownMenuItem render={<Link href="/setup" />}>
+                <Sparkles className="size-4" />
+                Workspace Setup
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={handleLogout}

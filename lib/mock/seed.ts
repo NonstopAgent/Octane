@@ -1465,3 +1465,28 @@ export function createSeedData(referenceDate = new Date()): SeedData {
 
 /** Default seed snapshot (current week transactions computed at module load). */
 export const seedData: SeedData = createSeedData();
+
+/** Truly empty workspace — used for new users going through onboarding. */
+export function createBlankState(): SeedData {
+  return {
+    profile: { id: "profile-new", name: "", role: "Founder", email: "", timezone: "UTC" },
+    projects: [],
+    tasks: [],
+    decisions: [],
+    roadmapItems: [],
+    transactions: [],
+    documents: [],
+    ipAssets: [],
+    entities: [],
+    agents: [],
+    activityLogs: [],
+    workSessions: [],
+    inboxItems: [],
+    founderNotes: [],
+    complianceReminders: [],
+    legalQuestions: [],
+    formationChecklistItems: [],
+    agentLogs: [],
+    agentRuns: [],
+  };
+}

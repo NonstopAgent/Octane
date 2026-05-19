@@ -28,7 +28,14 @@ export function middleware(request: NextRequest) {
     if (authenticated) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
+    return NextResponse.next();
+  }
 
+  // /setup is accessible when logged in (first-time onboarding)
+  if (pathname === "/setup" || pathname.startsWith("/setup/")) {
+    if (!authenticated) {
+      return NextResponse.redirect(new URL("/login", request.url));
+    }
     return NextResponse.next();
   }
 

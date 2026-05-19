@@ -6,7 +6,7 @@ import {
   importSnapshotData as parseSnapshot,
 } from "@/lib/data/snapshot";
 import type { OctaneSnapshot } from "@/lib/data/snapshot";
-import { createSeedData, PROJECT_IDS } from "@/lib/mock/seed";
+import { createBlankState, createSeedData, PROJECT_IDS } from "@/lib/mock/seed";
 import type {
   Agent,
   ComplianceReminder,
@@ -238,6 +238,8 @@ export interface OctaneStore extends OctanePersistedState {
   exportSnapshotData: () => OctaneSnapshot;
   importSnapshotData: (raw: unknown) => void;
   clearLocalData: () => void;
+  /** Wipe ALL local data to a truly empty state (used before onboarding / "Start Fresh") */
+  clearToBlank: () => void;
 }
 
 const STORAGE_KEY = "octane-core-storage";
@@ -1427,6 +1429,10 @@ export const useOctaneStore = create<OctaneStore>()(
           description: "Cleared all local workspace data",
         });
         set({ ...createSeedData(), activityLogs: [entry], agentLogs: [], agentRuns: [] });
+      },
+
+      clearToBlank: () => {
+        set({ ...createBlankState(), agentLogs: [], agentRuns: [] });
       },
     }),
     {
