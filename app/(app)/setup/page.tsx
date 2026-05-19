@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { normalizeOctaneData } from "@/lib/data/normalize-octane-data";
 import { useOctaneStore } from "@/lib/store/octane-store";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { pushToSupabase } from "@/lib/supabase/sync";
@@ -452,6 +453,34 @@ export default function SetupPage() {
     return true;
   }
 
+  async function skipToOctane() {
+    setIsSaving(true);
+    try {
+      const supabase = getSupabaseClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      store.clearToBlank();
+      if (profileName.trim()) {
+        store.updateProfile({
+          name: profileName.trim(),
+          role: profileRole.trim() || "Founder",
+          email: user?.email ?? "",
+        });
+      }
+      const normalized = normalizeOctaneData(useOctaneStore.getState());
+      useOctaneStore.setState(normalized);
+      toast.success("Welcome to Octane — add projects anytime.");
+      router.replace("/dashboard");
+      router.refresh();
+    } catch (err) {
+      console.error("Skip setup error:", err);
+      toast.error("Could not enter workspace. Try again.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   async function handleFinish() {
     setIsSaving(true);
 
@@ -514,7 +543,11 @@ export default function SetupPage() {
         }
       }
 
-      // 6. Push everything to Supabase
+      // 6. Normalize persisted slices (prevents /projects crash on partial data)
+      const normalized = normalizeOctaneData(useOctaneStore.getState());
+      useOctaneStore.setState(normalized);
+
+      // 7. Push everything to Supabase
       const storeState = useOctaneStore.getState();
       await pushToSupabase({
         profile: storeState.profile,
@@ -552,7 +585,31 @@ export default function SetupPage() {
             <span className="text-2xl">⚡</span>
           </div>
           <h1 className="text-xl font-bold text-zinc-100">Set up your workspace</h1>
-          <p className="text-sm text-zinc-500 mt-1">Takes about 2 minutes. No fake data.</p>
+          <p className="text-sm text-zinc-500 mt-1">
+            Optional quick start — or ask Octane to build your portfolio with you in Chat.
+          </p>
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={isSaving}
+              onClick={() => void skipToOctane()}
+              className="border-zinc-700"
+            >
+              Skip setup / Enter Octane
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={isSaving}
+              onClick={() => router.push("/outlook#ask-octane")}
+              className="text-amber-400/90 hover:text-amber-300"
+            >
+              Set this up with Octane Chat →
+            </Button>
+          </div>
         </div>
 
         {/* Step indicators */}

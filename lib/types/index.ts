@@ -62,3 +62,19 @@ export type {
   FormationChecklistStatus,
 } from "./formation-checklist-item";
 export type { AgentLog, AgentRunRecord } from "./agent-log";
+export type {
+  Connection,
+  ConnectionProvider,
+  ConnectionStatus,
+} from "./connection";
+export type {
+  OctaneAction,
+  OctaneActionSource,
+  OctaneActionStatus,
+  OctaneActionType,
+} from "./octane-action";
+export type {
+  ProjectConnection,
+  ProjectConnectionKind,
+  ProjectConnectionStatus,
+} from "./project-connection";

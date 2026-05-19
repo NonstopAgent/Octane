@@ -41,13 +41,15 @@ export function ProjectCard({ project, onClick, layout }: ProjectCardProps) {
     >
       <CardHeader className={cn(isList && "flex-1 border-b-0 pb-0")}>
         <div className="flex flex-wrap items-start justify-between gap-2">
-          <CardTitle className="text-zinc-50">{project.name}</CardTitle>
+          <CardTitle className="text-zinc-50">{project.name || "Untitled project"}</CardTitle>
           <div className="flex flex-wrap gap-1.5">
             <StatusBadge domain="project" status={project.status} />
             <PriorityBadge priority={project.priority} />
           </div>
         </div>
-        <CardDescription className="line-clamp-2">{project.description}</CardDescription>
+        <CardDescription className="line-clamp-2">
+          {project.description || "No description yet."}
+        </CardDescription>
       </CardHeader>
       <CardContent
         className={cn(
@@ -58,9 +60,9 @@ export function ProjectCard({ project, onClick, layout }: ProjectCardProps) {
         <div className="space-y-1.5">
           <div className="flex items-center justify-between text-xs text-zinc-500">
             <span>Progress</span>
-            <span className="text-zinc-300">{project.progress}%</span>
+            <span className="text-zinc-300">{project.progress ?? 0}%</span>
           </div>
-          <Progress value={project.progress} />
+          <Progress value={project.progress ?? 0} />
         </div>
         <div
           className={cn(

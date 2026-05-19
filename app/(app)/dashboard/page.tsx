@@ -258,6 +258,42 @@ export default function DashboardPage() {
         <ChevronRight className="size-4 shrink-0 text-amber-500/60" aria-hidden />
       </Link>
 
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Link
+          href="/actions"
+          className="rounded-xl border border-zinc-800/80 bg-zinc-900/30 px-4 py-3 hover:border-amber-800/40"
+        >
+          <p className="text-lg font-bold text-zinc-100">
+            {state.octaneActions.filter((a) => a.status === "proposed").length}
+          </p>
+          <p className="mt-0.5 text-[11px] text-zinc-500">Pending approvals</p>
+        </Link>
+        <Link
+          href="/connections"
+          className="rounded-xl border border-zinc-800/80 bg-zinc-900/30 px-4 py-3 hover:border-amber-800/40"
+        >
+          <p className="text-lg font-bold text-zinc-100">
+            {state.connections.filter((c) => c.status === "connected").length}
+            <span className="text-sm font-normal text-zinc-500">
+              /{state.connections.length}
+            </span>
+          </p>
+          <p className="mt-0.5 text-[11px] text-zinc-500">Connected services</p>
+        </Link>
+        <Link
+          href="/projects"
+          className="rounded-xl border border-zinc-800/80 bg-zinc-900/30 px-4 py-3 hover:border-amber-800/40"
+        >
+          <p className="text-lg font-bold text-zinc-100">
+            {state.projects.filter(
+              (p) =>
+                !state.projectConnections.some((pc) => pc.projectId === p.id),
+            ).length}
+          </p>
+          <p className="mt-0.5 text-[11px] text-zinc-500">Projects missing links</p>
+        </Link>
+      </div>
+
       {/* Quick stats */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className={cn(
@@ -387,8 +423,11 @@ export default function DashboardPage() {
           {activeProjects.length === 0 ? (
             <div className="rounded-xl border border-dashed border-zinc-800 p-6 text-center">
               <p className="text-sm text-zinc-600">No active projects yet.</p>
-              <Link href="/setup" className="mt-2 block text-xs text-amber-500 hover:text-amber-400">
-                Run setup to add your projects →
+              <Link
+                href="/outlook#ask-octane"
+                className="mt-2 block text-xs text-amber-500 hover:text-amber-400"
+              >
+                Ask Octane to add projects →
               </Link>
             </div>
           ) : (

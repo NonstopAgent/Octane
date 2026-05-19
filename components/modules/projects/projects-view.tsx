@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { FolderKanban, LayoutGrid, List, Plus } from "lucide-react";
 
@@ -49,9 +50,9 @@ export function ProjectsView() {
         return false;
       if (!q) return true;
       return (
-        p.name.toLowerCase().includes(q) ||
-        p.description.toLowerCase().includes(q) ||
-        p.owner.toLowerCase().includes(q)
+        (p.name ?? "").toLowerCase().includes(q) ||
+        (p.description ?? "").toLowerCase().includes(q) ||
+        (p.owner ?? "").toLowerCase().includes(q)
       );
     });
   }, [projects, filters]);
@@ -104,15 +105,26 @@ export function ProjectsView() {
       </div>
 
       {projects.length === 0 ? (
-        <EmptyState
-          icon={FolderKanban}
-          title="No projects yet"
-          description="Projects are your portfolio bets. Create a project to track goals, tasks, finance, and strategic decisions in one place."
-          action={{
-            label: "New Project",
-            onClick: () => setCreateOpen(true),
-          }}
-        />
+        <div className="space-y-4">
+          <EmptyState
+            icon={FolderKanban}
+            title="No projects yet"
+            description="Projects are your portfolio bets — create one here or ask Octane to propose a project for your approval."
+            action={{
+              label: "New Project",
+              onClick: () => setCreateOpen(true),
+            }}
+          />
+          <p className="text-center text-xs text-zinc-500">
+            <Link href="/outlook#ask-octane" className="text-amber-500 hover:underline">
+              Ask Octane on Outlook
+            </Link>
+            {" · "}
+            <Link href="/chat" className="text-amber-500 hover:underline">
+              Chat
+            </Link>
+          </p>
+        </div>
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={FolderKanban}

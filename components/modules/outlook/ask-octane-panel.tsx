@@ -26,7 +26,9 @@ import { EmptyState } from "@/components/modules";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { parseOctaneCommand } from "@/lib/actions/parse-octane-command";
 import { generateExecutiveAnswer } from "@/lib/executive";
+import { ActionProposalCard } from "@/components/modules/actions/action-proposal-card";
 import type { ExecutiveAnswer, ExecutiveConfidence } from "@/lib/executive";
 import {
   selectOctanePersistedState,
@@ -360,9 +362,14 @@ export function AskOctanePanel() {
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const state = useOctaneStore(useShallow(selectOctanePersistedState));
+  const proposeOctaneActions = useOctaneStore((s) => s.proposeOctaneActions);
+  const approveOctaneAction = useOctaneStore((s) => s.approveOctaneAction);
+  const rejectOctaneAction = useOctaneStore((s) => s.rejectOctaneAction);
+  const octaneActions = useOctaneStore((s) => s.octaneActions);
   const [questionInput, setQuestionInput] = useState("");
   const [submittedQuestion, setSubmittedQuestion] = useState<string | null>(null);
   const [activeChip, setActiveChip] = useState<string | null>(null);
+  const [lastProposedIds, setLastProposedIds] = useState<string[]>([]);
 
   const answer = useMemo(() => {
     if (!submittedQuestion?.trim()) return null;
@@ -380,12 +387,34 @@ export function AskOctanePanel() {
     return () => window.removeEventListener("hashchange", onHashChange);
   }, []);
 
+  const proposedFromChat = useMemo(
+    () => octaneActions.filter((a) => lastProposedIds.includes(a.id)),
+    [octaneActions, lastProposedIds],
+  );
+
   function submitQuestion(question: string, chipLabel: string | null = null) {
     const trimmed = question.trim();
     if (!trimmed) return;
     setQuestionInput(trimmed);
     setSubmittedQuestion(trimmed);
     setActiveChip(chipLabel);
+
+    const proposals = parseOctaneCommand({ text: trimmed, source: "chat" });
+    if (proposals.length > 0) {
+      const created = proposeOctaneActions(
+        proposals.map((p) => ({
+          type: p.type,
+          title: p.title,
+          description: p.description,
+          payload: p.payload,
+          source: p.source,
+          projectId: p.projectId,
+        })),
+      );
+      setLastProposedIds(created.map((a) => a.id));
+    } else {
+      setLastProposedIds([]);
+    }
   }
 
   function handleSubmit(event: FormEvent) {
@@ -443,6 +472,24 @@ export function AskOctanePanel() {
           ))}
         </div>
       </div>
+
+      {proposedFromChat.length > 0 ? (
+        <section className="space-y-2 rounded-xl border border-amber-800/30 bg-amber-950/10 p-4">
+          <p className="text-xs font-medium uppercase tracking-wider text-amber-400/80">
+            Proposed actions — approve to run
+          </p>
+          <div className="space-y-2">
+            {proposedFromChat.map((action) => (
+              <ActionProposalCard
+                key={action.id}
+                action={action}
+                onApprove={approveOctaneAction}
+                onReject={rejectOctaneAction}
+              />
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       {answer ? (
         <ExecutiveAnswerCard answer={answer} state={state} />

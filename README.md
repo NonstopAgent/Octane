@@ -4,6 +4,7 @@ Octane Core is a **founder operating system** for running multiple projects, bet
 
 ## Status
 
+- **Checkpoint 11A** — Conversational command layer, Connections hub, action approvals, data normalizer
 - **Checkpoint 10C** — Executive Query Layer docs, hybrid auth, outlook/holdings/chat surfaces
 - **Persistence** — local Zustand persist + JSON export/import; Supabase push/pull on login when configured
 - **Auth** — Supabase email/password sign-in/sign-up, plus a **cookie gate** (`/api/mock-auth/login`) so middleware can protect app routes
@@ -19,8 +20,8 @@ npm run dev
 Open [http://localhost:3000](http://localhost:3000).
 
 1. **Sign in or sign up** on `/login` (Supabase Auth — requires `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` in `.env.local`).
-2. On success, the app sets an **httpOnly-style session cookie** via `/api/mock-auth/login` and redirects to `/dashboard` (or `/setup` for new accounts).
-3. First-time users complete **Setup** to seed profile/entities and optionally push to Supabase.
+2. On success, the app sets an **httpOnly-style session cookie** via `/api/mock-auth/login` and redirects to `/dashboard`.
+3. **Setup is optional** — skip to enter Octane with empty states, or use `/setup` / Ask Octane to build your portfolio. No passwords for external services; OAuth placeholders only.
 
 Production build:
 

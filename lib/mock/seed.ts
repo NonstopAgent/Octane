@@ -21,6 +21,10 @@ import type {
   Transaction,
   WorkSession,
 } from "@/lib/types";
+import { createDefaultConnections } from "@/lib/mock/connection-seed";
+import type { Connection } from "@/lib/types/connection";
+import type { OctaneAction } from "@/lib/types/octane-action";
+import type { ProjectConnection } from "@/lib/types/project-connection";
 
 const T0 = "2025-11-01T10:00:00.000Z";
 const T1 = "2026-01-15T14:30:00.000Z";
@@ -1437,6 +1441,9 @@ export interface SeedData {
   formationChecklistItems: FormationChecklistItem[];
   agentLogs: AgentLog[];
   agentRuns: AgentRunRecord[];
+  connections: Connection[];
+  octaneActions: OctaneAction[];
+  projectConnections: ProjectConnection[];
 }
 
 export function createSeedData(referenceDate = new Date()): SeedData {
@@ -1460,6 +1467,9 @@ export function createSeedData(referenceDate = new Date()): SeedData {
     formationChecklistItems: seedFormationChecklistItems,
     agentLogs: seedAgentLogs,
     agentRuns: seedAgentRuns,
+    connections: createDefaultConnections(),
+    octaneActions: [],
+    projectConnections: [],
   };
 }
 
@@ -1488,5 +1498,8 @@ export function createBlankState(): SeedData {
     formationChecklistItems: [],
     agentLogs: [],
     agentRuns: [],
+    connections: createDefaultConnections(),
+    octaneActions: [],
+    projectConnections: [],
   };
 }

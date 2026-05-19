@@ -4,14 +4,18 @@
 
 | Item | Value |
 |------|--------|
-| Checkpoint | **10C** — Docs & QA (Executive Query Layer, hybrid auth) |
+| Checkpoint | **11A** — Conversational commands, Connections, action approvals |
 | Stack | Next.js 16, React 19, Zustand persist, Tailwind 4, Supabase client |
 | Intelligence | Rule-based engines + optional Anthropic (`/chat`, cron briefing) |
 
 ## Feature list (shipped)
 
 - **Hybrid auth** — Supabase sign-in/sign-up on `/login` + cookie gate via `/api/mock-auth/login` + middleware
-- **Supabase sync** — pull on app load, push from Setup (`lib/supabase/sync.ts`)
+- **Supabase sync** — pull on app load (normalized), push from Setup (`lib/supabase/sync.ts`)
+- **Data normalizer** — `lib/data/normalize-octane-data.ts` after sync, import, onboarding
+- **Connections hub** (`/connections`) — OAuth placeholders; no API keys in localStorage
+- **Action approvals** (`/actions`) — propose/approve/reject; chat & Ask Octane never auto-execute
+- **Optional setup** — skip to dashboard; chat-first onboarding CTAs
 - App shell (sidebar, topbar, command palette)
 - Projects, tasks (kanban + DnD), decisions, roadmap, founder notes
 - Inbox capture with convert-to-task/decision/note

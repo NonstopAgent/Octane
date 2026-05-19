@@ -65,9 +65,9 @@ export default function LoginPage() {
           return;
         }
 
-        // Set session cookie then redirect to setup
+        // Set session cookie — optional setup; enter with empty states
         await fetch("/api/mock-auth/login", { method: "POST" });
-        router.replace("/setup");
+        router.replace("/dashboard");
         router.refresh();
       } else {
         const { error: signInError } = await supabase.auth.signInWithPassword({

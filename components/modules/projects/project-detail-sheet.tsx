@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Landmark, NotebookPen, Pencil, Plus } from "lucide-react";
+import { Landmark, Link2, NotebookPen, Pencil, Plus } from "lucide-react";
 import { toast } from "sonner";
 
 import { PriorityBadge, StatusBadge } from "@/components/modules";
@@ -72,6 +72,8 @@ export function ProjectDetailSheet({
   const complianceReminders = useOctaneStore((s) => s.complianceReminders);
   const legalQuestions = useOctaneStore((s) => s.legalQuestions);
   const createFounderNote = useOctaneStore((s) => s.createFounderNote);
+  const projectConnections = useOctaneStore((s) => s.projectConnections);
+  const proposeOctaneAction = useOctaneStore((s) => s.proposeOctaneAction);
   const [editing, setEditing] = useState(false);
   const [noteFormOpen, setNoteFormOpen] = useState(false);
   const [noteTitle, setNoteTitle] = useState("");
@@ -114,6 +116,14 @@ export function ProjectDetailSheet({
     () =>
       projectId ? legalQuestions.filter((q) => q.projectId === projectId) : [],
     [legalQuestions, projectId],
+  );
+
+  const linkedConnections = useMemo(
+    () =>
+      projectId
+        ? projectConnections.filter((pc) => pc.projectId === projectId)
+        : [],
+    [projectConnections, projectId],
   );
 
   const handleCreateLinkedNote = (event: React.FormEvent) => {
@@ -239,6 +249,59 @@ export function ProjectDetailSheet({
                 <p className="text-sm text-zinc-300">{project.revenueNotes}</p>
               </section>
             ) : null}
+
+            <Separator className="bg-zinc-800/80" />
+
+            <section className="space-y-3" data-section="project-connections">
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                  Connections
+                </h3>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="border-zinc-700"
+                  onClick={() => {
+                    if (!projectId) return;
+                    proposeOctaneAction({
+                      type: "link_project_resource",
+                      title: `Link resource to ${project.name}`,
+                      description:
+                        "Proposes GitHub, Vercel, Supabase, or website link — approve in Actions.",
+                      payload: { projectId },
+                      source: "manual",
+                      projectId,
+                    });
+                    toast.message("Link proposed — review in Actions");
+                  }}
+                >
+                  <Link2 className="size-3.5" />
+                  Link external resource
+                </Button>
+              </div>
+              {linkedConnections.length === 0 ? (
+                <p className="text-sm text-zinc-500">
+                  No GitHub, Vercel, or website links yet. GitHub and Vercel use OAuth
+                  placeholders — no API keys in the browser.
+                </p>
+              ) : (
+                <ul className="space-y-2 text-sm">
+                  {linkedConnections.map((pc) => (
+                    <li
+                      key={pc.id}
+                      className="rounded-lg border border-zinc-800/80 bg-zinc-900/40 px-3 py-2"
+                    >
+                      <span className="font-medium text-zinc-200">{pc.label}</span>
+                      <span className="text-zinc-500"> · {pc.kind}</span>
+                      {pc.repo ? (
+                        <span className="block text-xs text-zinc-500">{pc.repo}</span>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
 
             <Separator className="bg-zinc-800/80" />
 

@@ -1,11 +1,14 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
+import { executeApprovedOctaneAction } from "@/lib/actions/execute-octane-action";
+import { normalizeOctaneData } from "@/lib/data/normalize-octane-data";
 import {
   exportSnapshotData as buildSnapshot,
   importSnapshotData as parseSnapshot,
 } from "@/lib/data/snapshot";
 import type { OctaneSnapshot } from "@/lib/data/snapshot";
+import { createDefaultConnections } from "@/lib/mock/connection-seed";
 import { createBlankState, createSeedData, PROJECT_IDS } from "@/lib/mock/seed";
 import type {
   Agent,
@@ -29,6 +32,9 @@ import type {
 
 import type { ActivityLog } from "@/lib/types/activity-log";
 import type { AgentLog, AgentRunRecord } from "@/lib/types/agent-log";
+import type { Connection } from "@/lib/types/connection";
+import type { OctaneAction } from "@/lib/types/octane-action";
+import type { ProjectConnection } from "@/lib/types/project-connection";
 
 import {
   createActivityLog,
@@ -58,6 +64,9 @@ export interface OctanePersistedState {
   formationChecklistItems: FormationChecklistItem[];
   agentLogs: AgentLog[];
   agentRuns: AgentRunRecord[];
+  connections: Connection[];
+  octaneActions: OctaneAction[];
+  projectConnections: ProjectConnection[];
 }
 
 type CreatableProject = Omit<Project, "id" | "createdAt" | "updatedAt">;
@@ -240,6 +249,35 @@ export interface OctaneStore extends OctanePersistedState {
   clearLocalData: () => void;
   /** Wipe ALL local data to a truly empty state (used before onboarding / "Start Fresh") */
   clearToBlank: () => void;
+
+  // Connections hub
+  createConnection: (
+    data: Omit<Connection, "id" | "createdAt" | "updatedAt">,
+  ) => Connection;
+  updateConnection: (id: string, data: Partial<Connection>) => void;
+  deleteConnection: (id: string) => void;
+  getConnectionById: (id: string) => Connection | undefined;
+
+  // Octane actions (approval flow)
+  proposeOctaneAction: (
+    data: Omit<OctaneAction, "id" | "status" | "proposedAt">,
+  ) => OctaneAction;
+  proposeOctaneActions: (
+    actions: Omit<OctaneAction, "id" | "status" | "proposedAt">[],
+  ) => OctaneAction[];
+  approveOctaneAction: (id: string) => void;
+  rejectOctaneAction: (id: string) => void;
+  completeOctaneAction: (id: string) => void;
+  failOctaneAction: (id: string, errorMessage: string) => void;
+  getOctaneActionById: (id: string) => OctaneAction | undefined;
+
+  // Project connections
+  createProjectConnection: (
+    data: Omit<ProjectConnection, "id" | "createdAt" | "updatedAt">,
+  ) => ProjectConnection;
+  updateProjectConnection: (id: string, data: Partial<ProjectConnection>) => void;
+  deleteProjectConnection: (id: string) => void;
+  getProjectConnectionsByProject: (projectId: string) => ProjectConnection[];
 }
 
 const STORAGE_KEY = "octane-core-storage";
@@ -267,6 +305,9 @@ export function selectOctanePersistedState(
     formationChecklistItems: state.formationChecklistItems,
     agentLogs: state.agentLogs,
     agentRuns: state.agentRuns,
+    connections: state.connections,
+    octaneActions: state.octaneActions,
+    projectConnections: state.projectConnections,
   };
 }
 
@@ -305,27 +346,7 @@ function normalizePersistedState(
   persisted: Partial<OctanePersistedState> | undefined,
 ): Partial<OctanePersistedState> | undefined {
   if (!persisted) return undefined;
-  return {
-    ...persisted,
-    projects: asArray(persisted.projects),
-    tasks: asArray(persisted.tasks),
-    decisions: asArray(persisted.decisions),
-    roadmapItems: asArray(persisted.roadmapItems),
-    transactions: asArray(persisted.transactions),
-    documents: asArray(persisted.documents),
-    ipAssets: asArray(persisted.ipAssets),
-    entities: asArray(persisted.entities),
-    agents: asArray(persisted.agents),
-    activityLogs: normalizeActivityLogs(persisted.activityLogs),
-    workSessions: asArray(persisted.workSessions),
-    inboxItems: asArray(persisted.inboxItems),
-    founderNotes: asArray(persisted.founderNotes),
-    complianceReminders: asArray(persisted.complianceReminders),
-    legalQuestions: asArray(persisted.legalQuestions),
-    formationChecklistItems: asArray(persisted.formationChecklistItems),
-    agentLogs: asArray(persisted.agentLogs),
-    agentRuns: asArray(persisted.agentRuns),
-  };
+  return normalizeOctaneData(persisted);
 }
 
 export const useOctaneStore = create<OctaneStore>()(
@@ -1394,7 +1415,7 @@ export const useOctaneStore = create<OctaneStore>()(
 
       importSnapshotData: (raw) => {
         const snapshot = parseSnapshot(raw);
-        set({
+        const normalized = normalizeOctaneData({
           profile: snapshot.profile,
           projects: snapshot.projects,
           tasks: snapshot.tasks,
@@ -1413,6 +1434,7 @@ export const useOctaneStore = create<OctaneStore>()(
           legalQuestions: snapshot.legalQuestions,
           formationChecklistItems: snapshot.formationChecklistItems,
         });
+        set(normalized);
         logActivity(set, get, {
           action: "updated",
           entityType: "system",
@@ -1432,8 +1454,220 @@ export const useOctaneStore = create<OctaneStore>()(
       },
 
       clearToBlank: () => {
-        set({ ...createBlankState(), agentLogs: [], agentRuns: [] });
+        set({
+          ...createBlankState(),
+          connections: createDefaultConnections(),
+          octaneActions: [],
+          projectConnections: [],
+          agentLogs: [],
+          agentRuns: [],
+        });
       },
+
+      createConnection: (data) => {
+        const connection: Connection = {
+          ...data,
+          id: createId("conn"),
+          ...timestamps(),
+        };
+        set((state) => ({
+          connections: [...state.connections, connection],
+        }));
+        logActivity(set, get, {
+          action: "created",
+          entityType: "system",
+          entityId: connection.id,
+          entityName: connection.label,
+          description: `Added connection "${connection.label}"`,
+        });
+        return connection;
+      },
+      updateConnection: (id, data) => {
+        const existing = get().connections.find((c) => c.id === id);
+        set((state) => ({
+          connections: state.connections.map((c) =>
+            c.id === id ? { ...c, ...data, ...touch() } : c,
+          ),
+        }));
+        if (existing) {
+          logActivity(set, get, {
+            action: "updated",
+            entityType: "system",
+            entityId: id,
+            entityName: data.label ?? existing.label,
+            description: `Updated connection "${data.label ?? existing.label}"`,
+          });
+        }
+      },
+      deleteConnection: (id) => {
+        const existing = get().connections.find((c) => c.id === id);
+        set((state) => ({
+          connections: state.connections.filter((c) => c.id !== id),
+        }));
+        if (existing) {
+          logActivity(set, get, {
+            action: "deleted",
+            entityType: "system",
+            entityId: id,
+            entityName: existing.label,
+            description: `Removed connection "${existing.label}"`,
+          });
+        }
+      },
+      getConnectionById: (id) => get().connections.find((c) => c.id === id),
+
+      proposeOctaneAction: (data) => {
+        const action: OctaneAction = {
+          ...data,
+          id: createId("action"),
+          status: "proposed",
+          proposedAt: new Date().toISOString(),
+        };
+        set((state) => ({
+          octaneActions: [action, ...state.octaneActions],
+        }));
+        logActivity(set, get, {
+          action: "created",
+          entityType: "system",
+          entityId: action.id,
+          entityName: action.title,
+          description: `Proposed: ${action.title}`,
+        });
+        return action;
+      },
+      proposeOctaneActions: (items) =>
+        items.map((item) => get().proposeOctaneAction(item)),
+
+      approveOctaneAction: (id) => {
+        const action = get().octaneActions.find((a) => a.id === id);
+        if (!action || action.status !== "proposed") return;
+
+        set((state) => ({
+          octaneActions: state.octaneActions.map((a) =>
+            a.id === id
+              ? {
+                  ...a,
+                  status: "approved" as const,
+                  resolvedAt: new Date().toISOString(),
+                }
+              : a,
+          ),
+        }));
+
+        const approved = get().octaneActions.find((a) => a.id === id);
+        if (!approved) return;
+
+        const result = executeApprovedOctaneAction(get(), approved);
+        if (result.ok) {
+          get().completeOctaneAction(id);
+        } else {
+          get().failOctaneAction(id, result.error);
+        }
+      },
+      rejectOctaneAction: (id) => {
+        const existing = get().octaneActions.find((a) => a.id === id);
+        set((state) => ({
+          octaneActions: state.octaneActions.map((a) =>
+            a.id === id
+              ? {
+                  ...a,
+                  status: "rejected" as const,
+                  resolvedAt: new Date().toISOString(),
+                }
+              : a,
+          ),
+        }));
+        if (existing) {
+          logActivity(set, get, {
+            action: "updated",
+            entityType: "system",
+            entityId: id,
+            entityName: existing.title,
+            description: `Rejected: ${existing.title}`,
+          });
+        }
+      },
+      completeOctaneAction: (id) => {
+        const existing = get().octaneActions.find((a) => a.id === id);
+        set((state) => ({
+          octaneActions: state.octaneActions.map((a) =>
+            a.id === id
+              ? {
+                  ...a,
+                  status: "completed" as const,
+                  resolvedAt: new Date().toISOString(),
+                }
+              : a,
+          ),
+        }));
+        if (existing) {
+          logActivity(set, get, {
+            action: "updated",
+            entityType: "system",
+            entityId: id,
+            entityName: existing.title,
+            description: `Completed: ${existing.title}`,
+          });
+        }
+      },
+      failOctaneAction: (id, errorMessage) => {
+        const existing = get().octaneActions.find((a) => a.id === id);
+        set((state) => ({
+          octaneActions: state.octaneActions.map((a) =>
+            a.id === id
+              ? {
+                  ...a,
+                  status: "failed" as const,
+                  errorMessage,
+                  resolvedAt: new Date().toISOString(),
+                }
+              : a,
+          ),
+        }));
+        if (existing) {
+          logActivity(set, get, {
+            action: "updated",
+            entityType: "system",
+            entityId: id,
+            entityName: existing.title,
+            description: `Failed: ${existing.title} — ${errorMessage}`,
+          });
+        }
+      },
+      getOctaneActionById: (id) => get().octaneActions.find((a) => a.id === id),
+
+      createProjectConnection: (data) => {
+        const link: ProjectConnection = {
+          ...data,
+          id: createId("pconn"),
+          ...timestamps(),
+        };
+        set((state) => ({
+          projectConnections: [...state.projectConnections, link],
+        }));
+        logActivity(set, get, {
+          action: "created",
+          entityType: "project",
+          entityId: data.projectId,
+          entityName: link.label,
+          description: `Linked ${link.kind} to project`,
+        });
+        return link;
+      },
+      updateProjectConnection: (id, data) => {
+        set((state) => ({
+          projectConnections: state.projectConnections.map((pc) =>
+            pc.id === id ? { ...pc, ...data, ...touch() } : pc,
+          ),
+        }));
+      },
+      deleteProjectConnection: (id) => {
+        set((state) => ({
+          projectConnections: state.projectConnections.filter((pc) => pc.id !== id),
+        }));
+      },
+      getProjectConnectionsByProject: (projectId) =>
+        get().projectConnections.filter((pc) => pc.projectId === projectId),
     }),
     {
       name: STORAGE_KEY,
@@ -1457,31 +1691,23 @@ export const useOctaneStore = create<OctaneStore>()(
         formationChecklistItems: state.formationChecklistItems,
         agentLogs: state.agentLogs,
         agentRuns: state.agentRuns,
+        connections: state.connections,
+        octaneActions: state.octaneActions,
+        projectConnections: state.projectConnections,
       }),
       merge: (persisted, current) => {
         const persistedState = normalizePersistedState(
           persisted as Partial<OctanePersistedState> | undefined,
         );
         if (isPersistedStateEmpty(persistedState)) {
-          return { ...current, ...createSeedData() };
+          return { ...current, ...normalizeOctaneData(createSeedData()) };
         }
         return {
           ...current,
-          ...persistedState,
-          activityLogs: normalizeActivityLogs(persistedState?.activityLogs),
-          workSessions: persistedState?.workSessions ?? [],
-          inboxItems: persistedState?.inboxItems ?? [],
-          founderNotes: persistedState?.founderNotes ?? [],
-          complianceReminders:
-            persistedState?.complianceReminders ??
-            createSeedData().complianceReminders,
-          legalQuestions:
-            persistedState?.legalQuestions ?? createSeedData().legalQuestions,
-          formationChecklistItems:
-            persistedState?.formationChecklistItems ??
-            createSeedData().formationChecklistItems,
-          agentLogs: persistedState?.agentLogs ?? [],
-          agentRuns: persistedState?.agentRuns ?? [],
+          ...normalizeOctaneData({
+            ...current,
+            ...persistedState,
+          }),
         };
       },
     },

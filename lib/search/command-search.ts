@@ -131,6 +131,50 @@ const EXECUTIVE_SHORTCUTS: {
   },
 ];
 
+const INTEGRATION_SHORTCUTS: {
+  id: string;
+  title: string;
+  description: string;
+  href: string;
+  keywords: string[];
+}[] = [
+  {
+    id: "nav-connections",
+    title: "Connections",
+    description: "Integration hub — GitHub, Vercel, Supabase",
+    href: "/connections",
+    keywords: ["connect", "connections", "integration", "oauth", "github", "vercel"],
+  },
+  {
+    id: "nav-actions",
+    title: "Actions",
+    description: "Pending approvals from Octane Chat",
+    href: "/actions",
+    keywords: ["actions", "approval", "approve", "pending", "proposed"],
+  },
+  {
+    id: "connect-github",
+    title: "Connect GitHub",
+    description: "Propose GitHub connection (OAuth placeholder)",
+    href: "/connections",
+    keywords: ["github", "repo", "connect github"],
+  },
+  {
+    id: "connect-vercel",
+    title: "Connect Vercel",
+    description: "Propose Vercel connection (OAuth placeholder)",
+    href: "/connections",
+    keywords: ["vercel", "deploy", "connect vercel"],
+  },
+  {
+    id: "ask-setup",
+    title: "Ask Octane setup",
+    description: "Chat-first workspace setup on Outlook",
+    href: "/outlook#ask-octane",
+    keywords: ["setup", "onboard", "onboarding", "ask octane setup"],
+  },
+];
+
 const TYPE_LABELS: Record<SearchResultType, string> = {
   page: "Page",
   executiveShortcut: "Executive",
@@ -189,7 +233,7 @@ export function searchCommandIndex(
     }
   }
 
-  for (const shortcut of EXECUTIVE_SHORTCUTS) {
+  for (const shortcut of [...EXECUTIVE_SHORTCUTS, ...INTEGRATION_SHORTCUTS]) {
     const haystack = [
       shortcut.title,
       shortcut.description,
@@ -206,6 +250,22 @@ export function searchCommandIndex(
         href: shortcut.href,
       });
     }
+  }
+
+  const pendingCount = state.octaneActions?.filter((a) => a.status === "proposed")
+    .length ?? 0;
+  if (
+    pendingCount > 0 &&
+    (matchesQuery("pending approvals actions", query) ||
+      matchesQuery("approval", query))
+  ) {
+    results.push({
+      id: "pending-approvals",
+      type: "executiveShortcut",
+      title: `Pending approvals (${pendingCount})`,
+      description: "Review proposed Octane actions",
+      href: "/actions",
+    });
   }
 
   const push = (result: CommandSearchResult) => {

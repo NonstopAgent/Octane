@@ -8,11 +8,13 @@ import {
   useRef,
   useState,
 } from "react";
+import Link from "next/link";
 import { Bot, Send, Sparkles, Trash2, Zap } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
+import { parseOctaneCommand } from "@/lib/actions/parse-octane-command";
 import {
   selectOctanePersistedState,
   useOctaneStore,
@@ -111,6 +113,10 @@ export default function ChatPage() {
 
 function ChatPageContent() {
   const state = useOctaneStore(useShallow(selectOctanePersistedState));
+  const proposeOctaneActions = useOctaneStore((s) => s.proposeOctaneActions);
+  const pendingCount = useOctaneStore(
+    (s) => s.octaneActions.filter((a) => a.status === "proposed").length,
+  );
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -196,7 +202,22 @@ function ChatPageContent() {
     async (text: string) => {
       if (!text.trim() || isStreaming) return;
 
-      const userMessage: ChatMessage = { role: "user", content: text.trim() };
+      const trimmed = text.trim();
+      const proposals = parseOctaneCommand({ text: trimmed, source: "chat" });
+      if (proposals.length > 0) {
+        proposeOctaneActions(
+          proposals.map((p) => ({
+            type: p.type,
+            title: p.title,
+            description: p.description,
+            payload: p.payload,
+            source: p.source,
+            projectId: p.projectId,
+          })),
+        );
+      }
+
+      const userMessage: ChatMessage = { role: "user", content: trimmed };
       const nextMessages: ChatMessage[] = [...messages, userMessage];
       setMessages(nextMessages);
       setInput("");
@@ -258,7 +279,7 @@ function ChatPageContent() {
         setIsStreaming(false);
       }
     },
-    [messages, context, isStreaming],
+    [messages, context, isStreaming, proposeOctaneActions],
   );
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -319,6 +340,15 @@ function ChatPageContent() {
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-6 py-6">
+        {pendingCount > 0 ? (
+          <p className="mb-4 rounded-lg border border-amber-800/40 bg-amber-950/20 px-3 py-2 text-xs text-amber-200/90">
+            {pendingCount} proposed action{pendingCount === 1 ? "" : "s"} awaiting
+            approval —{" "}
+            <Link href="/actions" className="font-medium underline">
+              review in Actions
+            </Link>
+          </p>
+        ) : null}
         {needsSetup && <ApiSetupBanner />}
 
         {isEmpty && !needsSetup ? (

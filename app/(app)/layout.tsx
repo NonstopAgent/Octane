@@ -1,18 +1,16 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
 
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { AppTopbar } from "@/components/layout/app-topbar";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { normalizeOctaneData } from "@/lib/data/normalize-octane-data";
 import { loadFromSupabase } from "@/lib/supabase/sync";
 import { useOctaneStore } from "@/lib/store/octane-store";
-import type { OctanePersistedState } from "@/lib/store/octane-store";
 
 function DataSyncProvider({ children }: { children: React.ReactNode }) {
   const syncedRef = useRef(false);
-  const router = useRouter();
 
   useEffect(() => {
     if (syncedRef.current) return;
@@ -27,37 +25,48 @@ function DataSyncProvider({ children }: { children: React.ReactNode }) {
         const synced = await loadFromSupabase();
         if (!synced) return; // network error, use local cache
 
-        if (synced.isEmpty) {
-          // New user — redirect to setup (unless already there)
-          if (!window.location.pathname.startsWith("/setup")) {
-            router.replace("/setup");
-          }
-          return;
-        }
-
-        // Hydrate Zustand store with Supabase data (server is source of truth)
-        const patch: Partial<OctanePersistedState> = {};
-        if (synced.profile) patch.profile = synced.profile;
-        if (synced.entities.length > 0) patch.entities = synced.entities;
-        if (synced.projects.length > 0) patch.projects = synced.projects;
-        if (synced.tasks.length > 0) patch.tasks = synced.tasks;
-        if (synced.agents.length > 0) patch.agents = synced.agents;
-        if (synced.transactions.length > 0) patch.transactions = synced.transactions;
-        if (synced.decisions.length > 0) patch.decisions = synced.decisions;
-        if (synced.documents.length > 0) patch.documents = synced.documents;
-        if (synced.founderNotes.length > 0) patch.founderNotes = synced.founderNotes;
-        if (synced.roadmapItems.length > 0) patch.roadmapItems = synced.roadmapItems;
-
-        if (Object.keys(patch).length > 0) {
-          useOctaneStore.setState(patch);
-        }
+        // Hydrate Zustand with Supabase data (normalized — safe for /projects etc.)
+        const current = useOctaneStore.getState();
+        const normalized = normalizeOctaneData(
+          {
+            ...current,
+            profile: synced.profile ?? current.profile,
+            entities:
+              synced.entities.length > 0 ? synced.entities : current.entities,
+            projects:
+              synced.projects.length > 0 ? synced.projects : current.projects,
+            tasks: synced.tasks.length > 0 ? synced.tasks : current.tasks,
+            agents: synced.agents.length > 0 ? synced.agents : current.agents,
+            transactions:
+              synced.transactions.length > 0
+                ? synced.transactions
+                : current.transactions,
+            decisions:
+              synced.decisions.length > 0 ? synced.decisions : current.decisions,
+            documents:
+              synced.documents.length > 0 ? synced.documents : current.documents,
+            founderNotes:
+              synced.founderNotes.length > 0
+                ? synced.founderNotes
+                : current.founderNotes,
+            roadmapItems:
+              synced.roadmapItems.length > 0
+                ? synced.roadmapItems
+                : current.roadmapItems,
+            connections: current.connections,
+            octaneActions: current.octaneActions,
+            projectConnections: current.projectConnections,
+          },
+          current.profile,
+        );
+        useOctaneStore.setState(normalized);
       } catch (err) {
         console.warn("[layout] Sync error (using local cache):", err);
       }
     }
 
     void syncOnMount();
-  }, [router]);
+  }, []);
 
   return <>{children}</>;
 }
