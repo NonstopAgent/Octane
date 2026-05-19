@@ -38,6 +38,7 @@ Next.js may warn about multiple `package-lock.json` files if a lockfile exists i
 |-------|---------|
 | `/today` | Daily operating view — due work, blockers, work sessions |
 | `/dashboard` | Portfolio health, Octane score, metrics |
+| `/outlook` | Strategic outlook — score, risks, 30/60/90 plan |
 | `/briefing` | Rule-based morning briefing |
 | `/inbox` | Quick capture → convert to task/decision/note |
 | `/projects` | Portfolio CRUD and detail |
@@ -80,6 +81,10 @@ Listed in Settings and in the command palette footer when empty.
 - File uploads are mocked (metadata only)
 - Company profile fields in Settings are not persisted
 - Holdings / external integrations not included
+
+## Octane Outlook
+
+**Octane Outlook** (`/outlook`) is a rule-based strategic intelligence layer: it scores execution, revenue, project quality, agent health, holdings, and strategic clarity, then surfaces opportunities, risks, blockers, and 30/60/90-day plans. All logic runs locally from your Zustand store — no API calls. Scores and plans are planning heuristics only, not legal, tax, or investment advice.
 
 ## Roadmap (future checkpoints)
 

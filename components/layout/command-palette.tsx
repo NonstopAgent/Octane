@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils";
 
 const GROUP_ORDER: SearchResultType[] = [
   "page",
+  "outlookInsight",
   "project",
   "task",
   "workSession",

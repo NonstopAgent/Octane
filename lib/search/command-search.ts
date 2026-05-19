@@ -1,4 +1,5 @@
 import { mainNavItems } from "@/lib/nav";
+import { generateOctaneOutlook } from "@/lib/outlook/generate-octane-outlook";
 import type { OctanePersistedState } from "@/lib/store/octane-store";
 
 export type SearchResultType =
@@ -17,7 +18,8 @@ export type SearchResultType =
   | "formationChecklist"
   | "workSession"
   | "inboxItem"
-  | "founderNote";
+  | "founderNote"
+  | "outlookInsight";
 
 export interface CommandSearchResult {
   id: string;
@@ -59,6 +61,7 @@ const TYPE_LABELS: Record<SearchResultType, string> = {
   workSession: "Work Session",
   inboxItem: "Inbox",
   founderNote: "Founder Note",
+  outlookInsight: "Outlook",
 };
 
 export function getSearchResultTypeLabel(type: SearchResultType): string {
@@ -338,6 +341,38 @@ export function searchCommandIndex(
     });
   }
 
+  if (state.projects.length > 0) {
+    const outlook = generateOctaneOutlook(state);
+    const outlookItems = [
+      ...outlook.topRisks.map((r) => ({ kind: "risk" as const, item: r })),
+      ...outlook.topOpportunities.map((o) => ({
+        kind: "opportunity" as const,
+        item: o,
+      })),
+      ...outlook.recommendedFocus.map((f, i) => ({
+        kind: "focus" as const,
+        item: { id: `focus-${i}`, title: f, description: "Recommended focus" },
+      })),
+      ...outlook["30DayPlan"].milestones.map((m, i) => ({
+        kind: "plan" as const,
+        item: {
+          id: `plan30-${i}`,
+          title: m,
+          description: outlook["30DayPlan"].theme,
+        },
+      })),
+    ];
+    for (const { kind, item } of outlookItems) {
+      push({
+        id: `outlook-${kind}-${item.id}`,
+        type: "outlookInsight",
+        title: item.title,
+        description: item.description,
+        href: "/outlook",
+      });
+    }
+  }
+
   return results.slice(0, 50);
 }
 
@@ -361,6 +396,7 @@ export function groupSearchResults(
     workSession: [],
     inboxItem: [],
     founderNote: [],
+    outlookInsight: [],
   };
   for (const result of results) {
     grouped[result.type].push(result);

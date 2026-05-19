@@ -6,6 +6,7 @@ import {
   Bot,
   Briefcase,
   CheckSquare,
+  ChevronRight,
   Clock,
   DollarSign,
   FileWarning,
@@ -13,9 +14,11 @@ import {
   Gauge,
   ListChecks,
   Scale,
+  Telescope,
   TrendingDown,
   Wallet,
 } from "lucide-react";
+import Link from "next/link";
 import { useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
 
@@ -34,6 +37,7 @@ import {
   formatRunway,
   selectDashboardMetrics,
 } from "@/lib/dashboard/metrics";
+import { generateOctaneOutlook } from "@/lib/outlook/generate-octane-outlook";
 import { computeOctaneScore } from "@/lib/scoring/octane-score";
 import {
   selectOctanePersistedState,
@@ -60,6 +64,7 @@ export default function DashboardPage() {
 
   const metrics = useMemo(() => selectDashboardMetrics(state), [state]);
   const octaneScore = useMemo(() => computeOctaneScore(state), [state]);
+  const outlook = useMemo(() => generateOctaneOutlook(state), [state]);
 
   if (state.projects.length === 0) {
     return (
@@ -83,6 +88,27 @@ export default function DashboardPage() {
         title="Dashboard"
         description={`Command center overview for ${state.profile.name}.`}
       />
+
+      <Link
+        href="/outlook"
+        className="flex items-center justify-between gap-4 rounded-xl border border-zinc-800/80 bg-zinc-900/40 px-4 py-3 transition-colors hover:border-amber-900/40"
+      >
+        <div className="min-w-0 flex-1">
+          <p className="flex items-center gap-2 text-sm font-medium text-zinc-300">
+            <Telescope className="size-4 shrink-0 text-amber-400/90" aria-hidden />
+            Current Outlook
+          </p>
+          <p className="mt-1 line-clamp-1 text-xs text-zinc-500">
+            {outlook.recommendedFocus[0] ?? outlook.summary}
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-3">
+          <span className="text-2xl font-bold tabular-nums text-zinc-100">
+            {outlook.outlookScore}
+          </span>
+          <ChevronRight className="size-4 text-zinc-600" aria-hidden />
+        </div>
+      </Link>
 
       <section className="grid gap-4 lg:grid-cols-[1fr_2fr]">
         <Card className="border-zinc-800/80 bg-zinc-900/40 ring-zinc-800/60">

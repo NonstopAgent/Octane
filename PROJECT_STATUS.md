@@ -16,7 +16,7 @@
 - Finance ledger with metrics and weekly review money section
 - Documents metadata + IP assets table
 - Work sessions on Today
-- Morning briefing and weekly review (rule-based)
+- Morning briefing, weekly review, and Octane Outlook strategic layer (rule-based)
 - Dashboard metrics and Octane score
 - Activity log
 - Agents read-only roster (seed)
@@ -50,7 +50,7 @@
 |------------|--------|
 | **8** | Supabase project, migrations, auth |
 | **9** | Sync layer + conflict handling |
-| **10** | AI Advisor (read-only recommendations) |
+| **10** | AI Advisor (read-only recommendations) + Octane Outlook |
 | **11** | Agent execution logs |
 | **12** | Holdings + deployment (Vercel) |
 
