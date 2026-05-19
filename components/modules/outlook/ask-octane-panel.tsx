@@ -370,6 +370,7 @@ export function AskOctanePanel() {
   const [submittedQuestion, setSubmittedQuestion] = useState<string | null>(null);
   const [activeChip, setActiveChip] = useState<string | null>(null);
   const [lastProposedIds, setLastProposedIds] = useState<string[]>([]);
+  const [commandReplies, setCommandReplies] = useState<string[]>([]);
 
   const answer = useMemo(() => {
     if (!submittedQuestion?.trim()) return null;
@@ -399,10 +400,16 @@ export function AskOctanePanel() {
     setSubmittedQuestion(trimmed);
     setActiveChip(chipLabel);
 
-    const proposals = parseOctaneCommand({ text: trimmed, source: "chat" });
-    if (proposals.length > 0) {
+    const parsed = parseOctaneCommand({
+      text: trimmed,
+      source: "chat",
+      projectConnections: state.projectConnections,
+      projects: state.projects.map((p) => ({ id: p.id, name: p.name })),
+    });
+    setCommandReplies(parsed.replies);
+    if (parsed.actions.length > 0) {
       const created = proposeOctaneActions(
-        proposals.map((p) => ({
+        parsed.actions.map((p) => ({
           type: p.type,
           title: p.title,
           description: p.description,
@@ -472,6 +479,16 @@ export function AskOctanePanel() {
           ))}
         </div>
       </div>
+
+      {commandReplies.length > 0 ? (
+        <section className="space-y-1 rounded-xl border border-zinc-800/80 bg-zinc-900/40 p-4">
+          {commandReplies.map((reply) => (
+            <p key={reply} className="text-sm text-zinc-300">
+              {reply}
+            </p>
+          ))}
+        </section>
+      ) : null}
 
       {proposedFromChat.length > 0 ? (
         <section className="space-y-2 rounded-xl border border-amber-800/30 bg-amber-950/10 p-4">

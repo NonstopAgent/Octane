@@ -22,6 +22,9 @@ import {
 import { useOctaneStore } from "@/lib/store/octane-store";
 import type { Project } from "@/lib/types";
 
+import { ProjectIntegrationStats } from "@/components/modules/connections/project-integration-stats";
+import { ProjectLinkForm } from "@/components/modules/connections/project-link-form";
+
 import { ProjectForm } from "./project-form";
 import { formatRevenueStatus, formatUpdatedAt } from "./project-utils";
 
@@ -281,10 +284,31 @@ export function ProjectDetailSheet({
                 </Button>
               </div>
               {linkedConnections.length === 0 ? (
-                <p className="text-sm text-zinc-500">
-                  No GitHub, Vercel, or website links yet. GitHub and Vercel use OAuth
-                  placeholders — no API keys in the browser.
-                </p>
+                <div className="space-y-2">
+                  <p className="text-sm text-zinc-500">
+                    No GitHub or Vercel links yet. Server tokens power read-only stats.
+                  </p>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 text-xs text-amber-400/90"
+                    onClick={() => {
+                      proposeOctaneAction({
+                        type: "link_project_resource",
+                        title: `Connect integrations for ${project.name}`,
+                        description:
+                          "Proposes linking GitHub repo or Vercel project — approve in Actions.",
+                        payload: { projectId: project.id, kind: "github" },
+                        source: "manual",
+                        projectId: project.id,
+                      });
+                      toast.message("Link proposed — review in Actions");
+                    }}
+                  >
+                    Ask Octane to connect
+                  </Button>
+                </div>
               ) : (
                 <ul className="space-y-2 text-sm">
                   {linkedConnections.map((pc) => (
@@ -295,12 +319,40 @@ export function ProjectDetailSheet({
                       <span className="font-medium text-zinc-200">{pc.label}</span>
                       <span className="text-zinc-500"> · {pc.kind}</span>
                       {pc.repo ? (
-                        <span className="block text-xs text-zinc-500">{pc.repo}</span>
+                        <span className="block font-mono text-xs text-zinc-500">
+                          {pc.repo}
+                        </span>
                       ) : null}
+                      {(pc.kind === "github" || pc.kind === "vercel") && (
+                        <div className="mt-2">
+                          <ProjectIntegrationStats
+                            connection={pc}
+                            onAskConnect={() => {
+                              proposeOctaneAction({
+                                type:
+                                  pc.kind === "github"
+                                    ? "connect_github"
+                                    : "connect_vercel",
+                                title: `Connect ${pc.kind} for ${project.name}`,
+                                description: "Review in Actions before changes apply.",
+                                payload: {
+                                  projectId: project.id,
+                                  repo: pc.repo,
+                                },
+                                source: "manual",
+                                projectId: project.id,
+                              });
+                            }}
+                          />
+                        </div>
+                      )}
                     </li>
                   ))}
                 </ul>
               )}
+              {projectId ? (
+                <ProjectLinkForm defaultProjectId={projectId} compact />
+              ) : null}
             </section>
 
             <Separator className="bg-zinc-800/80" />

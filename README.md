@@ -4,6 +4,7 @@ Octane Core is a **founder operating system** for running multiple projects, bet
 
 ## Status
 
+- **Checkpoint 11B** — Read-only GitHub + Vercel connectors (server tokens, `/connections`, project links)
 - **Checkpoint 11A** — Conversational command layer, Connections hub, action approvals, data normalizer
 - **Checkpoint 10C** — Executive Query Layer docs, hybrid auth, outlook/holdings/chat surfaces
 - **Persistence** — local Zustand persist + JSON export/import; Supabase push/pull on login when configured
@@ -35,8 +36,26 @@ npm start
 | Variable | Purpose |
 |----------|---------|
 | `ANTHROPIC_API_KEY` | Powers `/chat` and `/api/cron/briefing` |
-| `GITHUB_TOKEN` | Cron route posts briefing issues |
+| `GITHUB_TOKEN` | Read-only GitHub integrations + cron briefing issues |
+| `VERCEL_TOKEN` | Read-only Vercel project/deployment status |
+| `VERCEL_TEAM_ID` | Optional team scope for Vercel API |
+| `NEXT_PUBLIC_APP_URL` | Optional absolute app URL for server-generated links |
 | `CRON_SECRET` | Bearer token for Vercel Cron → `/api/cron/briefing` |
+
+Without integration tokens, `/connections` and project link validation return **configured: false** — the app does not crash. Tokens are **never** sent to the browser or Zustand.
+
+### Read-only integrations (11B)
+
+| API | Purpose |
+|-----|---------|
+| `GET /api/integrations/github/status` | Token configured + user reachable |
+| `GET /api/integrations/github/repos` | List repos (read-only) |
+| `GET /api/integrations/github/repo?repo=owner/name` | Repo summary, issues, PRs, commits |
+| `GET /api/integrations/vercel/status` | Token configured + user reachable |
+| `GET /api/integrations/vercel/projects` | List projects |
+| `GET /api/integrations/vercel/project?name=…` | Project + latest deployment |
+
+All integration routes require the auth cookie. No deploy, delete, or settings mutations.
 
 Without `ANTHROPIC_API_KEY`, the app **does not crash** — `/chat` shows a setup banner; the cron route returns `503`. Core modules (Today, Outlook, Briefing, Holdings) work without any AI keys.
 
@@ -69,6 +88,8 @@ Next.js may warn about multiple `package-lock.json` files if a lockfile exists i
 | `/decisions` | Decision log with reasoning |
 | `/roadmap` | Now / next / later board + timeline |
 | `/notes` | Founder notes |
+| `/connections` | GitHub/Vercel read-only status, refresh, project linking |
+| `/actions` | Approve/reject proposed Octane actions |
 | `/settings` | Profile, entities, export/import, shortcuts |
 
 ## Ask Octane — Executive Query Layer

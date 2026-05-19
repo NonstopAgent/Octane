@@ -5,6 +5,8 @@ import { Plug } from "lucide-react";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/modules";
 import { ConnectionCard } from "@/components/modules/connections/connection-card";
+import { IntegrationProviderCard } from "@/components/modules/connections/integration-provider-card";
+import { ProjectLinkForm } from "@/components/modules/connections/project-link-form";
 import { PageHeader } from "@/components/layout/page-header";
 import { useOctaneStore } from "@/lib/store/octane-store";
 import type { ConnectionProvider } from "@/lib/types/connection";
@@ -34,12 +36,18 @@ export default function ConnectionsPage() {
     );
   }, [connections]);
 
+  const githubConn = connections.find((c) => c.provider === "github");
+  const vercelConn = connections.find((c) => c.provider === "vercel");
+  const otherConnections = sorted.filter(
+    (c) => c.provider !== "github" && c.provider !== "vercel",
+  );
+
   function handleConnect(provider: ConnectionProvider) {
     if (provider === "github") {
       proposeOctaneAction({
         type: "connect_github",
         title: "Connect GitHub",
-        description: "OAuth placeholder — no API keys stored in the browser.",
+        description: "Set GITHUB_TOKEN on the server, then link repos to projects.",
         payload: {},
         source: "manual",
       });
@@ -50,7 +58,7 @@ export default function ConnectionsPage() {
       proposeOctaneAction({
         type: "connect_vercel",
         title: "Connect Vercel",
-        description: "OAuth placeholder — approve in Actions when ready.",
+        description: "Set VERCEL_TOKEN on the server, then link projects.",
         payload: {},
         source: "manual",
       });
@@ -68,18 +76,48 @@ export default function ConnectionsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Connections"
-        description="Link external services. OAuth placeholders only — no passwords or API keys in local storage."
+        description="Read-only GitHub and Vercel connectors. Tokens live in server env only — never in the browser."
       />
 
-      {sorted.length === 0 ? (
+      <div className="grid gap-4 sm:grid-cols-2">
+        {githubConn ? (
+          <IntegrationProviderCard
+            provider="github"
+            title="GitHub"
+            description={githubConn.description ?? "Repositories and live repo stats."}
+            statusPath="/api/integrations/github/status"
+            listPath="/api/integrations/github/repos"
+            listLabel="View repos"
+            connectionId={githubConn.id}
+          />
+        ) : null}
+        {vercelConn ? (
+          <IntegrationProviderCard
+            provider="vercel"
+            title="Vercel"
+            description={vercelConn.description ?? "Deployments and preview URLs."}
+            statusPath="/api/integrations/vercel/status"
+            listPath="/api/integrations/vercel/projects"
+            listLabel="View projects"
+            connectionId={vercelConn.id}
+          />
+        ) : null}
+      </div>
+
+      <section className="space-y-3">
+        <h2 className="text-sm font-medium text-zinc-400">Link to a project</h2>
+        <ProjectLinkForm />
+      </section>
+
+      {otherConnections.length === 0 && !githubConn && !vercelConn ? (
         <EmptyState
           icon={Plug}
           title="No connections configured"
-          description="Seed integrations will appear here. Connect GitHub or Vercel via proposed actions."
+          description="Seed integrations will appear here. Configure GITHUB_TOKEN and VERCEL_TOKEN in deployment env."
         />
-      ) : (
+      ) : otherConnections.length > 0 ? (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {sorted.map((connection) => (
+          {otherConnections.map((connection) => (
             <ConnectionCard
               key={connection.id}
               connection={connection}
@@ -87,7 +125,7 @@ export default function ConnectionsPage() {
             />
           ))}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

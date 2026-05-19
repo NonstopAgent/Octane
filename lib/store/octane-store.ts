@@ -278,6 +278,7 @@ export interface OctaneStore extends OctanePersistedState {
   updateProjectConnection: (id: string, data: Partial<ProjectConnection>) => void;
   deleteProjectConnection: (id: string) => void;
   getProjectConnectionsByProject: (projectId: string) => ProjectConnection[];
+  recordActivity: (input: ActivityLogInput) => void;
 }
 
 const STORAGE_KEY = "octane-core-storage";
@@ -1655,11 +1656,21 @@ export const useOctaneStore = create<OctaneStore>()(
         return link;
       },
       updateProjectConnection: (id, data) => {
+        const existing = get().projectConnections.find((pc) => pc.id === id);
         set((state) => ({
           projectConnections: state.projectConnections.map((pc) =>
             pc.id === id ? { ...pc, ...data, ...touch() } : pc,
           ),
         }));
+        if (existing) {
+          logActivity(set, get, {
+            action: "updated",
+            entityType: "project",
+            entityId: existing.projectId,
+            entityName: existing.label,
+            description: `Updated ${existing.kind} link`,
+          });
+        }
       },
       deleteProjectConnection: (id) => {
         set((state) => ({
@@ -1668,6 +1679,10 @@ export const useOctaneStore = create<OctaneStore>()(
       },
       getProjectConnectionsByProject: (projectId) =>
         get().projectConnections.filter((pc) => pc.projectId === projectId),
+
+      recordActivity: (input) => {
+        logActivity(set, get, input);
+      },
     }),
     {
       name: STORAGE_KEY,

@@ -19,6 +19,7 @@ import {
 import { formatDistanceToNow } from "date-fns";
 import { useShallow } from "zustand/react/shallow";
 
+import { DashboardIntegrationHealth } from "@/components/modules/connections/dashboard-integration-health";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -342,6 +343,14 @@ export default function DashboardPage() {
           </p>
           <p className="mt-0.5 text-[11px] text-zinc-500">Agents running</p>
         </div>
+      </div>
+
+      <div>
+        <h2 className="mb-3 flex items-center gap-2 text-sm font-medium text-zinc-400">
+          <Activity className="size-3.5 text-emerald-400" />
+          Integration health
+        </h2>
+        <DashboardIntegrationHealth />
       </div>
 
       {/* Live repo status — the core of the dashboard */}

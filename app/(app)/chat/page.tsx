@@ -203,10 +203,15 @@ function ChatPageContent() {
       if (!text.trim() || isStreaming) return;
 
       const trimmed = text.trim();
-      const proposals = parseOctaneCommand({ text: trimmed, source: "chat" });
-      if (proposals.length > 0) {
+      const parsed = parseOctaneCommand({
+        text: trimmed,
+        source: "chat",
+        projectConnections: state.projectConnections,
+        projects: state.projects.map((p) => ({ id: p.id, name: p.name })),
+      });
+      if (parsed.actions.length > 0) {
         proposeOctaneActions(
-          proposals.map((p) => ({
+          parsed.actions.map((p) => ({
             type: p.type,
             title: p.title,
             description: p.description,
@@ -217,6 +222,11 @@ function ChatPageContent() {
         );
       }
 
+      const replyPrefix =
+        parsed.replies.length > 0
+          ? `${parsed.replies.join("\n\n")}\n\n`
+          : "";
+
       const userMessage: ChatMessage = { role: "user", content: trimmed };
       const nextMessages: ChatMessage[] = [...messages, userMessage];
       setMessages(nextMessages);
@@ -226,7 +236,7 @@ function ChatPageContent() {
       // Placeholder for streaming
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: "" },
+        { role: "assistant", content: replyPrefix },
       ]);
 
       try {
@@ -243,7 +253,9 @@ function ChatPageContent() {
             ...prev.slice(0, -1),
             {
               role: "assistant",
-              content: errData.error ?? "Something went wrong.",
+              content:
+                replyPrefix +
+                (errData.error ?? "Something went wrong."),
             },
           ]);
           setIsStreaming(false);
@@ -253,7 +265,7 @@ function ChatPageContent() {
         // Stream the response
         const reader = res.body?.getReader();
         const decoder = new TextDecoder();
-        let fullText = "";
+        let fullText = replyPrefix;
 
         if (reader) {
           while (true) {
@@ -272,14 +284,16 @@ function ChatPageContent() {
           ...prev.slice(0, -1),
           {
             role: "assistant",
-            content: `Error: ${err instanceof Error ? err.message : "Unknown error"}`,
+            content:
+              replyPrefix +
+              `Error: ${err instanceof Error ? err.message : "Unknown error"}`,
           },
         ]);
       } finally {
         setIsStreaming(false);
       }
     },
-    [messages, context, isStreaming, proposeOctaneActions],
+    [messages, context, isStreaming, proposeOctaneActions, state.projectConnections, state.projects],
   );
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {

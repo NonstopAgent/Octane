@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { requireApiAuth } from "@/lib/auth/require-api-auth";
+
 export const runtime = "nodejs";
 
 // Cache responses for 60 seconds to avoid rate limiting
@@ -95,6 +97,9 @@ async function fetchGitHubRepo(repo: string) {
 }
 
 export async function GET(req: NextRequest) {
+  const unauthorized = requireApiAuth(req);
+  if (unauthorized) return unauthorized;
+
   const repo = req.nextUrl.searchParams.get("repo");
   if (!repo || !repo.includes("/")) {
     return NextResponse.json({ error: "repo param required (owner/name)" }, { status: 400 });

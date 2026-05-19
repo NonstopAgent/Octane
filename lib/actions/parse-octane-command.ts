@@ -1,9 +1,17 @@
 import type { OctaneAction, OctaneActionSource, OctaneActionType } from "@/lib/types/octane-action";
+import type { ProjectConnection } from "@/lib/types/project-connection";
 
 export type ParseOctaneCommandInput = {
   text: string;
   source?: OctaneActionSource;
   projectId?: string;
+  projectConnections?: ProjectConnection[];
+  projects?: { id: string; name: string }[];
+};
+
+export type ParseOctaneCommandResult = {
+  actions: OctaneAction[];
+  replies: string[];
 };
 
 function actionId(): string {
@@ -32,15 +40,16 @@ function propose(
 }
 
 /**
- * Deterministic command parser — returns proposed actions only (never auto-executes).
+ * Deterministic command parser — returns proposed actions and read-only replies (never auto-executes).
  */
-export function parseOctaneCommand(input: ParseOctaneCommandInput): OctaneAction[] {
+export function parseOctaneCommand(input: ParseOctaneCommandInput): ParseOctaneCommandResult {
   const text = input.text.trim();
-  if (!text) return [];
+  if (!text) return { actions: [], replies: [] };
 
   const lower = text.toLowerCase();
   const source = input.source ?? "chat";
   const actions: OctaneAction[] = [];
+  const replies: string[] = [];
 
   const addProject =
     /\b(add|create|new)\s+(a\s+)?project\b/.test(lower) ||
@@ -107,13 +116,32 @@ export function parseOctaneCommand(input: ParseOctaneCommandInput): OctaneAction
     );
   }
 
-  if (/\bconnect\s+github\b/.test(lower) || /\blink\s+github\b/.test(lower)) {
+  const githubRepoMatch = text.match(
+    /(?:connect|link)\s+github\s+(?:repo\s+)?([\w.-]+\/[\w.-]+)/i,
+  );
+  if (
+    githubRepoMatch ||
+    /\bconnect\s+github\s+repo\b/.test(lower) ||
+    (/\bconnect\s+github\b/.test(lower) && /\brepo\b/.test(lower))
+  ) {
+    const repo = githubRepoMatch?.[1];
+    actions.push(
+      propose(
+        "link_project_resource",
+        repo ? `Link GitHub repo ${repo}` : "Connect GitHub repo",
+        "Validates repo via read-only API, then links after approval.",
+        { kind: "github", repo, projectId: input.projectId },
+        source,
+        input.projectId,
+      ),
+    );
+  } else if (/\bconnect\s+github\b/.test(lower) || /\blink\s+github\b/.test(lower)) {
     const repoMatch = text.match(/github\s+(?:repo\s+)?([\w.-]+\/[\w.-]+)/i);
     actions.push(
       propose(
         "connect_github",
         "Connect GitHub",
-        "Opens the GitHub OAuth placeholder flow after approval (no keys stored locally).",
+        "Set GITHUB_TOKEN on the server and link repos from Connections.",
         { repo: repoMatch?.[1] },
         source,
         input.projectId,
@@ -121,17 +149,96 @@ export function parseOctaneCommand(input: ParseOctaneCommandInput): OctaneAction
     );
   }
 
-  if (/\bconnect\s+vercel\b/.test(lower) || /\blink\s+vercel\b/.test(lower)) {
+  const vercelProjectMatch = text.match(
+    /(?:connect|link)\s+vercel\s+(?:project\s+)?["']?([\w.-]+)["']?/i,
+  );
+  if (vercelProjectMatch || /\bconnect\s+vercel\s+project\b/.test(lower)) {
+    const name = vercelProjectMatch?.[1];
+    actions.push(
+      propose(
+        "link_project_resource",
+        name ? `Link Vercel project ${name}` : "Connect Vercel project",
+        "Validates project via read-only API, then links after approval.",
+        { kind: "vercel", label: name, projectId: input.projectId },
+        source,
+        input.projectId,
+      ),
+    );
+  } else if (/\bconnect\s+vercel\b/.test(lower) || /\blink\s+vercel\b/.test(lower)) {
     actions.push(
       propose(
         "connect_vercel",
         "Connect Vercel",
-        "Links Vercel deployment context after approval (OAuth placeholder).",
+        "Set VERCEL_TOKEN on the server and link projects from Connections.",
         { projectId: input.projectId },
         source,
         input.projectId,
       ),
     );
+  }
+
+  if (
+    /\bcheck\s+(the\s+)?deployment\b/.test(lower) ||
+    /\bdeployment\s+status\b/.test(lower) ||
+    /\blatest\s+deploy\b/.test(lower)
+  ) {
+    replies.push(
+      "Open a linked project in Projects → Connections for live Vercel deployment status (read-only). Configure VERCEL_TOKEN on the server.",
+    );
+    actions.push(
+      propose(
+        "link_project_resource",
+        "Check deployment",
+        "Link a Vercel project to see deployment status on the project detail panel.",
+        { kind: "vercel", projectId: input.projectId },
+        source,
+        input.projectId,
+      ),
+    );
+  }
+
+  if (
+    /\bwhat\s+repos?\s+(are\s+)?connected\b/.test(lower) ||
+    /\bwhich\s+repos?\s+(are\s+)?linked\b/.test(lower)
+  ) {
+    const githubLinks = (input.projectConnections ?? []).filter(
+      (pc) => pc.kind === "github" && pc.repo,
+    );
+    if (githubLinks.length === 0) {
+      replies.push("No GitHub repos linked to projects yet. Use Connections to link one.");
+    } else {
+      replies.push(
+        `Linked repos: ${githubLinks.map((pc) => pc.repo).join(", ")}.`,
+      );
+    }
+  }
+
+  if (
+    /\bmissing\s+github\b/.test(lower) ||
+    /\bprojects?\s+without\s+github\b/.test(lower) ||
+    /\bno\s+github\s+link\b/.test(lower)
+  ) {
+    const projects = input.projects ?? [];
+    const links = input.projectConnections ?? [];
+    const missing = projects.filter(
+      (p) => !links.some((pc) => pc.projectId === p.id && pc.kind === "github"),
+    );
+    if (missing.length === 0) {
+      replies.push("All projects have a GitHub link.");
+    } else {
+      replies.push(
+        `Projects missing GitHub: ${missing.map((p) => p.name).join(", ")}.`,
+      );
+      actions.push(
+        propose(
+          "link_project_resource",
+          "Link GitHub to projects",
+          `Proposes linking GitHub for: ${missing.map((p) => p.name).join(", ")}.`,
+          { kind: "github", projectIds: missing.map((p) => p.id) },
+          source,
+        ),
+      );
+    }
   }
 
   if (/\b(add|save)\s+(a\s+)?note\b/.test(lower) || /\bnote\s*:/.test(lower)) {
@@ -180,5 +287,5 @@ export function parseOctaneCommand(input: ParseOctaneCommandInput): OctaneAction
     );
   }
 
-  return actions;
+  return { actions, replies };
 }
