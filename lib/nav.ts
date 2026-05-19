@@ -6,9 +6,11 @@ import {
   CheckSquare,
   ClipboardCheck,
   FileText,
+  Globe,
   Inbox,
   LayoutDashboard,
   Map,
+  MessageSquare,
   NotebookPen,
   Radio,
   Scale,
@@ -24,8 +26,10 @@ export type NavItem = {
   icon: LucideIcon;
 };
 
-/** Final sidebar order (checkpoint 7B). */
+/** Final sidebar order. */
 export const mainNavItems: NavItem[] = [
+  { title: "Octane AI", href: "/chat", icon: MessageSquare },
+  { title: "Universe", href: "/universe", icon: Globe },
   { title: "Today", href: "/today", icon: CalendarDays },
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { title: "Morning Briefing", href: "/briefing", icon: Radio },

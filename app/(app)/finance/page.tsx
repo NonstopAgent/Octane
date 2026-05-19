@@ -15,6 +15,7 @@ import { toast } from "sonner";
 
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState, MetricCard, SectionHeader } from "@/components/modules";
+import { ForecastPanel } from "@/components/modules/finance/forecast-panel";
 import { formatStatusLabel } from "@/components/modules/badge-tones";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -253,6 +254,15 @@ function FinancePageContent() {
           </p>
         </CardContent>
       </Card>
+
+      {/* Financial Forecasting */}
+      <section className="space-y-4">
+        <SectionHeader
+          title="Forecast & Runway"
+          description="6-month cash projection based on current burn and revenue trajectory."
+        />
+        <ForecastPanel transactions={transactions} />
+      </section>
 
       <section className="space-y-4">
         <SectionHeader
