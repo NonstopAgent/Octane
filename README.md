@@ -1,12 +1,12 @@
 # Octane Core
 
-Octane Core is a **local-first founder operating system** for running multiple projects, bets, and entities from one command center. Data lives in your browser (Zustand + `localStorage`) until cloud sync ships — no Supabase, AI APIs, or external services in this build.
+Octane Core is a **founder operating system** for running multiple projects, bets, and entities from one command center. Portfolio data lives in **Zustand** (browser `localStorage` by default) with optional **Supabase** sync after sign-in. Intelligence layers are **rule-based first**; **Octane AI** (`/chat`) and **cron briefing** are optional when `ANTHROPIC_API_KEY` is configured.
 
 ## Status
 
-- **Checkpoint 7C** — stability, polish, founder usability
-- **Persistence** — browser-only; export/import JSON snapshots
-- **Auth** — mock login (any credentials) for local development
+- **Checkpoint 10C** — Executive Query Layer docs, hybrid auth, outlook/holdings/chat surfaces
+- **Persistence** — local Zustand persist + JSON export/import; Supabase push/pull on login when configured
+- **Auth** — Supabase email/password sign-in/sign-up, plus a **cookie gate** (`/api/mock-auth/login`) so middleware can protect app routes
 
 ## Run locally
 
@@ -16,7 +16,11 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). Use **mock login** on `/login` (any email/password) to reach the app shell.
+Open [http://localhost:3000](http://localhost:3000).
+
+1. **Sign in or sign up** on `/login` (Supabase Auth — requires `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` in `.env.local`).
+2. On success, the app sets an **httpOnly-style session cookie** via `/api/mock-auth/login` and redirects to `/dashboard` (or `/setup` for new accounts).
+3. First-time users complete **Setup** to seed profile/entities and optionally push to Supabase.
 
 Production build:
 
@@ -24,6 +28,16 @@ Production build:
 npm run build
 npm start
 ```
+
+### Optional: Octane AI and cron briefing
+
+| Variable | Purpose |
+|----------|---------|
+| `ANTHROPIC_API_KEY` | Powers `/chat` and `/api/cron/briefing` |
+| `GITHUB_TOKEN` | Cron route posts briefing issues |
+| `CRON_SECRET` | Bearer token for Vercel Cron → `/api/cron/briefing` |
+
+Without `ANTHROPIC_API_KEY`, the app **does not crash** — `/chat` shows a setup banner; the cron route returns `503`. Core modules (Today, Outlook, Briefing, Holdings) work without any AI keys.
 
 ## Dev workspace note (multiple lockfiles)
 
@@ -37,31 +51,66 @@ Next.js may warn about multiple `package-lock.json` files if a lockfile exists i
 | Route | Purpose |
 |-------|---------|
 | `/today` | Daily operating view — due work, blockers, work sessions |
-| `/dashboard` | Portfolio health, Octane score, metrics |
+| `/dashboard` | Portfolio health, Octane score, advisor panel |
 | `/outlook` | Strategic outlook — score, risks, 30/60/90 plan |
-| `/briefing` | Rule-based morning briefing |
+| `/briefing` | Rule-based morning briefing + advisor |
+| `/chat` | **Octane AI** — optional Claude chat (“Ask Octane AI”) over portfolio context |
+| `/universe` | Portfolio universe map (linked from dashboard) |
 | `/inbox` | Quick capture → convert to task/decision/note |
 | `/projects` | Portfolio CRUD and detail |
 | `/tasks` | Kanban with drag-and-drop |
 | `/activity` | Audit-style activity feed |
 | `/review` | Weekly review (Monday-start week) |
-| `/agents` | Read-only agent roster (seeded) |
+| `/agents` | Agent roster, logs, and runs |
 | `/finance` | Transactions, burn, runway |
+| `/holdings` | Entities, compliance, formation, legal questions, IP ownership |
 | `/documents` | Document metadata + IP registry |
 | `/decisions` | Decision log with reasoning |
 | `/roadmap` | Now / next / later board + timeline |
 | `/notes` | Founder notes |
 | `/settings` | Profile, entities, export/import, shortcuts |
 
+## Ask Octane — Executive Query Layer
+
+**Ask Octane** is the product name for natural-language questions over your portfolio. The **Executive Query Layer** (`lib/executive/`) implements it as pure, read-only logic:
+
+1. **Classify** the question (`classifyExecutiveQuestion`) into a category via keyword scoring.
+2. **Build** a structured answer (`generateExecutiveAnswer`) from store snapshots — no API calls, no mutations.
+3. **Warn** on sensitive topics (tax, legal, investment, fundraising, etc.) with a planning-only disclaimer.
+
+**Rule-based first:** briefing, advisor, outlook, and executive builders run on local Zustand state.
+
+**AI-assisted second:** `/chat` streams Claude responses when configured; `/api/cron/briefing` can post a daily GitHub issue from live Ajax/Nexus repo data. Neither path deletes or edits portfolio records.
+
+### Supported categories
+
+`ownership` · `building` · `today` · `blockers` · `changed` · `decisions` · `money` · `agents` · `outlook` · `risk` · `opportunity` · `improvement` · `unknown`
+
+See `VISION.md` for product principles and category examples.
+
+## Auth (hybrid)
+
+| Piece | Role |
+|-------|------|
+| **Supabase Auth** | Real sign-in/sign-up on `/login`; session used for sync and profile |
+| **Cookie gate** | `POST /api/mock-auth/login` sets `AUTH_COOKIE_NAME`; middleware checks it for protected routes |
+| **Sign out** | Clears Supabase session and cookie (`app-topbar`) |
+
+Protected routes are listed in `lib/nav.ts` (`appRoutePrefixes`). `/setup` requires the cookie but is not in the main sidebar.
+
 ## Persistence
 
-- **Store key** — `octane-core` in `localStorage`
+- **Store key** — `octane-core-storage` in `localStorage`
+- **Supabase** — `loadFromSupabase()` on app layout when authenticated; `pushToSupabase()` from Setup
 - **Export JSON** — Settings → Data Management → Export JSON
 - **Import JSON** — validates snapshot schema before replacing state
-- **Reset demo data** — restores bundled seed (including current-week finance samples)
-- **Clear local data** — wipes persist and reloads seed
+- **Reset demo data** / **Clear local data** — Settings → Data Management
 
-Export regularly; there is no multi-device sync yet.
+Export regularly until multi-device conflict handling is production-ready.
+
+## Zustand selectors
+
+Heavy views subscribe with **`useShallow(selectOctanePersistedState)`** to avoid re-renders when unrelated store slices change. The selector lives in `lib/store/octane-store.ts`. Granular `useOctaneStore((s) => s.field)` selectors are used on CRUD-heavy pages (Settings, Tasks, Documents).
 
 ## Keyboard shortcuts
 
@@ -72,26 +121,21 @@ Export regularly; there is no multi-device sync yet.
 | Sidebar | **Today**, **Inbox**, and other modules |
 | Settings | **Export JSON** for backups |
 
-Listed in Settings and in the command palette footer when empty.
+## Octane Outlook
+
+**Octane Outlook** (`/outlook`) is a rule-based strategic intelligence layer: it scores execution, revenue, project quality, agent health, holdings, and strategic clarity, then surfaces opportunities, risks, blockers, and 30/60/90-day plans. All logic runs locally from your Zustand store. Scores and plans are **planning heuristics only**, not legal, tax, or investment advice.
+
+## Holdings
+
+**Holdings** (`/holdings`) consolidates entity map, asset/document ownership, compliance calendar, formation checklist, and legal questions — tied into outlook and executive **ownership** answers. Planning and tracking only.
 
 ## Limitations (by design)
 
-- No Supabase, realtime sync, or multi-user auth
-- No AI advisor or live agent execution
-- File uploads are mocked (metadata only)
-- Company profile fields in Settings are not persisted
-- Holdings / external integrations not included
+- Executive answers and advisors are **read-only** (no auto-edits to tasks, finance, or holdings)
+- File uploads remain metadata-only until object storage ships
+- Company profile fields in Settings may not all persist to Supabase yet
+- Executive Query UI may ship incrementally; the engine in `lib/executive/` is the source of truth for category behavior
 
-## Octane Outlook
+## Roadmap
 
-**Octane Outlook** (`/outlook`) is a rule-based strategic intelligence layer: it scores execution, revenue, project quality, agent health, holdings, and strategic clarity, then surfaces opportunities, risks, blockers, and 30/60/90-day plans. All logic runs locally from your Zustand store — no API calls. Scores and plans are planning heuristics only, not legal, tax, or investment advice.
-
-## Roadmap (future checkpoints)
-
-- **Supabase** — auth, Postgres, RLS, sync
-- **AI Advisor** — contextual recommendations
-- **Holdings** — trust/entity capital views
-- **Agents** — runnable agent logs and triggers
-- **Vercel** — hosted deployment
-
-See `PROJECT_STATUS.md` for checkpoint history and known TODOs.
+See `PROJECT_STATUS.md` for checkpoint history, QA notes, and known TODOs.

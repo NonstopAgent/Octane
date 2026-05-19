@@ -6,12 +6,9 @@ import {
   CheckSquare,
   ClipboardCheck,
   FileText,
-  Globe,
   Inbox,
   LayoutDashboard,
-  Telescope,
   Map,
-  MessageSquare,
   NotebookPen,
   Radio,
   Scale,
@@ -19,6 +16,7 @@ import {
   Wallet,
   FolderKanban,
   Landmark,
+  Telescope,
 } from "lucide-react";
 
 export type NavItem = {
@@ -29,8 +27,6 @@ export type NavItem = {
 
 /** Final sidebar order. */
 export const mainNavItems: NavItem[] = [
-  { title: "Octane AI", href: "/chat", icon: MessageSquare },
-  { title: "Universe", href: "/universe", icon: Globe },
   { title: "Today", href: "/today", icon: CalendarDays },
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { title: "Outlook", href: "/outlook", icon: Telescope },

@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils";
 
 const GROUP_ORDER: SearchResultType[] = [
   "page",
+  "executiveShortcut",
   "outlookInsight",
   "project",
   "task",
@@ -69,9 +70,13 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const navigate = useCallback(
     (result: CommandSearchResult) => {
       onOpenChange(false);
-      const url = result.detailParam
-        ? `${result.href}?detail=${encodeURIComponent(result.detailParam)}`
-        : result.href;
+      const [pathAndQuery, hash] = result.href.split("#");
+      let url = pathAndQuery;
+      if (result.detailParam) {
+        const joiner = url.includes("?") ? "&" : "?";
+        url = `${url}${joiner}detail=${encodeURIComponent(result.detailParam)}`;
+      }
+      if (hash) url = `${url}#${hash}`;
       router.push(url);
     },
     [onOpenChange, router],
@@ -92,7 +97,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search projects, tasks, inbox, notes…"
+              placeholder="Search outlook, projects, tasks, inbox…"
               className="border-zinc-700 bg-zinc-900 pl-8"
               autoFocus
             />

@@ -18,6 +18,18 @@ export interface ChatRequest {
   context: OctaneContext;
 }
 
+/** Structured answer from lib/executive — summarized only, no tools or mutations. */
+export interface ExecutiveSummaryRequest {
+  mode: "executive_summary";
+  executiveAnswer: Record<string, unknown>;
+}
+
+type PostBody = ChatRequest | ExecutiveSummaryRequest;
+
+function isExecutiveSummaryRequest(body: PostBody): body is ExecutiveSummaryRequest {
+  return "mode" in body && body.mode === "executive_summary";
+}
+
 interface OctaneContext {
   projects?: { name: string; status: string; priority: string; progress: number }[];
   tasks?: { title: string; status: string; priority: string; projectName: string }[];
@@ -386,6 +398,73 @@ function buildSystemPrompt(ctx: OctaneContext): string {
   return lines.join("\n");
 }
 
+const EXECUTIVE_SUMMARY_SYSTEM = `You write concise executive narrative summaries from structured portfolio answers.
+
+Rules:
+- Summarize ONLY the JSON executive answer provided. Do not invent facts, numbers, or entities not present in that JSON.
+- Do not mutate data, execute actions, call tools, or recommend automated changes to systems.
+- Do not request or reference API keys, tokens, environment variables, or other secrets.
+- Keep the narrative to 2–4 short paragraphs (under ~200 words unless the answer is very large).
+- Use clear, direct prose suitable for a founder briefing.
+
+Disclaimer (include once, briefly, at the end): This summary is for planning and organizational purposes only. It is not legal, tax, investment, or professional advice. Consult qualified professionals before acting on holdings, finance, or compliance matters.`;
+
+async function handleExecutiveSummary(
+  executiveAnswer: Record<string, unknown>,
+): Promise<NextResponse> {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return NextResponse.json(
+      {
+        error:
+          "ANTHROPIC_API_KEY not configured. Add it to your Vercel environment variables to enable AI narrative summaries.",
+        setup: true,
+      },
+      { status: 503 },
+    );
+  }
+
+  let payload: string;
+  try {
+    payload = JSON.stringify(executiveAnswer);
+  } catch {
+    return NextResponse.json({ error: "Invalid executive answer" }, { status: 400 });
+  }
+
+  if (!payload || payload === "{}") {
+    return NextResponse.json({ error: "executiveAnswer required" }, { status: 400 });
+  }
+
+  try {
+    const response = await client.messages.create({
+      model: "claude-opus-4-6",
+      max_tokens: 1024,
+      system: EXECUTIVE_SUMMARY_SYSTEM,
+      messages: [
+        {
+          role: "user",
+          content: `Summarize this structured executive answer as a narrative briefing:\n\n${payload}`,
+        },
+      ],
+    });
+
+    const summary = response.content
+      .filter((b): b is Anthropic.TextBlock => b.type === "text")
+      .map((b) => b.text)
+      .join("")
+      .trim();
+
+    if (!summary) {
+      return NextResponse.json({ error: "Empty summary from model" }, { status: 500 });
+    }
+
+    return NextResponse.json({ summary });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Unknown error";
+    console.error("[chat] executive_summary error:", msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}
+
 // ─── Stream helper ────────────────────────────────────────────────────────────
 
 function streamResponse(
@@ -421,6 +500,17 @@ function streamResponse(
 // ─── Route Handler ────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
+  let body: PostBody;
+  try {
+    body = (await req.json()) as PostBody;
+  } catch {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+  }
+
+  if (isExecutiveSummaryRequest(body)) {
+    return handleExecutiveSummary(body.executiveAnswer ?? {});
+  }
+
   if (!process.env.ANTHROPIC_API_KEY) {
     return NextResponse.json(
       {
@@ -430,13 +520,6 @@ export async function POST(req: NextRequest) {
       },
       { status: 503 },
     );
-  }
-
-  let body: ChatRequest;
-  try {
-    body = (await req.json()) as ChatRequest;
-  } catch {
-    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
 
   const { messages, context } = body;

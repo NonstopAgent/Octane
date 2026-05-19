@@ -1,446 +1,499 @@
 "use client";
 
-import { format, parseISO } from "date-fns";
+import { useEffect, useState, useMemo } from "react";
+import Link from "next/link";
 import {
-  AlertTriangle,
+  Activity,
+  AlertCircle,
   Bot,
-  Briefcase,
   CheckSquare,
   ChevronRight,
   Clock,
-  DollarSign,
-  FileWarning,
-  FolderKanban,
-  Gauge,
-  ListChecks,
-  Scale,
-  Telescope,
-  TrendingDown,
-  Wallet,
+  ExternalLink,
+  GitBranch,
+  GitMerge,
+  GitPullRequest,
+  Sparkles,
+  Zap,
 } from "lucide-react";
-import Link from "next/link";
-import { useMemo } from "react";
+import { formatDistanceToNow } from "date-fns";
 import { useShallow } from "zustand/react/shallow";
 
 import { PageHeader } from "@/components/layout/page-header";
-import { OctaneAdvisorPanel } from "@/components/modules/advisor";
-import { EmptyState, MetricCard, StatusBadge } from "@/components/modules";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  formatCurrency,
-  formatRunway,
-  selectDashboardMetrics,
-} from "@/lib/dashboard/metrics";
-import { generateOctaneOutlook } from "@/lib/outlook/generate-octane-outlook";
-import { computeOctaneScore } from "@/lib/scoring/octane-score";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import {
   selectOctanePersistedState,
   useOctaneStore,
 } from "@/lib/store/octane-store";
 import { cn } from "@/lib/utils";
 
-function ProgressBar({ value, className }: { value: number; className?: string }) {
-  const clamped = Math.min(100, Math.max(0, value));
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface RepoData {
+  name: string;
+  description: string | null;
+  stars: number;
+  openIssues: number;
+  language: string | null;
+  defaultBranch: string;
+  visibility: string;
+  pushedAt: string | null;
+  lastCommit: {
+    sha: string;
+    message: string;
+    author: string;
+    date: string;
+    url: string;
+  } | null;
+  openPRs: { number: number; title: string; url: string; author: string }[];
+}
+
+// ─── Repo Status Card ─────────────────────────────────────────────────────────
+
+function RepoStatusCard({
+  repo,
+  label,
+  emoji,
+}: {
+  repo: string;
+  label: string;
+  emoji: string;
+}) {
+  const [data, setData] = useState<RepoData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    fetch(`/api/github/repo?repo=${repo}`)
+      .then((r) => r.json())
+      .then((d: RepoData) => { setData(d); setLoading(false); })
+      .catch(() => { setError(true); setLoading(false); });
+  }, [repo]);
+
+  const pushedAgo = data?.pushedAt
+    ? formatDistanceToNow(new Date(data.pushedAt), { addSuffix: true })
+    : null;
+
+  const commitAgo = data?.lastCommit?.date
+    ? formatDistanceToNow(new Date(data.lastCommit.date), { addSuffix: true })
+    : null;
+
   return (
-    <div
-      className={cn("h-2 w-full overflow-hidden rounded-full bg-zinc-800", className)}
-    >
-      <div
-        className="h-full rounded-full bg-amber-500/80 transition-all"
-        style={{ width: `${clamped}%` }}
-      />
-    </div>
+    <Card className="border-zinc-800/80 bg-zinc-900/40">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2 text-zinc-100 text-base">
+            <span className="text-xl">{emoji}</span>
+            {label}
+          </CardTitle>
+          <a
+            href={`https://github.com/${repo}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-zinc-600 hover:text-zinc-300 transition-colors"
+          >
+            <ExternalLink className="size-3.5" />
+          </a>
+        </div>
+        <p className="text-[11px] text-zinc-600 font-mono">{repo}</p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {loading && (
+          <div className="space-y-2">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-3 rounded bg-zinc-800/60 animate-pulse" />
+            ))}
+          </div>
+        )}
+
+        {error && (
+          <p className="text-xs text-zinc-500">
+            Could not reach GitHub. Add GITHUB_TOKEN for better rate limits.
+          </p>
+        )}
+
+        {data && !loading && (
+          <>
+            {/* Stats bar */}
+            <div className="flex gap-3">
+              <span className="flex items-center gap-1 text-xs text-zinc-400">
+                <GitBranch className="size-3" />
+                {data.defaultBranch}
+              </span>
+              <span className="flex items-center gap-1 text-xs text-zinc-400">
+                <AlertCircle className="size-3" />
+                {data.openIssues} {data.openIssues === 1 ? "issue" : "issues"}
+              </span>
+              <span className="flex items-center gap-1 text-xs text-zinc-400">
+                <GitPullRequest className="size-3" />
+                {data.openPRs.length} {data.openPRs.length === 1 ? "PR" : "PRs"}
+              </span>
+              {data.language && (
+                <span className="text-xs text-zinc-600">{data.language}</span>
+              )}
+            </div>
+
+            {/* Last commit */}
+            {data.lastCommit ? (
+              <div className="rounded-lg bg-zinc-950/60 border border-zinc-800/60 p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium text-zinc-200 truncate">
+                      {data.lastCommit.message}
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-zinc-500">
+                      {data.lastCommit.author} · {commitAgo}
+                    </p>
+                  </div>
+                  <a
+                    href={data.lastCommit.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="shrink-0 font-mono text-[10px] text-zinc-600 hover:text-amber-400 transition-colors"
+                  >
+                    {data.lastCommit.sha}
+                  </a>
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-zinc-600">No commits yet</p>
+            )}
+
+            {/* Open PRs */}
+            {data.openPRs.length > 0 && (
+              <div className="space-y-1.5">
+                <p className="text-[11px] font-medium text-zinc-500 uppercase tracking-wider">
+                  Open PRs
+                </p>
+                {data.openPRs.slice(0, 3).map((pr) => (
+                  <a
+                    key={pr.number}
+                    href={pr.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-xs text-zinc-400 hover:text-zinc-200 transition-colors"
+                  >
+                    <GitMerge className="size-3 shrink-0 text-purple-400" />
+                    <span className="truncate">{pr.title}</span>
+                    <span className="shrink-0 text-zinc-600">#{pr.number}</span>
+                  </a>
+                ))}
+              </div>
+            )}
+
+            {/* Activity pulse */}
+            <div className="flex items-center gap-1.5">
+              <div
+                className={cn(
+                  "size-1.5 rounded-full",
+                  pushedAgo && !pushedAgo.includes("month") && !pushedAgo.includes("year")
+                    ? "bg-emerald-400 animate-pulse"
+                    : "bg-zinc-600",
+                )}
+              />
+              <p className="text-[11px] text-zinc-600">
+                Last push {pushedAgo ?? "unknown"}
+              </p>
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }
+
+// ─── Main Dashboard ───────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
   const state = useOctaneStore(useShallow(selectOctanePersistedState));
 
-  const metrics = useMemo(() => selectDashboardMetrics(state), [state]);
-  const octaneScore = useMemo(() => computeOctaneScore(state), [state]);
-  const outlook = useMemo(() => generateOctaneOutlook(state), [state]);
+  const openTasks = useMemo(
+    () => state.tasks.filter((t) => t.status !== "done"),
+    [state.tasks],
+  );
+  const criticalTasks = useMemo(
+    () => openTasks.filter((t) => t.priority === "critical"),
+    [openTasks],
+  );
+  const blockedTasks = useMemo(
+    () => openTasks.filter((t) => t.status === "blocked"),
+    [openTasks],
+  );
+  const runningAgents = useMemo(
+    () => state.agents.filter((a) => a.status === "running"),
+    [state.agents],
+  );
+  const activeProjects = useMemo(
+    () => state.projects.filter((p) =>
+      p.status === "building" || p.status === "testing" || p.status === "launched"
+    ),
+    [state.projects],
+  );
 
-  if (state.projects.length === 0) {
-    return (
-      <div className="space-y-8">
-        <PageHeader
-          title="Dashboard"
-          description={`Command center overview for ${state.profile.name}.`}
-        />
-        <EmptyState
-          icon={FolderKanban}
-          title="No portfolio data yet"
-          description="The dashboard summarizes health across projects, tasks, and finance. Create a project first, or reset demo data in Settings."
-        />
-      </div>
-    );
-  }
+  const profileName = state.profile?.name ?? "Logan";
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 pb-12">
       <PageHeader
-        title="Dashboard"
-        description={`Command center overview for ${state.profile.name}.`}
+        title={`${greeting}, ${profileName}`}
+        description="Live status across Octane Ajax, Nexus, and your open work."
       />
 
       <Link
-        href="/outlook"
-        className="flex items-center justify-between gap-4 rounded-xl border border-zinc-800/80 bg-zinc-900/40 px-4 py-3 transition-colors hover:border-amber-900/40"
+        href="/outlook#ask-octane"
+        className="flex items-center justify-between gap-3 rounded-xl border border-amber-900/30 bg-amber-950/15 px-4 py-3 transition-colors hover:border-amber-800/50 hover:bg-amber-950/25"
       >
-        <div className="min-w-0 flex-1">
-          <p className="flex items-center gap-2 text-sm font-medium text-zinc-300">
-            <Telescope className="size-4 shrink-0 text-amber-400/90" aria-hidden />
-            Current Outlook
-          </p>
-          <p className="mt-1 line-clamp-1 text-xs text-zinc-500">
-            {outlook.recommendedFocus[0] ?? outlook.summary}
-          </p>
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <Sparkles className="size-4 shrink-0 text-amber-400/90" aria-hidden />
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-amber-100">Ask Octane</p>
+            <p className="text-xs text-amber-300/55">
+              Executive questions on risks, focus, and portfolio outlook
+            </p>
+          </div>
         </div>
-        <div className="flex shrink-0 items-center gap-3">
-          <span className="text-2xl font-bold tabular-nums text-zinc-100">
-            {outlook.outlookScore}
-          </span>
-          <ChevronRight className="size-4 text-zinc-600" aria-hidden />
-        </div>
+        <ChevronRight className="size-4 shrink-0 text-amber-500/60" aria-hidden />
       </Link>
 
-      <section className="grid gap-4 lg:grid-cols-[1fr_2fr]">
-        <Card className="border-zinc-800/80 bg-zinc-900/40 ring-zinc-800/60">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-zinc-100">
-              <Gauge className="size-4 text-amber-400" aria-hidden />
-              Octane Score
-            </CardTitle>
-            <CardDescription className="text-zinc-500">
-              Overall operating health (0–100)
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-4xl font-semibold tabular-nums text-amber-300">
-              {octaneScore.score}
-            </p>
-            <ul className="mt-4 space-y-1 text-xs text-zinc-500">
-              {octaneScore.suggestions.slice(0, 3).map((s) => (
-                <li key={s}>· {s}</li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {(
-            [
-              ["Task completion", octaneScore.breakdown.taskCompletion],
-              ["Blocked work", octaneScore.breakdown.blockedTasks],
-              ["Project freshness", octaneScore.breakdown.staleProjects],
-              ["Revenue vs spend", octaneScore.breakdown.revenueVsExpenses],
-              ["Agent health", octaneScore.breakdown.agentErrors],
-              ["Decisions", octaneScore.breakdown.decisionsDue],
-              ["Documents", octaneScore.breakdown.documentsReview],
-            ] as const
-          ).map(([label, value]) => (
-            <div
-              key={label}
-              className="rounded-lg border border-zinc-800/90 bg-zinc-950/40 p-3"
-            >
-              <p className="text-xs text-zinc-500">{label}</p>
-              <p className="text-lg font-semibold tabular-nums text-zinc-100">
-                {value}
-              </p>
-              <ProgressBar value={value} className="mt-2" />
-            </div>
-          ))}
+      {/* Quick stats */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className={cn(
+          "rounded-xl border px-4 py-3",
+          criticalTasks.length > 0
+            ? "border-red-900/50 bg-red-950/20"
+            : "border-zinc-800/80 bg-zinc-900/30"
+        )}>
+          <p className={cn(
+            "text-2xl font-bold",
+            criticalTasks.length > 0 ? "text-red-400" : "text-zinc-100"
+          )}>
+            {criticalTasks.length}
+          </p>
+          <p className="mt-0.5 text-[11px] text-zinc-500">Critical tasks</p>
         </div>
-      </section>
-
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard
-          title="Active Projects"
-          value={metrics.activeProjectsCount}
-          subtitle="Excludes paused & killed"
-          icon={FolderKanban}
-        />
-        <MetricCard
-          title="Open Tasks"
-          value={metrics.openTasksCount}
-          subtitle="Not marked done"
-          icon={CheckSquare}
-        />
-        <MetricCard
-          title="Active Agents"
-          value={metrics.activeAgentsCount}
-          subtitle="Running or idle"
-          icon={Bot}
-        />
-        <MetricCard
-          title="Pending Decisions"
-          value={metrics.pendingDecisionsCount}
-          subtitle="Active & under review"
-          icon={Scale}
-        />
-        <MetricCard
-          title="Monthly Revenue"
-          value={formatCurrency(metrics.monthlyRevenue)}
-          subtitle="This calendar month"
-          icon={DollarSign}
-          trend={
-            metrics.monthlyRevenue > 0
-              ? { label: "Revenue transactions", direction: "up" }
-              : { label: "No revenue yet", direction: "neutral" }
-          }
-        />
-        <MetricCard
-          title="Monthly Expenses"
-          value={formatCurrency(metrics.monthlyExpenses)}
-          subtitle="Operating spend this month"
-          icon={TrendingDown}
-        />
-        <MetricCard
-          title="Burn Rate"
-          value={formatCurrency(metrics.burnRate)}
-          subtitle="Same as monthly expenses"
-          icon={Gauge}
-        />
-        <MetricCard
-          title="Runway"
-          value={formatRunway(metrics.runwayMonths)}
-          subtitle={`${formatCurrency(metrics.cashAvailable)} cash available`}
-          icon={Wallet}
-        />
-      </section>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card className="border-zinc-800/80 bg-zinc-900/40 ring-zinc-800/60">
-          <CardHeader>
-            <CardTitle className="text-zinc-100">Project Status Board</CardTitle>
-            <CardDescription className="text-zinc-500">
-              Active bets and build progress
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {metrics.projectBoard.length === 0 ? (
-              <EmptyState
-                icon={Briefcase}
-                title="No active projects"
-                description="All projects are paused or killed."
-              />
-            ) : (
-              metrics.projectBoard.map(({ project }) => (
-                <div
-                  key={project.id}
-                  className="rounded-lg border border-zinc-800/90 bg-zinc-950/40 p-4"
-                >
-                  <div
-                    className="mb-3 flex flex-wrap items-center justify-between gap-2"
-                  >
-                    <p className="font-medium text-zinc-100">{project.name}</p>
-                    <StatusBadge domain="project" status={project.status} />
-                  </div>
-                  <ProgressBar value={project.progress} />
-                  <p className="mt-2 text-xs text-zinc-500">
-                    {project.progress}% · {project.currentPhase ?? "No phase set"}
-                  </p>
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="border-zinc-800/80 bg-zinc-900/40 ring-zinc-800/60">
-          <CardHeader>
-            <CardTitle className="text-zinc-100">Agent Activity Feed</CardTitle>
-            <CardDescription className="text-zinc-500">
-              Recent agent runs and assignments
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {metrics.agentFeed.length === 0 ? (
-              <EmptyState
-                icon={Bot}
-                title="No agents"
-                description="Add agents to monitor automated work."
-              />
-            ) : (
-              metrics.agentFeed.map((agent) => (
-                <div
-                  key={agent.id}
-                  className="flex items-start justify-between gap-3 rounded-lg border border-zinc-800/90 bg-zinc-950/40 p-3"
-                >
-                  <div className="min-w-0">
-                    <p className="font-medium text-zinc-100">{agent.name}</p>
-                    <p className="mt-1 truncate text-xs text-zinc-500">
-                      {agent.currentTaskTitle ?? agent.purpose}
-                    </p>
-                  </div>
-                  <StatusBadge domain="agent" status={agent.status} />
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="border-zinc-800/80 bg-zinc-900/40 ring-zinc-800/60">
-          <CardHeader>
-            <CardTitle className="text-zinc-100">Recent Decisions</CardTitle>
-            <CardDescription className="text-zinc-500">
-              Last five logged decisions
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {metrics.recentDecisions.length === 0 ? (
-              <EmptyState
-                icon={ListChecks}
-                title="No decisions"
-                description="Log strategic decisions as you make them."
-              />
-            ) : (
-              metrics.recentDecisions.map((decision) => (
-                <div
-                  key={decision.id}
-                  className="rounded-lg border border-zinc-800/90 bg-zinc-950/40 p-3"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <p className="font-medium text-zinc-100">{decision.title}</p>
-                    <StatusBadge domain="decision" status={decision.status} />
-                  </div>
-                  <p className="mt-2 line-clamp-2 text-xs text-zinc-500">
-                    {decision.summary}
-                  </p>
-                  {decision.reviewDate ? (
-                    <p className="mt-2 text-xs text-zinc-600">
-                      Review {format(parseISO(decision.reviewDate), "MMM d, yyyy")}
-                    </p>
-                  ) : null}
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="border-zinc-800/80 bg-zinc-900/40 ring-zinc-800/60">
-          <CardHeader>
-            <CardTitle className="text-zinc-100">
-              Capital Allocation Snapshot
-            </CardTitle>
-            <CardDescription className="text-zinc-500">
-              Net capital by project from transactions
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {metrics.capitalAllocation.length === 0 ? (
-              <EmptyState
-                icon={Wallet}
-                title="No transactions"
-                description="Record transactions to see allocation."
-              />
-            ) : (
-              metrics.capitalAllocation.map((row) => (
-                <div
-                  key={row.projectId ?? "unallocated"}
-                  className="flex items-center justify-between gap-3 rounded-lg border border-zinc-800/90 bg-zinc-950/40 px-3 py-2"
-                >
-                  <div>
-                    <p className="text-sm font-medium text-zinc-100">
-                      {row.projectName}
-                    </p>
-                    <p className="text-xs text-zinc-600">
-                      In {formatCurrency(row.inflow)} · Out{" "}
-                      {formatCurrency(row.outflow)}
-                    </p>
-                  </div>
-                  <p
-                    className={cn(
-                      "text-sm font-semibold tabular-nums",
-                      row.netAmount >= 0 ? "text-emerald-400" : "text-red-400",
-                    )}
-                  >
-                    {formatCurrency(row.netAmount)}
-                  </p>
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
+        <div className={cn(
+          "rounded-xl border px-4 py-3",
+          blockedTasks.length > 0
+            ? "border-amber-900/50 bg-amber-950/20"
+            : "border-zinc-800/80 bg-zinc-900/30"
+        )}>
+          <p className={cn(
+            "text-2xl font-bold",
+            blockedTasks.length > 0 ? "text-amber-400" : "text-zinc-100"
+          )}>
+            {blockedTasks.length}
+          </p>
+          <p className="mt-0.5 text-[11px] text-zinc-500">Blocked tasks</p>
+        </div>
+        <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/30 px-4 py-3">
+          <p className="text-2xl font-bold text-zinc-100">{openTasks.length}</p>
+          <p className="mt-0.5 text-[11px] text-zinc-500">Open tasks</p>
+        </div>
+        <div className={cn(
+          "rounded-xl border px-4 py-3",
+          runningAgents.length > 0
+            ? "border-emerald-900/50 bg-emerald-950/20"
+            : "border-zinc-800/80 bg-zinc-900/30"
+        )}>
+          <p className={cn(
+            "text-2xl font-bold",
+            runningAgents.length > 0 ? "text-emerald-400" : "text-zinc-100"
+          )}>
+            {runningAgents.length}
+          </p>
+          <p className="mt-0.5 text-[11px] text-zinc-500">Agents running</p>
+        </div>
       </div>
 
-      <Card className="border-zinc-800/80 bg-zinc-900/40 ring-zinc-800/60">
-        <CardHeader>
-          <CardTitle className="text-zinc-100">Strategic Advisor</CardTitle>
-          <CardDescription className="text-zinc-500">
-            Rule-based analysis of your current operating state
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <OctaneAdvisorPanel context="dashboard" />
-        </CardContent>
-      </Card>
+      {/* Live repo status — the core of the dashboard */}
+      <div>
+        <h2 className="mb-3 text-sm font-medium text-zinc-400 flex items-center gap-2">
+          <Activity className="size-3.5 text-emerald-400" />
+          Live Repo Status
+        </h2>
+        <div className="grid gap-4 md:grid-cols-2">
+          <RepoStatusCard
+            repo="NonstopAgent/Octane-Ajax"
+            label="Octane Ajax"
+            emoji="🚀"
+          />
+          <RepoStatusCard
+            repo="NonstopAgent/Octane-Nexus"
+            label="Octane Nexus"
+            emoji="🔭"
+          />
+        </div>
+      </div>
 
-      <Card className="border-zinc-800/80 bg-zinc-900/40 ring-zinc-800/60">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-zinc-100">
-            <FileWarning className="size-4 text-amber-400" aria-hidden />
-            Compliance & Deadline Reminders
-          </CardTitle>
-          <CardDescription className="text-zinc-500">
-            Documents needing review and upcoming decision dates
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {metrics.complianceReminders.length === 0 ? (
-            <EmptyState
-              icon={Clock}
-              title="All clear"
-              description="No documents or decision reviews due in the next 30 days."
-            />
+      {/* What needs attention */}
+      {(criticalTasks.length > 0 || blockedTasks.length > 0) && (
+        <div>
+          <h2 className="mb-3 text-sm font-medium text-zinc-400 flex items-center gap-2">
+            <AlertCircle className="size-3.5 text-red-400" />
+            Needs Attention
+          </h2>
+          <div className="space-y-2">
+            {criticalTasks.slice(0, 5).map((task) => {
+              const project = state.projects.find((p) => p.id === task.projectId);
+              return (
+                <div
+                  key={task.id}
+                  className="flex items-center gap-3 rounded-lg border border-red-900/40 bg-red-950/10 px-4 py-2.5"
+                >
+                  <AlertCircle className="size-3.5 shrink-0 text-red-400" />
+                  <span className="flex-1 truncate text-sm text-zinc-200">{task.title}</span>
+                  {project && (
+                    <span className="shrink-0 text-[11px] text-zinc-500">{project.name}</span>
+                  )}
+                  <Badge variant="outline" className="border-red-800/50 text-red-400 text-[10px] shrink-0">
+                    critical
+                  </Badge>
+                </div>
+              );
+            })}
+            {blockedTasks.slice(0, 3).map((task) => {
+              const project = state.projects.find((p) => p.id === task.projectId);
+              return (
+                <div
+                  key={task.id}
+                  className="flex items-center gap-3 rounded-lg border border-amber-900/40 bg-amber-950/10 px-4 py-2.5"
+                >
+                  <Clock className="size-3.5 shrink-0 text-amber-400" />
+                  <span className="flex-1 truncate text-sm text-zinc-200">{task.title}</span>
+                  {project && (
+                    <span className="shrink-0 text-[11px] text-zinc-500">{project.name}</span>
+                  )}
+                  <Badge variant="outline" className="border-amber-800/50 text-amber-400 text-[10px] shrink-0">
+                    blocked
+                  </Badge>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Active projects + agents */}
+      <div className="grid gap-4 md:grid-cols-2">
+        {/* Projects */}
+        <div>
+          <h2 className="mb-3 text-sm font-medium text-zinc-400 flex items-center gap-2">
+            <Zap className="size-3.5 text-amber-400" />
+            Active Builds ({activeProjects.length})
+          </h2>
+          {activeProjects.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-zinc-800 p-6 text-center">
+              <p className="text-sm text-zinc-600">No active projects yet.</p>
+              <Link href="/setup" className="mt-2 block text-xs text-amber-500 hover:text-amber-400">
+                Run setup to add your projects →
+              </Link>
+            </div>
           ) : (
-            metrics.complianceReminders.map((item) =>
-              item.kind === "document" ? (
-                <div
-                  key={item.document.id}
-                  className="flex items-start gap-3 rounded-lg border border-amber-900/40 bg-amber-950/20 p-3"
-                >
-                  <AlertTriangle
-                    className="mt-0.5 size-4 shrink-0 text-amber-400"
-                    aria-hidden
-                  />
-                  <div>
-                    <p className="text-sm font-medium text-zinc-100">
-                      {item.document.name}
-                    </p>
-                    <p className="text-xs text-zinc-500">
-                      Document needs review · {item.document.category}
-                    </p>
+            <div className="space-y-2">
+              {activeProjects.map((p) => {
+                const projectTasks = state.tasks.filter(
+                  (t) => t.projectId === p.id && t.status !== "done"
+                );
+                return (
+                  <div
+                    key={p.id}
+                    className="rounded-lg border border-zinc-800/80 bg-zinc-900/30 px-4 py-3"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="font-medium text-zinc-100 text-sm">{p.name}</p>
+                      <div className="flex items-center gap-2">
+                        {projectTasks.length > 0 && (
+                          <span className="text-[11px] text-zinc-500">
+                            {projectTasks.length} open {projectTasks.length === 1 ? "task" : "tasks"}
+                          </span>
+                        )}
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "text-[10px]",
+                            p.status === "launched"
+                              ? "border-emerald-800/50 text-emerald-400"
+                              : p.status === "building"
+                              ? "border-amber-800/50 text-amber-400"
+                              : "border-zinc-700 text-zinc-400",
+                          )}
+                        >
+                          {p.status}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-zinc-800">
+                      <div
+                        className="h-full rounded-full bg-amber-500/70"
+                        style={{ width: `${p.progress}%` }}
+                      />
+                    </div>
+                    <p className="mt-1 text-[11px] text-zinc-600">{p.progress}%</p>
                   </div>
-                </div>
-              ) : (
-                <div
-                  key={item.decision.id}
-                  className="flex items-start gap-3 rounded-lg border border-zinc-800/90 bg-zinc-950/40 p-3"
-                >
-                  <Clock
-                    className="mt-0.5 size-4 shrink-0 text-zinc-400"
-                    aria-hidden
-                  />
-                  <div>
-                    <p className="text-sm font-medium text-zinc-100">
-                      {item.decision.title}
-                    </p>
-                    <p className="text-xs text-zinc-500">
-                      Decision review ·{" "}
-                      {format(parseISO(item.reviewDate), "MMM d, yyyy")}
-                    </p>
-                  </div>
-                </div>
-              ),
-            )
+                );
+              })}
+            </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+
+        {/* Agents */}
+        <div>
+          <h2 className="mb-3 text-sm font-medium text-zinc-400 flex items-center gap-2">
+            <Bot className="size-3.5 text-purple-400" />
+            Agent Status
+          </h2>
+          {state.agents.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-zinc-800 p-6 text-center">
+              <p className="text-sm text-zinc-600">No agents configured yet.</p>
+              <Link href="/agents" className="mt-2 block text-xs text-amber-500 hover:text-amber-400">
+                Set up agents →
+              </Link>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {state.agents.slice(0, 6).map((agent) => (
+                <div
+                  key={agent.id}
+                  className="flex items-center gap-3 rounded-lg border border-zinc-800/80 bg-zinc-900/30 px-4 py-3"
+                >
+                  <div
+                    className={cn(
+                      "size-2 rounded-full shrink-0",
+                      agent.status === "running" && "bg-emerald-400 animate-pulse",
+                      agent.status === "idle" && "bg-zinc-600",
+                      agent.status === "error" && "bg-red-500",
+                      agent.status === "paused" && "bg-amber-400",
+                    )}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-zinc-200 truncate">{agent.name}</p>
+                    {agent.purpose && (
+                      <p className="text-[11px] text-zinc-600 truncate">{agent.purpose}</p>
+                    )}
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "text-[10px] shrink-0",
+                      agent.status === "running"
+                        ? "border-emerald-800/50 text-emerald-400"
+                        : agent.status === "error"
+                        ? "border-red-800/50 text-red-400"
+                        : "border-zinc-700 text-zinc-500",
+                    )}
+                  >
+                    {agent.status}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
     </div>
   );
 }

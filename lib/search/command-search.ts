@@ -4,6 +4,8 @@ import type { OctanePersistedState } from "@/lib/store/octane-store";
 
 export type SearchResultType =
   | "page"
+  | "executiveShortcut"
+  | "outlookInsight"
   | "project"
   | "task"
   | "agent"
@@ -18,8 +20,7 @@ export type SearchResultType =
   | "formationChecklist"
   | "workSession"
   | "inboxItem"
-  | "founderNote"
-  | "outlookInsight";
+  | "founderNote";
 
 export interface CommandSearchResult {
   id: string;
@@ -44,8 +45,96 @@ const NAV_PAGES = mainNavItems.map((item) => {
   };
 });
 
+const EXECUTIVE_SHORTCUTS: {
+  id: string;
+  title: string;
+  description: string;
+  href: string;
+  keywords: string[];
+}[] = [
+  {
+    id: "exec-ask-octane",
+    title: "Ask Octane",
+    description: "Executive questions on Outlook",
+    href: "/outlook#ask-octane",
+    keywords: ["ask", "octane", "executive", "advisor", "question"],
+  },
+  {
+    id: "exec-query",
+    title: "Executive Query",
+    description: "Strategic portfolio Q&A on Outlook",
+    href: "/outlook#ask-octane",
+    keywords: ["executive", "query", "strategic", "ceo", "founder"],
+  },
+  {
+    id: "exec-intelligence",
+    title: "Company Intelligence",
+    description: "Octane Outlook — portfolio strategic view",
+    href: "/outlook",
+    keywords: [
+      "company",
+      "intelligence",
+      "outlook",
+      "portfolio",
+      "strategic",
+      "snapshot",
+    ],
+  },
+  {
+    id: "exec-risks",
+    title: "Risks",
+    description: "Top portfolio risks from Outlook",
+    href: "/outlook",
+    keywords: ["risk", "risks", "threat", "downside", "exposure"],
+  },
+  {
+    id: "exec-opportunities",
+    title: "Opportunities",
+    description: "Top opportunities from Outlook",
+    href: "/outlook",
+    keywords: ["opportunity", "opportunities", "upside", "bet", "double down"],
+  },
+  {
+    id: "exec-plan",
+    title: "30/60/90 Plan",
+    description: "Strategic horizons on Outlook",
+    href: "/outlook",
+    keywords: ["30", "60", "90", "plan", "day", "horizon", "milestone"],
+  },
+  {
+    id: "exec-risk-question",
+    title: "What are my top risks?",
+    description: "Executive query · risks",
+    href: "/outlook#ask-octane",
+    keywords: ["what", "top", "risk", "wrong", "threat"],
+  },
+  {
+    id: "exec-focus-question",
+    title: "What should I focus on today?",
+    description: "Executive query · priorities",
+    href: "/outlook#ask-octane",
+    keywords: ["focus", "today", "priority", "priorities", "morning"],
+  },
+  {
+    id: "exec-changed-question",
+    title: "What changed this week?",
+    description: "Executive query · activity",
+    href: "/outlook#ask-octane",
+    keywords: ["changed", "week", "recent", "activity", "updates"],
+  },
+  {
+    id: "exec-blockers-question",
+    title: "What's blocking progress?",
+    description: "Executive query · blockers",
+    href: "/outlook#ask-octane",
+    keywords: ["blocker", "blocking", "blocked", "stuck", "progress"],
+  },
+];
+
 const TYPE_LABELS: Record<SearchResultType, string> = {
   page: "Page",
+  executiveShortcut: "Executive",
+  outlookInsight: "Outlook",
   project: "Project",
   task: "Task",
   agent: "Agent",
@@ -61,7 +150,6 @@ const TYPE_LABELS: Record<SearchResultType, string> = {
   workSession: "Work Session",
   inboxItem: "Inbox",
   founderNote: "Founder Note",
-  outlookInsight: "Outlook",
 };
 
 export function getSearchResultTypeLabel(type: SearchResultType): string {
@@ -97,6 +185,25 @@ export function searchCommandIndex(
         title: page.title,
         description: page.description,
         href: page.href,
+      });
+    }
+  }
+
+  for (const shortcut of EXECUTIVE_SHORTCUTS) {
+    const haystack = [
+      shortcut.title,
+      shortcut.description,
+      ...shortcut.keywords,
+    ]
+      .join(" ")
+      .toLowerCase();
+    if (matchesQuery(haystack, query) || matchesQuery(shortcut.title, query)) {
+      results.push({
+        id: shortcut.id,
+        type: "executiveShortcut",
+        title: shortcut.title,
+        description: shortcut.description,
+        href: shortcut.href,
       });
     }
   }
@@ -343,22 +450,42 @@ export function searchCommandIndex(
 
   if (state.projects.length > 0) {
     const outlook = generateOctaneOutlook(state);
-    const outlookItems = [
-      ...outlook.topRisks.map((r) => ({ kind: "risk" as const, item: r })),
-      ...outlook.topOpportunities.map((o) => ({
-        kind: "opportunity" as const,
-        item: o,
-      })),
-      ...outlook.recommendedFocus.map((f, i) => ({
-        kind: "focus" as const,
-        item: { id: `focus-${i}`, title: f, description: "Recommended focus" },
+    const outlookItems: {
+      kind: string;
+      item: { id: string; title: string; description: string };
+    }[] = [
+      ...outlook.topRisks.map((r) => ({ kind: "risk", item: r })),
+      ...outlook.topOpportunities.map((o) => ({ kind: "opportunity", item: o })),
+      ...outlook.recommendedFocus.map((focus, i) => ({
+        kind: "focus",
+        item: {
+          id: `focus-${i}`,
+          title: focus,
+          description: "Recommended focus · Outlook",
+        },
       })),
       ...outlook["30DayPlan"].milestones.map((m, i) => ({
-        kind: "plan" as const,
+        kind: "30-day",
         item: {
-          id: `plan30-${i}`,
+          id: `30d-${i}`,
           title: m,
-          description: outlook["30DayPlan"].theme,
+          description: `30-day · ${outlook["30DayPlan"].theme}`,
+        },
+      })),
+      ...outlook["60DayPlan"].milestones.map((m, i) => ({
+        kind: "60-day",
+        item: {
+          id: `60d-${i}`,
+          title: m,
+          description: `60-day · ${outlook["60DayPlan"].theme}`,
+        },
+      })),
+      ...outlook["90DayPlan"].milestones.map((m, i) => ({
+        kind: "90-day",
+        item: {
+          id: `90d-${i}`,
+          title: m,
+          description: `90-day · ${outlook["90DayPlan"].theme}`,
         },
       })),
     ];
@@ -381,6 +508,8 @@ export function groupSearchResults(
 ): Record<SearchResultType, CommandSearchResult[]> {
   const grouped: Record<SearchResultType, CommandSearchResult[]> = {
     page: [],
+    executiveShortcut: [],
+    outlookInsight: [],
     project: [],
     task: [],
     agent: [],
@@ -396,7 +525,6 @@ export function groupSearchResults(
     workSession: [],
     inboxItem: [],
     founderNote: [],
-    outlookInsight: [],
   };
   for (const result of results) {
     grouped[result.type].push(result);

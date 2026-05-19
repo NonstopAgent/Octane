@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   DollarSign,
   Landmark,
+  MessageCircleQuestion,
   PauseCircle,
   Sparkles,
   Target,
@@ -20,6 +21,7 @@ import { useShallow } from "zustand/react/shallow";
 
 import { PageHeader } from "@/components/layout/page-header";
 import { OctaneAdvisorPanel } from "@/components/modules/advisor";
+import { AskOctanePanel } from "@/components/modules/outlook/ask-octane-panel";
 import { EmptyState, MetricCard } from "@/components/modules";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -502,6 +504,14 @@ export default function OutlookPage() {
           <PlanCard label="60 days" plan={outlook["60DayPlan"]} />
           <PlanCard label="90 days" plan={outlook["90DayPlan"]} />
         </div>
+      </OutlookSection>
+
+      <OutlookSection
+        title="Ask Octane"
+        description="Executive questions answered from your portfolio — rule-based, local-first"
+        icon={MessageCircleQuestion}
+      >
+        <AskOctanePanel />
       </OutlookSection>
 
       <OutlookSection
