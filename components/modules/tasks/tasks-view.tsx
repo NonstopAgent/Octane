@@ -145,12 +145,33 @@ export function TasksView() {
         </p>
       ) : null}
 
+      {tasks.length === 0 ? (
+        <EmptyState
+          icon={KanbanSquare}
+          title="No tasks yet"
+          description="Tasks are the unit of execution across projects. Add your first task to populate the kanban board and track work from backlog to done."
+          action={{
+            label: "New Task",
+            onClick: () => setCreateOpen(true),
+          }}
+        />
+      ) : filtered.length === 0 ? (
+        <EmptyState
+          icon={KanbanSquare}
+          title="No tasks match"
+          description="Adjust filters to see tasks, or create a new one."
+          action={{
+            label: "New Task",
+            onClick: () => setCreateOpen(true),
+          }}
+        />
+      ) : (
       <DndContext
         sensors={sensors}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex gap-3 overflow-x-auto pb-4">
+        <div className="flex min-w-0 gap-3 overflow-x-auto pb-4 snap-x snap-mandatory">
           {KANBAN_COLUMNS.map((col) => (
             <KanbanColumn
               key={col.id}
@@ -178,28 +199,7 @@ export function TasksView() {
           ) : null}
         </DragOverlay>
       </DndContext>
-
-      {tasks.length === 0 ? (
-        <EmptyState
-          icon={KanbanSquare}
-          title="No tasks yet"
-          description="Tasks are the unit of execution across projects. Add your first task to populate the kanban board and track work from backlog to done."
-          action={{
-            label: "New Task",
-            onClick: () => setCreateOpen(true),
-          }}
-        />
-      ) : filtered.length === 0 ? (
-        <EmptyState
-          icon={KanbanSquare}
-          title="No tasks match"
-          description="Adjust filters to see tasks, or create a new one."
-          action={{
-            label: "New Task",
-            onClick: () => setCreateOpen(true),
-          }}
-        />
-      ) : null}
+      )}
 
       <TaskFormDialog
         open={createOpen}

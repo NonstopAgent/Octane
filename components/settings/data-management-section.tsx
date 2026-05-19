@@ -108,6 +108,14 @@ export function DataManagementSection({
       />
       <Card className="border-zinc-800/80 bg-zinc-900/30">
         <CardContent className="space-y-4 pt-4">
+          <p
+            className="rounded-lg border border-amber-900/40 bg-amber-950/20 px-3 py-2 text-sm text-amber-100/90"
+            data-testid="settings-data-safety-warning"
+          >
+            Octane Core is currently local-first. Your data is stored in this
+            browser unless exported. Use Export JSON regularly until Supabase
+            sync is added.
+          </p>
           <div className="grid gap-3 text-sm sm:grid-cols-3">
             <MetaItem
               label="App version"

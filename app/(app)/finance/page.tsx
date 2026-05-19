@@ -13,7 +13,7 @@ import {
 import { format } from "date-fns";
 
 import { PageHeader } from "@/components/layout/page-header";
-import { MetricCard, SectionHeader } from "@/components/modules";
+import { EmptyState, MetricCard, SectionHeader } from "@/components/modules";
 import { formatStatusLabel } from "@/components/modules/badge-tones";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -176,6 +176,20 @@ function FinancePageContent() {
         }
       />
 
+      {transactions.length === 0 ? (
+        <EmptyState
+          icon={Wallet}
+          title="No transactions yet"
+          description="Finance tracks revenue, burn, and runway across your bets. Add your first transaction to power the weekly review and dashboard metrics."
+          action={{
+            label: "Add Transaction",
+            onClick: () => setDialogOpen(true),
+          }}
+        />
+      ) : null}
+
+      {transactions.length > 0 ? (
+      <>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
         <MetricCard
           title="Total Revenue"
@@ -381,6 +395,8 @@ function FinancePageContent() {
           </CardContent>
         </Card>
       </section>
+      </>
+      ) : null}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="border-zinc-800 bg-zinc-950 text-zinc-100 ring-zinc-800/80 sm:max-w-md">

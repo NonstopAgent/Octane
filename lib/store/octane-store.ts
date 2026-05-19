@@ -6,7 +6,7 @@ import {
   importSnapshotData as parseSnapshot,
 } from "@/lib/data/snapshot";
 import type { OctaneSnapshot } from "@/lib/data/snapshot";
-import { PROJECT_IDS, seedData } from "@/lib/mock/seed";
+import { createSeedData, PROJECT_IDS } from "@/lib/mock/seed";
 import type {
   Agent,
   Decision,
@@ -234,10 +234,36 @@ function isPersistedStateEmpty(
   );
 }
 
+function asArray<T>(value: unknown): T[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function normalizePersistedState(
+  persisted: Partial<OctanePersistedState> | undefined,
+): Partial<OctanePersistedState> | undefined {
+  if (!persisted) return undefined;
+  return {
+    ...persisted,
+    projects: asArray(persisted.projects),
+    tasks: asArray(persisted.tasks),
+    decisions: asArray(persisted.decisions),
+    roadmapItems: asArray(persisted.roadmapItems),
+    transactions: asArray(persisted.transactions),
+    documents: asArray(persisted.documents),
+    ipAssets: asArray(persisted.ipAssets),
+    entities: asArray(persisted.entities),
+    agents: asArray(persisted.agents),
+    activityLogs: normalizeActivityLogs(persisted.activityLogs),
+    workSessions: asArray(persisted.workSessions),
+    inboxItems: asArray(persisted.inboxItems),
+    founderNotes: asArray(persisted.founderNotes),
+  };
+}
+
 export const useOctaneStore = create<OctaneStore>()(
   persist(
     (set, get) => ({
-      ...seedData,
+      ...createSeedData(),
 
       createProject: (data) => {
         const project: Project = {
@@ -966,7 +992,7 @@ export const useOctaneStore = create<OctaneStore>()(
 
       resetToSeed: () => {
         const hadActivity = get().activityLogs.length > 0;
-        set({ ...seedData, activityLogs: [] });
+        set({ ...createSeedData(), activityLogs: [] });
         if (hadActivity) {
           logActivity(set, get, {
             action: "reset",
@@ -1030,7 +1056,7 @@ export const useOctaneStore = create<OctaneStore>()(
           entityName: "Local data",
           description: "Cleared all local workspace data",
         });
-        set({ ...seedData, activityLogs: [entry] });
+        set({ ...createSeedData(), activityLogs: [entry] });
       },
     }),
     {
@@ -1052,11 +1078,11 @@ export const useOctaneStore = create<OctaneStore>()(
         founderNotes: state.founderNotes,
       }),
       merge: (persisted, current) => {
-        const persistedState = persisted as
-          | Partial<OctanePersistedState>
-          | undefined;
+        const persistedState = normalizePersistedState(
+          persisted as Partial<OctanePersistedState> | undefined,
+        );
         if (isPersistedStateEmpty(persistedState)) {
-          return { ...current, ...seedData };
+          return { ...current, ...createSeedData() };
         }
         return {
           ...current,

@@ -1,3 +1,5 @@
+import { addDays, format, startOfWeek } from "date-fns";
+
 import type {
   ActivityLog,
   Agent,
@@ -492,7 +494,7 @@ export const seedRoadmapItems: RoadmapItem[] = [
   },
 ];
 
-export const seedTransactions: Transaction[] = [
+const baseSeedTransactions: Transaction[] = [
   {
     id: "txn-software-vercel",
     projectId: PROJECT_IDS.core,
@@ -569,6 +571,55 @@ export const seedTransactions: Transaction[] = [
     createdAt: T3,
   },
 ];
+
+/** Transactions in the current ISO week so Weekly Review money isn't zero after reset. */
+export function buildCurrentWeekSeedTransactions(
+  referenceDate = new Date(),
+): Transaction[] {
+  const weekStart = startOfWeek(referenceDate, { weekStartsOn: 1 });
+  const date = (offset: number) =>
+    format(addDays(weekStart, offset), "yyyy-MM-dd");
+  const now = referenceDate.toISOString();
+
+  return [
+    {
+      id: "txn-seed-week-software",
+      projectId: PROJECT_IDS.core,
+      type: "software",
+      amount: -29,
+      category: "Dev tools",
+      notes: "GitHub + CI tooling (current week seed)",
+      transactionDate: date(1),
+      createdAt: now,
+    },
+    {
+      id: "txn-seed-week-revenue",
+      projectId: PROJECT_IDS.core,
+      type: "revenue",
+      amount: 1200,
+      category: "Services",
+      notes: "Weekly retainer deposit (current week seed)",
+      transactionDate: date(2),
+      createdAt: now,
+    },
+    {
+      id: "txn-seed-week-legal",
+      type: "legal",
+      amount: -350,
+      category: "Formation",
+      notes: "Counsel review block (current week seed)",
+      transactionDate: date(3),
+      createdAt: now,
+    },
+  ];
+}
+
+function buildSeedTransactions(referenceDate = new Date()): Transaction[] {
+  return [
+    ...baseSeedTransactions,
+    ...buildCurrentWeekSeedTransactions(referenceDate),
+  ];
+}
 
 export const seedDocuments: Document[] = [
   {
@@ -993,19 +1044,24 @@ export interface SeedData {
   founderNotes: FounderNote[];
 }
 
-export const seedData: SeedData = {
-  profile: seedProfile,
-  projects: seedProjects,
-  tasks: seedTasks,
-  decisions: seedDecisions,
-  roadmapItems: seedRoadmapItems,
-  transactions: seedTransactions,
-  documents: seedDocuments,
-  ipAssets: seedIPAssets,
-  entities: seedEntities,
-  agents: seedAgents,
-  activityLogs: seedActivityLogs,
-  workSessions: seedWorkSessions,
-  inboxItems: seedInboxItems,
-  founderNotes: seedFounderNotes,
-};
+export function createSeedData(referenceDate = new Date()): SeedData {
+  return {
+    profile: seedProfile,
+    projects: seedProjects,
+    tasks: seedTasks,
+    decisions: seedDecisions,
+    roadmapItems: seedRoadmapItems,
+    transactions: buildSeedTransactions(referenceDate),
+    documents: seedDocuments,
+    ipAssets: seedIPAssets,
+    entities: seedEntities,
+    agents: seedAgents,
+    activityLogs: seedActivityLogs,
+    workSessions: seedWorkSessions,
+    inboxItems: seedInboxItems,
+    founderNotes: seedFounderNotes,
+  };
+}
+
+/** Default seed snapshot (current week transactions computed at module load). */
+export const seedData: SeedData = createSeedData();

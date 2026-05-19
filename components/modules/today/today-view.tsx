@@ -48,6 +48,28 @@ export function TodayView() {
     }
   }, [searchParams]);
 
+  if (state.projects.length === 0 && state.tasks.length === 0) {
+    return (
+      <div className="space-y-8">
+        <PageHeader
+          title="Today"
+          description={`Operating view for ${state.profile.name}`}
+        />
+        <EmptyState
+          icon={ListTodo}
+          title="Today is wide open"
+          description="Today surfaces due work, blockers, and top moves. Create a project and tasks, or reset demo data in Settings to see your operating view."
+          action={{
+            label: "New task",
+            onClick: () => {
+              window.location.assign("/tasks?new=1");
+            },
+          }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
       <PageHeader

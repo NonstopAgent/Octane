@@ -3,10 +3,10 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { format } from "date-fns";
-import { Plus, Search } from "lucide-react";
+import { Plus, Scale, Search } from "lucide-react";
 
 import { PageHeader } from "@/components/layout/page-header";
-import { SectionHeader, StatusBadge } from "@/components/modules";
+import { EmptyState, SectionHeader, StatusBadge } from "@/components/modules";
 import { formatStatusLabel } from "@/components/modules/badge-tones";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -206,10 +206,26 @@ function DecisionsPageContent() {
             className="absolute top-0 bottom-0 left-4 w-px bg-zinc-800"
             aria-hidden
           />
-          {filtered.length === 0 ? (
-            <p className="py-8 text-center text-sm text-zinc-500">
-              No decisions match your filters.
-            </p>
+          {decisions.length === 0 ? (
+            <EmptyState
+              icon={Scale}
+              title="No decisions on record"
+              description="Decisions capture why you chose a path — options, reasoning, and expected outcomes. Log your first decision before context fades."
+              action={{
+                label: "New Decision",
+                onClick: () => setDialogOpen(true),
+              }}
+            />
+          ) : filtered.length === 0 ? (
+            <EmptyState
+              icon={Scale}
+              title="No decisions match"
+              description="Try different filters or create a new decision."
+              action={{
+                label: "New Decision",
+                onClick: () => setDialogOpen(true),
+              }}
+            />
           ) : (
             filtered.map((decision) => {
               const project = decision.projectId

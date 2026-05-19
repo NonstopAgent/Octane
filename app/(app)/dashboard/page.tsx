@@ -60,6 +60,22 @@ export default function DashboardPage() {
   const metrics = useMemo(() => selectDashboardMetrics(state), [state]);
   const octaneScore = useMemo(() => computeOctaneScore(state), [state]);
 
+  if (state.projects.length === 0) {
+    return (
+      <div className="space-y-8">
+        <PageHeader
+          title="Dashboard"
+          description={`Command center overview for ${state.profile.name}.`}
+        />
+        <EmptyState
+          icon={FolderKanban}
+          title="No portfolio data yet"
+          description="The dashboard summarizes health across projects, tasks, and finance. Create a project first, or reset demo data in Settings."
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
       <PageHeader

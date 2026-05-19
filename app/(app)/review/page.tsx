@@ -124,7 +124,7 @@ export default function ReviewPage() {
   const weekLabel = `${format(parseISO(review.weekStart), "MMM d")} – ${format(parseISO(review.weekEnd), "MMM d, yyyy")}`;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 overflow-x-hidden">
       <PageHeader
         title="Weekly Review"
         description={`Monday-start week · ${weekLabel} · generated ${format(new Date(review.generatedAt), "MMM d, yyyy 'at' h:mm a")}`}

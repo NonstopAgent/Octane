@@ -6,6 +6,7 @@ import { format } from "date-fns";
 import {
   Archive,
   CheckSquare,
+  Inbox,
   NotebookPen,
   Plus,
   Scale,
@@ -14,7 +15,7 @@ import {
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/layout/page-header";
-import { ConfirmDialog, SectionHeader } from "@/components/modules";
+import { ConfirmDialog, EmptyState, SectionHeader } from "@/components/modules";
 import { formatStatusLabel } from "@/components/modules/badge-tones";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -221,6 +222,14 @@ function InboxPageContent() {
         </CardContent>
       </Card>
 
+      {inboxItems.length === 0 ? (
+        <EmptyState
+          icon={Inbox}
+          title="Inbox is clear"
+          description="Capture ideas, risks, and loose threads before they become tasks. Use quick capture above, then convert items when you're ready to act."
+        />
+      ) : null}
+
       {STATUS_SECTIONS.map(({ status, title }) => {
         const items = grouped[status];
         return (
@@ -234,7 +243,12 @@ function InboxPageContent() {
               description={`${items.length} item${items.length === 1 ? "" : "s"}`}
             />
             {items.length === 0 ? (
-              <p className="text-sm text-zinc-500">Nothing here yet.</p>
+              <EmptyState
+                icon={Inbox}
+                title={`No ${title.toLowerCase()} items`}
+                description="Items move here as you capture, convert, or archive from the inbox."
+                className="py-8"
+              />
             ) : (
               <ul className="space-y-3" data-list={`inbox-${status}`}>
                 {items.map((item) => {

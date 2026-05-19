@@ -2,15 +2,16 @@
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Building2, Pencil, Plus, Trash2 } from "lucide-react";
 
 import { PageHeader } from "@/components/layout/page-header";
-import { ConfirmDialog, SectionHeader } from "@/components/modules";
+import { ConfirmDialog, EmptyState, SectionHeader } from "@/components/modules";
 import { formatStatusLabel } from "@/components/modules/badge-tones";
 import {
   DataManagementSection,
   LAST_EXPORTED_AT_KEY,
 } from "@/components/settings/data-management-section";
+import { KeyboardShortcutsSection } from "@/components/settings/keyboard-shortcuts-section";
 import { selectEntityOwnershipStats } from "@/components/settings/entity-ownership";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -320,6 +321,17 @@ function SettingsPageContent() {
             </Button>
           }
         />
+        {entities.length === 0 ? (
+          <EmptyState
+            icon={Building2}
+            title="No legal entities yet"
+            description="Track LLCs, trusts, and labs behind your projects. Add an entity to map ownership, documents, and compliance in one place."
+            action={{
+              label: "Add Entity",
+              onClick: openCreateEntity,
+            }}
+          />
+        ) : (
         <Card className="overflow-x-auto border-zinc-800/80 bg-zinc-900/30">
           <CardContent className="p-0">
             <table className={tableClass} data-testid="settings-ownership-table">
@@ -405,7 +417,10 @@ function SettingsPageContent() {
             </table>
           </CardContent>
         </Card>
+        )}
       </section>
+
+      <KeyboardShortcutsSection />
 
       <DataManagementSection
         lastExportedAt={lastExportedAt}

@@ -74,8 +74,8 @@ export function AppTopbar() {
 
   return (
     <>
-      <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-zinc-800/80 bg-zinc-950/70 px-4 backdrop-blur">
-        <div className="w-full max-w-md">
+      <header className="sticky top-0 z-20 flex h-16 items-center gap-2 border-b border-zinc-800/80 bg-zinc-950/70 px-3 backdrop-blur sm:gap-3 sm:px-4">
+        <div className="min-w-0 flex-1 sm:max-w-md">
           <button
             type="button"
             className="relative w-full text-left"
@@ -90,7 +90,7 @@ export function AppTopbar() {
           </button>
         </div>
 
-        <div className="ml-auto flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger
               render={

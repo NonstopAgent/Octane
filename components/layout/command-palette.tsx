@@ -96,9 +96,31 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
         </DialogHeader>
         <div className="max-h-[min(60vh,400px)] overflow-y-auto p-2">
           {!query.trim() ? (
-            <p className="px-3 py-6 text-center text-sm text-zinc-500">
-              Type to search across your workspace
-            </p>
+            <div className="space-y-4 px-3 py-4">
+              <p className="text-center text-sm text-zinc-500">
+                Type to search across your workspace
+              </p>
+              <ul className="space-y-2 border-t border-zinc-800/80 pt-4 text-xs text-zinc-500">
+                <li className="flex justify-between gap-4">
+                  <span>Command palette</span>
+                  <kbd className="rounded border border-zinc-700 px-1.5 font-mono text-zinc-400">
+                    ⌘/Ctrl K
+                  </kbd>
+                </li>
+                <li className="flex justify-between gap-4">
+                  <span>New menu</span>
+                  <span className="text-zinc-600">Top bar</span>
+                </li>
+                <li className="flex justify-between gap-4">
+                  <span>Today / Inbox</span>
+                  <span className="text-zinc-600">Sidebar</span>
+                </li>
+                <li className="flex justify-between gap-4">
+                  <span>Export JSON</span>
+                  <span className="text-zinc-600">Settings</span>
+                </li>
+              </ul>
+            </div>
           ) : !hasResults ? (
             <p className="px-3 py-6 text-center text-sm text-zinc-500">
               No results for &ldquo;{query}&rdquo;

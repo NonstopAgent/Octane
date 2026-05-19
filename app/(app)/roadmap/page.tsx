@@ -2,11 +2,16 @@
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { format, parseISO } from "date-fns";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Map as MapIcon, Pencil, Plus, Trash2 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 
 import { PageHeader } from "@/components/layout/page-header";
-import { ConfirmDialog, PriorityBadge, SectionHeader } from "@/components/modules";
+import {
+  ConfirmDialog,
+  EmptyState,
+  PriorityBadge,
+  SectionHeader,
+} from "@/components/modules";
 import { RoadmapFormDialog } from "@/components/modules/roadmap/roadmap-form-dialog";
 import { formatStatusLabel } from "@/components/modules/badge-tones";
 import { Badge } from "@/components/ui/badge";
@@ -144,8 +149,18 @@ function RoadmapPageContent() {
         }
       />
 
-      {view === "board" ? (
-        <div className="grid gap-4 lg:grid-cols-4">
+      {roadmapItems.length === 0 ? (
+        <EmptyState
+          icon={MapIcon}
+          title="Roadmap is empty"
+          description="Place strategic bets across now, next, later, and someday. A visible roadmap keeps daily tasks aligned with where the portfolio is heading."
+          action={{
+            label: "New Item",
+            onClick: openCreate,
+          }}
+        />
+      ) : view === "board" ? (
+        <div className="grid gap-4 overflow-x-auto sm:grid-cols-2 lg:grid-cols-4">
           {TIMEFRAMES.map((timeframe) => (
             <section key={timeframe} className="space-y-3">
               <SectionHeader

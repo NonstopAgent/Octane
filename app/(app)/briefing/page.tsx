@@ -71,6 +71,22 @@ export default function BriefingPage() {
 
   const briefing = useMemo(() => generateMorningBriefing(state), [state]);
 
+  if (state.projects.length === 0) {
+    return (
+      <div className="space-y-8">
+        <PageHeader
+          title="Morning Briefing"
+          description="Rule-based ops snapshot for your portfolio."
+        />
+        <EmptyState
+          icon={Sparkles}
+          title="Nothing to brief yet"
+          description="The briefing synthesizes projects, tasks, and finance into a morning plan. Add a project or reset demo data in Settings to get started."
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
       <PageHeader

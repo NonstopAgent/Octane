@@ -3,11 +3,11 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { format } from "date-fns";
-import { Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { NotebookPen, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/layout/page-header";
-import { ConfirmDialog, SectionHeader } from "@/components/modules";
+import { ConfirmDialog, EmptyState, SectionHeader } from "@/components/modules";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -219,8 +219,26 @@ function NotesPageContent() {
           title="Notes"
           description={`${filtered.length} note${filtered.length === 1 ? "" : "s"}`}
         />
-        {filtered.length === 0 ? (
-          <p className="text-sm text-zinc-500">No notes match your filters.</p>
+        {founderNotes.length === 0 ? (
+          <EmptyState
+            icon={NotebookPen}
+            title="No founder notes yet"
+            description="Notes are your private thinking space — positioning, strategy, and reminders that don't belong in tasks yet. Start with one idea you don't want to lose."
+            action={{
+              label: "New Note",
+              onClick: openCreate,
+            }}
+          />
+        ) : filtered.length === 0 ? (
+          <EmptyState
+            icon={NotebookPen}
+            title="No notes match"
+            description="Adjust search or filters, or create a new note."
+            action={{
+              label: "New Note",
+              onClick: openCreate,
+            }}
+          />
         ) : (
           <ul className="grid gap-3 md:grid-cols-2" data-list="founder-notes">
             {filtered.map((note) => {

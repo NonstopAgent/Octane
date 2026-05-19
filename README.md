@@ -1,36 +1,92 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Octane Core
 
-## Getting Started
+Octane Core is a **local-first founder operating system** for running multiple projects, bets, and entities from one command center. Data lives in your browser (Zustand + `localStorage`) until cloud sync ships — no Supabase, AI APIs, or external services in this build.
 
-First, run the development server:
+## Status
+
+- **Checkpoint 7C** — stability, polish, founder usability
+- **Persistence** — browser-only; export/import JSON snapshots
+- **Auth** — mock login (any credentials) for local development
+
+## Run locally
 
 ```bash
+cd octane-core
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000). Use **mock login** on `/login` (any email/password) to reach the app shell.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Production build:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run build
+npm start
+```
 
-## Learn More
+## Dev workspace note (multiple lockfiles)
 
-To learn more about Next.js, take a look at the following resources:
+Next.js may warn about multiple `package-lock.json` files if a lockfile exists in a parent directory (e.g. `C:\Users\Logan A\package-lock.json`) as well as in `octane-core/`.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- **Do not delete** a parent lockfile unless you know it is unused by other projects.
+- This repo sets `outputFileTracingRoot` and `turbopack.root` in `next.config.ts` to the `octane-core` directory so the dev server treats this folder as the workspace root.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Routes & modules
 
-## Deploy on Vercel
+| Route | Purpose |
+|-------|---------|
+| `/today` | Daily operating view — due work, blockers, work sessions |
+| `/dashboard` | Portfolio health, Octane score, metrics |
+| `/briefing` | Rule-based morning briefing |
+| `/inbox` | Quick capture → convert to task/decision/note |
+| `/projects` | Portfolio CRUD and detail |
+| `/tasks` | Kanban with drag-and-drop |
+| `/activity` | Audit-style activity feed |
+| `/review` | Weekly review (Monday-start week) |
+| `/agents` | Read-only agent roster (seeded) |
+| `/finance` | Transactions, burn, runway |
+| `/documents` | Document metadata + IP registry |
+| `/decisions` | Decision log with reasoning |
+| `/roadmap` | Now / next / later board + timeline |
+| `/notes` | Founder notes |
+| `/settings` | Profile, entities, export/import, shortcuts |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Persistence
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Store key** — `octane-core` in `localStorage`
+- **Export JSON** — Settings → Data Management → Export JSON
+- **Import JSON** — validates snapshot schema before replacing state
+- **Reset demo data** — restores bundled seed (including current-week finance samples)
+- **Clear local data** — wipes persist and reloads seed
+
+Export regularly; there is no multi-device sync yet.
+
+## Keyboard shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| `⌘/Ctrl + K` | Command palette (search) |
+| **New** (top bar) | Create inbox item, task, decision, transaction, etc. |
+| Sidebar | **Today**, **Inbox**, and other modules |
+| Settings | **Export JSON** for backups |
+
+Listed in Settings and in the command palette footer when empty.
+
+## Limitations (by design)
+
+- No Supabase, realtime sync, or multi-user auth
+- No AI advisor or live agent execution
+- File uploads are mocked (metadata only)
+- Company profile fields in Settings are not persisted
+- Holdings / external integrations not included
+
+## Roadmap (future checkpoints)
+
+- **Supabase** — auth, Postgres, RLS, sync
+- **AI Advisor** — contextual recommendations
+- **Holdings** — trust/entity capital views
+- **Agents** — runnable agent logs and triggers
+- **Vercel** — hosted deployment
+
+See `PROJECT_STATUS.md` for checkpoint history and known TODOs.
