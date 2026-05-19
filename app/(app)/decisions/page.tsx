@@ -4,6 +4,7 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { format } from "date-fns";
 import { Plus, Scale, Search } from "lucide-react";
+import { toast } from "sonner";
 
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState, SectionHeader, StatusBadge } from "@/components/modules";
@@ -139,6 +140,7 @@ function DecisionsPageContent() {
       reviewDate: form.reviewDate || undefined,
       status: form.status,
     });
+    toast.success("Decision logged");
     setDialogOpen(false);
     setForm(emptyForm);
   };

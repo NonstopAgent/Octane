@@ -3,6 +3,8 @@ import { addDays, format, startOfWeek } from "date-fns";
 import type {
   ActivityLog,
   Agent,
+  AgentLog,
+  AgentRunRecord,
   ComplianceReminder,
   Decision,
   Document,
@@ -1209,6 +1211,171 @@ export const seedFormationChecklistItems: FormationChecklistItem[] = [
   },
 ];
 
+// ── Seed agent logs ──────────────────────────────────────────────────────────
+
+export const seedAgentLogs: AgentLog[] = [
+  // Ajax Operator — Run 1 logs
+  {
+    id: "alog-ajax-run1-start",
+    agentId: "agent-ajax-operator",
+    timestamp: "2026-05-01T09:00:00.000Z",
+    type: "run",
+    message: "Run started: outbound ops batch",
+    taskId: "task-ajax-agent-loop",
+  },
+  {
+    id: "alog-ajax-run1-approval",
+    agentId: "agent-ajax-operator",
+    timestamp: "2026-05-01T09:02:00.000Z",
+    type: "approval_request",
+    message: "Awaiting human approval: 3 outreach drafts ready",
+    taskId: "task-ajax-agent-loop",
+    details: "Draft recipients: pipeline-contact-1, pipeline-contact-2, pipeline-contact-3",
+  },
+  {
+    id: "alog-ajax-run1-approved",
+    agentId: "agent-ajax-operator",
+    timestamp: "2026-05-01T09:05:00.000Z",
+    type: "approval_granted",
+    message: "Approval granted by Logan — 3 outreach drafts approved",
+    taskId: "task-ajax-agent-loop",
+  },
+  {
+    id: "alog-ajax-run1-success",
+    agentId: "agent-ajax-operator",
+    timestamp: "2026-05-01T09:08:00.000Z",
+    type: "success",
+    message: "Run completed: 3 outreach drafts delivered to queue",
+    taskId: "task-ajax-agent-loop",
+    cost: 42,
+  },
+  // Ajax Operator — Run 2 logs
+  {
+    id: "alog-ajax-run2-start",
+    agentId: "agent-ajax-operator",
+    timestamp: "2026-05-10T11:00:00.000Z",
+    type: "run",
+    message: "Run started: CRM update and task sync",
+    taskId: "task-ajax-agent-loop",
+  },
+  {
+    id: "alog-ajax-run2-info",
+    agentId: "agent-ajax-operator",
+    timestamp: "2026-05-10T11:01:30.000Z",
+    type: "info",
+    message: "Fetched 12 open tasks from queue",
+    taskId: "task-ajax-agent-loop",
+  },
+  {
+    id: "alog-ajax-run2-success",
+    agentId: "agent-ajax-operator",
+    timestamp: "2026-05-10T11:06:00.000Z",
+    type: "success",
+    message: "Run completed: CRM synced, 12 tasks updated",
+    taskId: "task-ajax-agent-loop",
+    cost: 35,
+  },
+  // Finance Tracker — Run 1
+  {
+    id: "alog-finance-run1-start",
+    agentId: "agent-finance-tracker",
+    timestamp: "2026-03-01T08:00:00.000Z",
+    type: "run",
+    message: "Run started: transaction categorization pass",
+  },
+  {
+    id: "alog-finance-run1-info",
+    agentId: "agent-finance-tracker",
+    timestamp: "2026-03-01T08:01:00.000Z",
+    type: "info",
+    message: "Processing 24 uncategorized transactions",
+  },
+  {
+    id: "alog-finance-run1-cost",
+    agentId: "agent-finance-tracker",
+    timestamp: "2026-03-01T08:02:30.000Z",
+    type: "cost",
+    message: "Model inference: $0.12 consumed",
+    cost: 12,
+  },
+  {
+    id: "alog-finance-run1-success",
+    agentId: "agent-finance-tracker",
+    timestamp: "2026-03-01T08:03:00.000Z",
+    type: "success",
+    message: "Run completed: 24 transactions categorized, 1 runway flag raised",
+    cost: 12,
+  },
+  // Outreach agent — error run
+  {
+    id: "alog-outreach-run1-start",
+    agentId: "agent-outreach",
+    timestamp: "2026-05-01T14:00:00.000Z",
+    type: "run",
+    message: "Run started: outreach sequence generation",
+    taskId: "task-ajax-outreach-templates",
+  },
+  {
+    id: "alog-outreach-run1-error",
+    agentId: "agent-outreach",
+    timestamp: "2026-05-01T14:01:20.000Z",
+    type: "error",
+    message: "Rate limit exceeded — provider throttled after 5 requests",
+    taskId: "task-ajax-outreach-templates",
+    details: "Error code 429. Draft-only mode activated. Manual retry required.",
+  },
+];
+
+export const seedAgentRuns: AgentRunRecord[] = [
+  // Ajax Operator — Run 1 (completed)
+  {
+    id: "run-ajax-1",
+    agentId: "agent-ajax-operator",
+    startedAt: "2026-05-01T09:00:00.000Z",
+    completedAt: "2026-05-01T09:08:00.000Z",
+    status: "completed",
+    taskId: "task-ajax-agent-loop",
+    outcome: "3 outreach drafts delivered to queue after approval",
+    totalCostCents: 42,
+    logs: [],
+  },
+  // Ajax Operator — Run 2 (completed)
+  {
+    id: "run-ajax-2",
+    agentId: "agent-ajax-operator",
+    startedAt: "2026-05-10T11:00:00.000Z",
+    completedAt: "2026-05-10T11:06:00.000Z",
+    status: "completed",
+    taskId: "task-ajax-agent-loop",
+    outcome: "CRM synced, 12 tasks updated",
+    totalCostCents: 35,
+    logs: [],
+  },
+  // Finance Tracker — Run 1 (completed)
+  {
+    id: "run-finance-1",
+    agentId: "agent-finance-tracker",
+    startedAt: "2026-03-01T08:00:00.000Z",
+    completedAt: "2026-03-01T08:03:00.000Z",
+    status: "completed",
+    outcome: "24 transactions categorized, 1 runway flag raised",
+    totalCostCents: 12,
+    logs: [],
+  },
+  // Outreach — Run 1 (failed)
+  {
+    id: "run-outreach-1",
+    agentId: "agent-outreach",
+    startedAt: "2026-05-01T14:00:00.000Z",
+    completedAt: "2026-05-01T14:01:20.000Z",
+    status: "failed",
+    taskId: "task-ajax-outreach-templates",
+    outcome: "Rate limit exceeded — provider throttled after 5 requests",
+    totalCostCents: 0,
+    logs: [],
+  },
+];
+
 export interface SeedData {
   profile: Profile;
   projects: Project[];
@@ -1227,6 +1394,8 @@ export interface SeedData {
   complianceReminders: ComplianceReminder[];
   legalQuestions: LegalQuestion[];
   formationChecklistItems: FormationChecklistItem[];
+  agentLogs: AgentLog[];
+  agentRuns: AgentRunRecord[];
 }
 
 export function createSeedData(referenceDate = new Date()): SeedData {
@@ -1248,6 +1417,8 @@ export function createSeedData(referenceDate = new Date()): SeedData {
     complianceReminders: seedComplianceReminders,
     legalQuestions: seedLegalQuestions,
     formationChecklistItems: seedFormationChecklistItems,
+    agentLogs: seedAgentLogs,
+    agentRuns: seedAgentRuns,
   };
 }
 

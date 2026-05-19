@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -107,9 +108,11 @@ export function ProjectForm({ project, onSuccess, onCancel }: ProjectFormProps) 
     try {
       if (project) {
         await updateProject(project.id, payload);
+        toast.success("Project updated");
         onSuccess({ ...project, ...payload });
       } else {
         const created = await createProject(payload);
+        toast.success("Project created");
         onSuccess(created);
       }
     } finally {

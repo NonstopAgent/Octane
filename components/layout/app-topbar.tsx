@@ -13,6 +13,7 @@ import {
   Plus,
   Scale,
   Search,
+  Sparkles,
   Timer,
   User,
   Wallet,
@@ -21,6 +22,7 @@ import {
 import { useRouter } from "next/navigation";
 
 import { clearAuthSession } from "@/lib/auth/mock-auth";
+import { OctaneAdvisorPanel } from "@/components/modules/advisor";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -32,6 +34,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 
 import { CommandPalette } from "./command-palette";
 
@@ -44,37 +52,33 @@ const NEW_ITEMS = [
   { label: "New Decision", href: "/decisions?new=1", icon: Scale },
   { label: "New Transaction", href: "/finance?new=1", icon: Wallet },
   {
-    label: "Compliance Reminder",
+    label: "New Document Metadata",
+    href: "/documents?new=1",
+    icon: FileText,
+  },
+  { label: "New Roadmap Item", href: "/roadmap?new=1", icon: Map },
+  {
+    label: "New Compliance Reminder",
     href: "/holdings?new=compliance",
     icon: Landmark,
   },
   {
-    label: "Legal Question",
+    label: "New Legal Question",
     href: "/holdings?new=legal-question",
     icon: Landmark,
   },
   {
-    label: "Formation Checklist Step",
-    href: "/holdings?new=checklist",
-    icon: Landmark,
-  },
-  {
-    label: "IP Asset",
+    label: "New IP Asset",
     href: "/holdings?new=ip-asset",
     icon: Landmark,
   },
-  {
-    label: "Document Metadata",
-    href: "/documents?new=1",
-    icon: FileText,
-  },
   { label: "New Entity", href: "/settings?new=entity", icon: User },
-  { label: "Roadmap Item", href: "/roadmap?new=1", icon: Map },
 ] as const;
 
 export function AppTopbar() {
   const router = useRouter();
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [advisorOpen, setAdvisorOpen] = useState(false);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -112,6 +116,16 @@ export function AppTopbar() {
         </div>
 
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setAdvisorOpen(true)}
+            className="h-9 gap-1.5 border-zinc-700 bg-zinc-900/70 text-zinc-200 hover:bg-zinc-800"
+          >
+            <Sparkles className="size-3.5 text-amber-400" aria-hidden />
+            <span className="hidden sm:inline">Advisor</span>
+          </Button>
+
           <DropdownMenu>
             <DropdownMenuTrigger
               render={
@@ -174,6 +188,20 @@ export function AppTopbar() {
       </header>
 
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
+
+      <Sheet open={advisorOpen} onOpenChange={setAdvisorOpen}>
+        <SheetContent
+          side="right"
+          className="flex w-full max-w-md flex-col border-zinc-800 bg-zinc-950 p-0"
+        >
+          <SheetHeader className="border-b border-zinc-800/80 px-4 py-3">
+            <SheetTitle className="text-zinc-100">Octane Advisor</SheetTitle>
+          </SheetHeader>
+          <div className="flex-1 overflow-y-auto px-4 py-4">
+            <OctaneAdvisorPanel context="dashboard" />
+          </div>
+        </SheetContent>
+      </Sheet>
     </>
   );
 }

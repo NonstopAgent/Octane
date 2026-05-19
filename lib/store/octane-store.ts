@@ -28,6 +28,7 @@ import type {
 } from "@/lib/types";
 
 import type { ActivityLog } from "@/lib/types/activity-log";
+import type { AgentLog, AgentRunRecord } from "@/lib/types/agent-log";
 
 import {
   createActivityLog,
@@ -55,6 +56,8 @@ export interface OctanePersistedState {
   complianceReminders: ComplianceReminder[];
   legalQuestions: LegalQuestion[];
   formationChecklistItems: FormationChecklistItem[];
+  agentLogs: AgentLog[];
+  agentRuns: AgentRunRecord[];
 }
 
 type CreatableProject = Omit<Project, "id" | "createdAt" | "updatedAt">;
@@ -158,6 +161,16 @@ export interface OctaneStore extends OctanePersistedState {
   updateAgent: (id: string, data: Partial<Agent>) => void;
   deleteAgent: (id: string) => void;
   getAgentById: (id: string) => Agent | undefined;
+  updateAgentStatus: (agentId: string, status: Agent["status"]) => void;
+  assignAgentToTask: (agentId: string, taskId: string) => void;
+  assignAgentToProject: (agentId: string, projectId: string) => void;
+
+  // Agent logs & runs
+  addAgentLog: (log: Omit<AgentLog, "id" | "timestamp">) => AgentLog;
+  startAgentRun: (agentId: string, taskId?: string) => string;
+  completeAgentRun: (runId: string, outcome: string, totalCostCents?: number) => void;
+  failAgentRun: (runId: string, reason: string) => void;
+  clearAgentLogs: (agentId: string) => void;
 
   // Profile
   updateProfile: (data: Partial<Profile>) => void;
@@ -250,6 +263,8 @@ export function selectOctanePersistedState(
     complianceReminders: state.complianceReminders,
     legalQuestions: state.legalQuestions,
     formationChecklistItems: state.formationChecklistItems,
+    agentLogs: state.agentLogs,
+    agentRuns: state.agentRuns,
   };
 }
 
@@ -306,6 +321,8 @@ function normalizePersistedState(
     complianceReminders: asArray(persisted.complianceReminders),
     legalQuestions: asArray(persisted.legalQuestions),
     formationChecklistItems: asArray(persisted.formationChecklistItems),
+    agentLogs: asArray(persisted.agentLogs),
+    agentRuns: asArray(persisted.agentRuns),
   };
 }
 
@@ -738,6 +755,114 @@ export const useOctaneStore = create<OctaneStore>()(
         }));
       },
       getAgentById: (id) => get().agents.find((a) => a.id === id),
+
+      updateAgentStatus: (agentId, status) => {
+        set((state) => ({
+          agents: state.agents.map((a) =>
+            a.id === agentId ? { ...a, status, ...touch() } : a,
+          ),
+        }));
+      },
+
+      assignAgentToTask: (agentId, taskId) => {
+        set((state) => ({
+          agents: state.agents.map((a) =>
+            a.id === agentId ? { ...a, currentTask: taskId, ...touch() } : a,
+          ),
+        }));
+      },
+
+      assignAgentToProject: (agentId, projectId) => {
+        set((state) => ({
+          agents: state.agents.map((a) =>
+            a.id === agentId
+              ? { ...a, assignedProjectId: projectId, ...touch() }
+              : a,
+          ),
+        }));
+      },
+
+      addAgentLog: (log) => {
+        const newLog: AgentLog = {
+          ...log,
+          id: createId("alog"),
+          timestamp: new Date().toISOString(),
+        };
+        set((state) => ({
+          agentLogs: [newLog, ...state.agentLogs],
+        }));
+        return newLog;
+      },
+
+      startAgentRun: (agentId, taskId) => {
+        const runId = createId("run");
+        const run: AgentRunRecord = {
+          id: runId,
+          agentId,
+          startedAt: new Date().toISOString(),
+          status: "running",
+          taskId,
+          logs: [],
+        };
+        set((state) => ({
+          agentRuns: [run, ...state.agentRuns],
+          agents: state.agents.map((a) =>
+            a.id === agentId
+              ? { ...a, status: "running", lastRunAt: run.startedAt, ...touch() }
+              : a,
+          ),
+        }));
+        return runId;
+      },
+
+      completeAgentRun: (runId, outcome, totalCostCents) => {
+        const completedAt = new Date().toISOString();
+        set((state) => {
+          const run = state.agentRuns.find((r) => r.id === runId);
+          return {
+            agentRuns: state.agentRuns.map((r) =>
+              r.id === runId
+                ? { ...r, status: "completed", completedAt, outcome, totalCostCents }
+                : r,
+            ),
+            agents: run
+              ? state.agents.map((a) =>
+                  a.id === run.agentId
+                    ? { ...a, status: "idle", ...touch() }
+                    : a,
+                )
+              : state.agents,
+          };
+        });
+      },
+
+      failAgentRun: (runId, reason) => {
+        const completedAt = new Date().toISOString();
+        set((state) => {
+          const run = state.agentRuns.find((r) => r.id === runId);
+          return {
+            agentRuns: state.agentRuns.map((r) =>
+              r.id === runId
+                ? { ...r, status: "failed", completedAt, outcome: reason }
+                : r,
+            ),
+            agents: run
+              ? state.agents.map((a) =>
+                  a.id === run.agentId
+                    ? { ...a, status: "error", ...touch() }
+                    : a,
+                )
+              : state.agents,
+          };
+        });
+      },
+
+      clearAgentLogs: (agentId) => {
+        set((state) => ({
+          agentLogs: state.agentLogs.filter((l) => l.agentId !== agentId),
+          agentRuns: state.agentRuns.filter((r) => r.agentId !== agentId),
+        }));
+      },
 
       updateProfile: (data) => {
         set((state) => ({
@@ -1231,7 +1356,7 @@ export const useOctaneStore = create<OctaneStore>()(
 
       resetToSeed: () => {
         const hadActivity = get().activityLogs.length > 0;
-        set({ ...createSeedData(), activityLogs: [] });
+        set({ ...createSeedData(), activityLogs: [], agentLogs: [], agentRuns: [] });
         if (hadActivity) {
           logActivity(set, get, {
             action: "reset",
@@ -1301,7 +1426,7 @@ export const useOctaneStore = create<OctaneStore>()(
           entityName: "Local data",
           description: "Cleared all local workspace data",
         });
-        set({ ...createSeedData(), activityLogs: [entry] });
+        set({ ...createSeedData(), activityLogs: [entry], agentLogs: [], agentRuns: [] });
       },
     }),
     {
@@ -1324,6 +1449,8 @@ export const useOctaneStore = create<OctaneStore>()(
         complianceReminders: state.complianceReminders,
         legalQuestions: state.legalQuestions,
         formationChecklistItems: state.formationChecklistItems,
+        agentLogs: state.agentLogs,
+        agentRuns: state.agentRuns,
       }),
       merge: (persisted, current) => {
         const persistedState = normalizePersistedState(
@@ -1347,6 +1474,8 @@ export const useOctaneStore = create<OctaneStore>()(
           formationChecklistItems:
             persistedState?.formationChecklistItems ??
             createSeedData().formationChecklistItems,
+          agentLogs: persistedState?.agentLogs ?? [],
+          agentRuns: persistedState?.agentRuns ?? [],
         };
       },
     },

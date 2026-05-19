@@ -11,6 +11,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { format } from "date-fns";
+import { toast } from "sonner";
 
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState, MetricCard, SectionHeader } from "@/components/modules";
@@ -159,6 +160,7 @@ function FinancePageContent() {
       transactionDate: form.transactionDate,
       projectId: form.projectId || undefined,
     });
+    toast.success("Transaction saved");
     setDialogOpen(false);
     resetForm();
   };

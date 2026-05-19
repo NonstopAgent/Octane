@@ -61,3 +61,4 @@ export type {
   FormationChecklistItem,
   FormationChecklistStatus,
 } from "./formation-checklist-item";
+export type { AgentLog, AgentRunRecord } from "./agent-log";

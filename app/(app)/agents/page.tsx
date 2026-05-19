@@ -1,27 +1,18 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Bot } from "lucide-react";
-import { format } from "date-fns";
 
 import { PageHeader } from "@/components/layout/page-header";
-import { EmptyState, StatusBadge } from "@/components/modules";
-import { formatStatusLabel } from "@/components/modules/badge-tones";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState } from "@/components/modules";
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+  AgentCostSummary,
+  AgentDetailPanel,
+  AgentTable,
+} from "@/components/modules/agents";
 import { useOctaneStore } from "@/lib/store/octane-store";
-import type { Agent } from "@/lib/types";
-
-const tableClass =
-  "w-full text-left text-sm [&_th]:border-b [&_th]:border-zinc-800 [&_th]:px-3 [&_th]:py-2 [&_th]:font-medium [&_th]:text-zinc-400 [&_td]:border-b [&_td]:border-zinc-800/60 [&_td]:px-3 [&_td]:py-2.5 [&_tr:last-child_td]:border-0";
+import type { Agent, AgentStatus } from "@/lib/types";
 
 export default function AgentsPage() {
   return (
@@ -33,26 +24,159 @@ export default function AgentsPage() {
 
 function AgentsPageContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
+
   const agents = useOctaneStore((state) => state.agents);
+  const projects = useOctaneStore((state) => state.projects);
+  const tasks = useOctaneStore((state) => state.tasks);
+  const agentLogs = useOctaneStore((state) => state.agentLogs);
+  const agentRuns = useOctaneStore((state) => state.agentRuns);
+
   const getProjectById = useOctaneStore((state) => state.getProjectById);
   const getTaskById = useOctaneStore((state) => state.getTaskById);
 
-  const [selected, setSelected] = useState<Agent | null>(null);
+  const updateAgentStatus = useOctaneStore((state) => state.updateAgentStatus);
+  const assignAgentToProject = useOctaneStore((state) => state.assignAgentToProject);
+  const assignAgentToTask = useOctaneStore((state) => state.assignAgentToTask);
+  const addAgentLog = useOctaneStore((state) => state.addAgentLog);
+  const startAgentRun = useOctaneStore((state) => state.startAgentRun);
+  const completeAgentRun = useOctaneStore((state) => state.completeAgentRun);
+  const clearAgentLogs = useOctaneStore((state) => state.clearAgentLogs);
 
+  const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+
+  // Sync ?detail= query param
   useEffect(() => {
     const detail = searchParams.get("detail");
     if (detail) {
       const agent = agents.find((a) => a.id === detail);
-      if (agent) setSelected(agent);
+      if (agent) {
+        setSelectedAgent(agent);
+        setDetailOpen(true);
+      }
     }
   }, [searchParams, agents]);
+
+  // Keep selectedAgent in sync when store changes (e.g. status update)
+  useEffect(() => {
+    if (selectedAgent) {
+      const refreshed = agents.find((a) => a.id === selectedAgent.id);
+      if (refreshed) setSelectedAgent(refreshed);
+    }
+  }, [agents, selectedAgent?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function handleSelectAgent(agent: Agent) {
+    setSelectedAgent(agent);
+    setDetailOpen(true);
+  }
+
+  function handleDetailClose(open: boolean) {
+    setDetailOpen(open);
+    if (!open) {
+      // Remove ?detail= from URL without a full navigation
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete("detail");
+      const qs = params.toString();
+      router.replace(qs ? `?${qs}` : "/agents", { scroll: false });
+    }
+  }
+
+  const handleSimulateRun = useCallback(
+    (agentId: string) => {
+      const agent = agents.find((a) => a.id === agentId);
+      if (!agent) return;
+
+      const runId = startAgentRun(agentId, agent.currentTask);
+
+      addAgentLog({
+        agentId,
+        type: "run",
+        message: "Simulated run started (demo)",
+        taskId: agent.currentTask,
+      });
+      addAgentLog({
+        agentId,
+        type: "info",
+        message: "Processing task queue…",
+        taskId: agent.currentTask,
+      });
+
+      // Simulate async completion after 2 seconds
+      setTimeout(() => {
+        const success = Math.random() > 0.25;
+        if (success) {
+          addAgentLog({
+            agentId,
+            type: "success",
+            message: "Simulated run completed successfully",
+            cost: Math.round(Math.random() * 50 + 5),
+            taskId: agent.currentTask,
+          });
+          completeAgentRun(
+            runId,
+            "Demo run completed — no real actions taken",
+            Math.round(Math.random() * 50 + 5),
+          );
+        } else {
+          addAgentLog({
+            agentId,
+            type: "error",
+            message: "Simulated run encountered an error (demo only)",
+            details: "No actual system affected — this is a demo failure.",
+            taskId: agent.currentTask,
+          });
+          completeAgentRun(runId, "Demo failure (simulated)", 0);
+        }
+      }, 1500);
+    },
+    [agents, startAgentRun, addAgentLog, completeAgentRun],
+  );
+
+  const handleUpdateStatus = useCallback(
+    (agentId: string, status: AgentStatus) => {
+      updateAgentStatus(agentId, status);
+    },
+    [updateAgentStatus],
+  );
+
+  const handleAssignProject = useCallback(
+    (agentId: string, projectId: string) => {
+      assignAgentToProject(agentId, projectId);
+    },
+    [assignAgentToProject],
+  );
+
+  const handleAssignTask = useCallback(
+    (agentId: string, taskId: string) => {
+      assignAgentToTask(agentId, taskId);
+    },
+    [assignAgentToTask],
+  );
+
+  const handleClearLogs = useCallback(
+    (agentId: string) => {
+      clearAgentLogs(agentId);
+    },
+    [clearAgentLogs],
+  );
+
+  function getProjectName(id?: string) {
+    if (!id) return "—";
+    return getProjectById(id)?.name ?? "—";
+  }
+
+  function getTaskTitle(id?: string) {
+    if (!id) return "—";
+    return getTaskById(id)?.title ?? id;
+  }
 
   if (agents.length === 0) {
     return (
       <div className="space-y-8">
         <PageHeader
-          title="Agents"
-          description="AI operators assigned to projects and tasks."
+          title="Agent Control Center"
+          description="Monitor, control, and configure Octane's AI operators."
         />
         <EmptyState
           icon={Bot}
@@ -66,127 +190,37 @@ function AgentsPageContent() {
   return (
     <div className="space-y-8">
       <PageHeader
-        title="Agents"
-        description="Read-only view of seeded AI agents. Full logs ship in a later session."
+        title="Agent Control Center"
+        description="Monitor, control, and configure Octane's AI operators."
       />
 
-      <Card className="border-zinc-800/80 bg-zinc-900/30 overflow-x-auto">
-        <CardContent className="p-0">
-          <table className={tableClass}>
-            <thead>
-              <tr>
-                <th>Agent</th>
-                <th>Status</th>
-                <th>Project</th>
-                <th>Last run</th>
-                <th>Success</th>
-              </tr>
-            </thead>
-            <tbody>
-              {agents.map((agent) => {
-                const project = agent.assignedProjectId
-                  ? getProjectById(agent.assignedProjectId)
-                  : undefined;
-                return (
-                  <tr
-                    key={agent.id}
-                    className="cursor-pointer hover:bg-zinc-800/30"
-                    onClick={() => setSelected(agent)}
-                  >
-                    <td className="font-medium text-zinc-200">{agent.name}</td>
-                    <td>
-                      <StatusBadge domain="agent" status={agent.status} />
-                    </td>
-                    <td className="text-zinc-400">{project?.name ?? "—"}</td>
-                    <td className="text-zinc-400">
-                      {agent.lastRunAt
-                        ? format(new Date(agent.lastRunAt), "MMM d, yyyy")
-                        : "—"}
-                    </td>
-                    <td className="text-zinc-400">
-                      {agent.successRate != null
-                        ? `${Math.round(agent.successRate * 100)}%`
-                        : "—"}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </CardContent>
-      </Card>
+      {/* Cost summary cards */}
+      <AgentCostSummary agents={agents} agentRuns={agentRuns} />
 
-      <Sheet
-        open={Boolean(selected)}
-        onOpenChange={(open) => !open && setSelected(null)}
-      >
-        <SheetContent
-          side="right"
-          className="w-full border-zinc-800 bg-zinc-950 sm:max-w-md"
-        >
-          {selected ? (
-            <>
-              <SheetHeader>
-                <SheetTitle className="text-zinc-50">{selected.name}</SheetTitle>
-                <SheetDescription className="text-zinc-400">
-                  {selected.purpose}
-                </SheetDescription>
-              </SheetHeader>
-              <div className="space-y-4 p-4 pt-0 text-sm">
-                <StatusBadge domain="agent" status={selected.status} />
-                <div>
-                  <p className="text-xs font-medium uppercase text-zinc-500">
-                    Mission
-                  </p>
-                  <p className="mt-1 text-zinc-300">{selected.purpose}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-medium uppercase text-zinc-500">
-                    Project
-                  </p>
-                  <p className="mt-1 text-zinc-200">
-                    {selected.assignedProjectId
-                      ? getProjectById(selected.assignedProjectId)?.name
-                      : "Unassigned"}
-                  </p>
-                </div>
-                {selected.currentTask ? (
-                  <div>
-                    <p className="text-xs font-medium uppercase text-zinc-500">
-                      Current task
-                    </p>
-                    <p className="mt-1 text-zinc-300">
-                      {getTaskById(selected.currentTask)?.title ??
-                        selected.currentTask}
-                    </p>
-                  </div>
-                ) : null}
-                <div>
-                  <p className="text-xs font-medium uppercase text-zinc-500">
-                    Capabilities
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {selected.capabilities.map((capability) => (
-                      <Badge
-                        key={capability}
-                        variant="outline"
-                        className="border-zinc-700 text-zinc-400"
-                      >
-                        {formatStatusLabel(capability)}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-                {selected.safetyLimits ? (
-                  <p className="rounded-lg border border-amber-900/50 bg-amber-950/20 p-3 text-xs text-amber-200/90">
-                    {selected.safetyLimits}
-                  </p>
-                ) : null}
-              </div>
-            </>
-          ) : null}
-        </SheetContent>
-      </Sheet>
+      {/* Agent table with filters */}
+      <AgentTable
+        agents={agents}
+        agentRuns={agentRuns}
+        getProjectName={getProjectName}
+        getTaskTitle={getTaskTitle}
+        onSelect={handleSelectAgent}
+      />
+
+      {/* Detail panel (sheet) */}
+      <AgentDetailPanel
+        agent={selectedAgent}
+        open={detailOpen}
+        onOpenChange={handleDetailClose}
+        agentLogs={agentLogs}
+        agentRuns={agentRuns}
+        projects={projects}
+        tasks={tasks}
+        onUpdateStatus={handleUpdateStatus}
+        onAssignProject={handleAssignProject}
+        onAssignTask={handleAssignTask}
+        onSimulateRun={handleSimulateRun}
+        onClearLogs={handleClearLogs}
+      />
     </div>
   );
 }

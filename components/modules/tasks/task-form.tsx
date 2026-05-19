@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -104,9 +105,11 @@ export function TaskForm({ task, onSuccess, onCancel }: TaskFormProps) {
     try {
       if (task) {
         await updateTask(task.id, payload);
+        toast.success("Task updated");
         onSuccess({ ...task, ...payload });
       } else {
         const created = await createTask(payload);
+        toast.success("Task created");
         onSuccess(created);
       }
     } finally {

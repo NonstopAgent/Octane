@@ -20,6 +20,7 @@ import { useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
 
 import { PageHeader } from "@/components/layout/page-header";
+import { OctaneAdvisorPanel } from "@/components/modules/advisor";
 import { EmptyState, MetricCard, StatusBadge } from "@/components/modules";
 import {
   Card,
@@ -340,6 +341,18 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card className="border-zinc-800/80 bg-zinc-900/40 ring-zinc-800/60">
+        <CardHeader>
+          <CardTitle className="text-zinc-100">Strategic Advisor</CardTitle>
+          <CardDescription className="text-zinc-500">
+            Rule-based analysis of your current operating state
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <OctaneAdvisorPanel context="dashboard" />
+        </CardContent>
+      </Card>
 
       <Card className="border-zinc-800/80 bg-zinc-900/40 ring-zinc-800/60">
         <CardHeader>

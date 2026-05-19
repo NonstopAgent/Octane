@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 import { formatStatusLabel } from "@/components/modules/badge-tones";
 import { Button } from "@/components/ui/button";
@@ -103,8 +104,10 @@ export function RoadmapFormDialog({
 
     if (item) {
       updateRoadmapItem(item.id, payload);
+      toast.success("Roadmap item updated");
     } else {
       createRoadmapItem(payload);
+      toast.success("Roadmap item created");
     }
     onOpenChange(false);
     onSaved?.();

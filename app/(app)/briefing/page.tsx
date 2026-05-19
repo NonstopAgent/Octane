@@ -16,6 +16,7 @@ import { useMemo, type ComponentType } from "react";
 import { useShallow } from "zustand/react/shallow";
 
 import { PageHeader } from "@/components/layout/page-header";
+import { OctaneAdvisorPanel } from "@/components/modules/advisor";
 import { EmptyState, PriorityBadge, StatusBadge } from "@/components/modules";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -472,6 +473,14 @@ export default function BriefingPage() {
             </li>
           ))}
         </ul>
+      </BriefingSection>
+
+      <BriefingSection
+        title="Octane Advisor"
+        description="Rule-based strategic insights from your current operating state"
+        icon={Sparkles}
+      >
+        <OctaneAdvisorPanel context="briefing" />
       </BriefingSection>
     </div>
   );

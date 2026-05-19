@@ -320,6 +320,7 @@ function DocumentsPageContent() {
                 tags: ["metadata"],
                 uploadedBy: profile.name,
               });
+              toast.success("Document record created");
               setMetadataName("");
               setMetadataOpen(false);
             }}

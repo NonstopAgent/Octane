@@ -4,6 +4,7 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Building2, Pencil, Plus, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 import { PageHeader } from "@/components/layout/page-header";
 import { ConfirmDialog, EmptyState, SectionHeader } from "@/components/modules";
@@ -116,6 +117,7 @@ function SettingsPageContent() {
   const saveFounder = (event: React.FormEvent) => {
     event.preventDefault();
     updateProfile(founderForm);
+    toast.success("Profile saved");
   };
 
   const openCreateEntity = () => {
@@ -160,8 +162,10 @@ function SettingsPageContent() {
 
     if (editingEntity) {
       updateEntity(editingEntity.id, payload);
+      toast.success("Entity updated");
     } else {
       createEntity(payload);
+      toast.success("Entity created");
     }
     setEntityDialogOpen(false);
     setEditingEntity(null);
