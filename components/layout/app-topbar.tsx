@@ -16,6 +16,7 @@ import {
   Timer,
   User,
   Wallet,
+  Landmark,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -42,6 +43,26 @@ const NEW_ITEMS = [
   { label: "New Task", href: "/tasks?new=1", icon: CheckSquare },
   { label: "New Decision", href: "/decisions?new=1", icon: Scale },
   { label: "New Transaction", href: "/finance?new=1", icon: Wallet },
+  {
+    label: "Compliance Reminder",
+    href: "/holdings?new=compliance",
+    icon: Landmark,
+  },
+  {
+    label: "Legal Question",
+    href: "/holdings?new=legal-question",
+    icon: Landmark,
+  },
+  {
+    label: "Formation Checklist Step",
+    href: "/holdings?new=checklist",
+    icon: Landmark,
+  },
+  {
+    label: "IP Asset",
+    href: "/holdings?new=ip-asset",
+    icon: Landmark,
+  },
   {
     label: "Document Metadata",
     href: "/documents?new=1",

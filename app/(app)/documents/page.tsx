@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { format } from "date-fns";
 import { FileUp, Upload } from "lucide-react";
@@ -128,6 +129,14 @@ function DocumentsPageContent() {
               className="hidden"
               onChange={handleUpload}
             />
+            <Button
+              type="button"
+              variant="outline"
+              className="border-zinc-700"
+              render={<Link href="/holdings#document-ownership" />}
+            >
+              Holdings
+            </Button>
             <Button
               type="button"
               variant="outline"

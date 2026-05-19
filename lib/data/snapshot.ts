@@ -2,12 +2,15 @@ import { appVersion, dataSchemaVersion } from "@/lib/version";
 import type {
   ActivityLog,
   Agent,
+  ComplianceReminder,
   Decision,
   Document,
   Entity,
+  FormationChecklistItem,
   FounderNote,
   InboxItem,
   IPAsset,
+  LegalQuestion,
   Profile,
   Project,
   RoadmapItem,
@@ -31,6 +34,9 @@ export interface OctaneSnapshot {
   workSessions: WorkSession[];
   inboxItems: InboxItem[];
   founderNotes: FounderNote[];
+  complianceReminders: ComplianceReminder[];
+  legalQuestions: LegalQuestion[];
+  formationChecklistItems: FormationChecklistItem[];
   generatedAt: string;
   appVersion: string;
   dataSchemaVersion: string;
@@ -50,6 +56,9 @@ const SNAPSHOT_ARRAY_KEYS = [
   "workSessions",
   "inboxItems",
   "founderNotes",
+  "complianceReminders",
+  "legalQuestions",
+  "formationChecklistItems",
 ] as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -121,6 +130,9 @@ export function exportSnapshotData(state: Omit<OctaneSnapshot, "generatedAt" | "
     workSessions: state.workSessions,
     inboxItems: state.inboxItems,
     founderNotes: state.founderNotes,
+    complianceReminders: state.complianceReminders,
+    legalQuestions: state.legalQuestions,
+    formationChecklistItems: state.formationChecklistItems,
     generatedAt: new Date().toISOString(),
     appVersion,
     dataSchemaVersion,

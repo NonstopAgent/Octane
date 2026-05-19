@@ -18,6 +18,8 @@ export interface IPAsset {
   name: string;
   type: IPAssetType;
   ownerEntity: string;
+  /** Target owner once structure is finalized (gap when different from ownerEntity). */
+  intendedOwnerEntity?: string;
   projectId?: string;
   protectionStatus: IPProtectionStatus;
   notes?: string;

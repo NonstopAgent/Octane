@@ -15,6 +15,7 @@ import {
   Settings,
   Wallet,
   FolderKanban,
+  Landmark,
 } from "lucide-react";
 
 export type NavItem = {
@@ -35,6 +36,7 @@ export const mainNavItems: NavItem[] = [
   { title: "Review", href: "/review", icon: ClipboardCheck },
   { title: "Agents", href: "/agents", icon: Bot },
   { title: "Finance", href: "/finance", icon: Wallet },
+  { title: "Holdings", href: "/holdings", icon: Landmark },
   { title: "Documents", href: "/documents", icon: FileText },
   { title: "Decisions", href: "/decisions", icon: Scale },
   { title: "Roadmap", href: "/roadmap", icon: Map },

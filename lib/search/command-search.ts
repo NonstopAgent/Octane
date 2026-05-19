@@ -12,6 +12,9 @@ export type SearchResultType =
   | "decision"
   | "roadmapItem"
   | "entity"
+  | "complianceReminder"
+  | "legalQuestion"
+  | "formationChecklist"
   | "workSession"
   | "inboxItem"
   | "founderNote";
@@ -50,6 +53,9 @@ const TYPE_LABELS: Record<SearchResultType, string> = {
   decision: "Decision",
   roadmapItem: "Roadmap",
   entity: "Entity",
+  complianceReminder: "Compliance",
+  legalQuestion: "Legal Question",
+  formationChecklist: "Formation",
   workSession: "Work Session",
   inboxItem: "Inbox",
   founderNote: "Founder Note",
@@ -191,7 +197,8 @@ export function searchCommandIndex(
       description: `${asset.type} · ${asset.protectionStatus}`,
       projectId: asset.projectId,
       projectName,
-      href: "/documents",
+      href: "/holdings",
+      detailParam: asset.id,
     });
   }
 
@@ -233,7 +240,50 @@ export function searchCommandIndex(
       type: "entity",
       title: entity.name,
       description: `${entity.type} · ${entity.status}`,
-      href: "/settings",
+      href: "/holdings",
+      detailParam: entity.id,
+    });
+  }
+
+  for (const reminder of state.complianceReminders) {
+    push({
+      id: reminder.id,
+      type: "complianceReminder",
+      title: reminder.title,
+      description: `${reminder.category} · due ${reminder.dueDate}`,
+      projectId: reminder.projectId,
+      projectName: reminder.projectId
+        ? projectNames.get(reminder.projectId)
+        : undefined,
+      href: "/holdings",
+      detailParam: reminder.id,
+    });
+  }
+
+  for (const question of state.legalQuestions) {
+    const projectName = question.projectId
+      ? projectNames.get(question.projectId)
+      : undefined;
+    push({
+      id: question.id,
+      type: "legalQuestion",
+      title: question.question.slice(0, 80),
+      description: `${question.priority} · ${question.status}`,
+      projectId: question.projectId,
+      projectName,
+      href: "/holdings",
+      detailParam: question.id,
+    });
+  }
+
+  for (const item of state.formationChecklistItems) {
+    push({
+      id: item.id,
+      type: "formationChecklist",
+      title: item.title,
+      description: item.status,
+      href: "/holdings",
+      detailParam: item.id,
     });
   }
 
@@ -305,6 +355,9 @@ export function groupSearchResults(
     decision: [],
     roadmapItem: [],
     entity: [],
+    complianceReminder: [],
+    legalQuestion: [],
+    formationChecklist: [],
     workSession: [],
     inboxItem: [],
     founderNote: [],

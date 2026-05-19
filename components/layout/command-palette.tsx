@@ -40,6 +40,9 @@ const GROUP_ORDER: SearchResultType[] = [
   "roadmapItem",
   "agent",
   "entity",
+  "complianceReminder",
+  "legalQuestion",
+  "formationChecklist",
 ];
 
 type CommandPaletteProps = {

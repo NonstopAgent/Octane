@@ -3,12 +3,15 @@ import { addDays, format, startOfWeek } from "date-fns";
 import type {
   ActivityLog,
   Agent,
+  ComplianceReminder,
   Decision,
   Document,
   Entity,
+  FormationChecklistItem,
   FounderNote,
   InboxItem,
   IPAsset,
+  LegalQuestion,
   Profile,
   Project,
   RoadmapItem,
@@ -680,11 +683,24 @@ export const seedDocuments: Document[] = [
     id: "doc-q1-financials",
     name: "Q1 2026 Operating Summary",
     category: "financial",
-    status: "archived",
+    status: "needs_review",
     tags: ["finance", "quarterly"],
     uploadedBy: "Logan",
+    notes: "Confirm entity attribution before filing",
     createdAt: T1,
     updatedAt: T2,
+  },
+  {
+    id: "doc-ip-assignment",
+    name: "IP Assignment Agreement — Ajax",
+    category: "legal",
+    projectId: PROJECT_IDS.ajax,
+    status: "needs_review",
+    tags: ["ip", "assignment"],
+    uploadedBy: "Logan",
+    notes: "Ownership gap: Ajax codebase still in Labs LLC",
+    createdAt: T2,
+    updatedAt: T3,
   },
 ];
 
@@ -694,6 +710,7 @@ export const seedIPAssets: IPAsset[] = [
     name: "Octane Wordmark",
     type: "brand",
     ownerEntity: ENTITY_IDS.labsLlc,
+    intendedOwnerEntity: ENTITY_IDS.holdingsTrust,
     protectionStatus: "in_progress",
     notes: "Trademark search pending",
     createdAt: T0,
@@ -714,6 +731,7 @@ export const seedIPAssets: IPAsset[] = [
     name: "Ajax Operator Agent Codebase",
     type: "software",
     ownerEntity: ENTITY_IDS.labsLlc,
+    intendedOwnerEntity: ENTITY_IDS.holdingsTrust,
     projectId: PROJECT_IDS.ajax,
     protectionStatus: "unprotected",
     notes: "Assign to trust upon formation",
@@ -1027,6 +1045,170 @@ export const seedFounderNotes: FounderNote[] = [
   },
 ];
 
+export const seedComplianceReminders: ComplianceReminder[] = [
+  {
+    id: "compliance-trust-annual",
+    title: "Holdings Trust — annual review",
+    description: "Trustee sign-off and beneficiary schedule check",
+    dueDate: "2026-06-15",
+    entityId: ENTITY_IDS.holdingsTrust,
+    category: "governance",
+    status: "pending",
+    createdAt: T1,
+    updatedAt: T2,
+  },
+  {
+    id: "compliance-labs-franchise",
+    title: "Wyoming LLC annual report — Labs",
+    dueDate: "2026-07-01",
+    entityId: ENTITY_IDS.labsLlc,
+    category: "annual_filing",
+    status: "pending",
+    createdAt: T0,
+    updatedAt: T1,
+  },
+  {
+    id: "compliance-caplab-insurance",
+    title: "Capital Lab E&O insurance renewal",
+    dueDate: "2026-04-20",
+    entityId: ENTITY_IDS.capitalLab,
+    projectId: PROJECT_IDS.capitalLab,
+    category: "insurance",
+    status: "overdue",
+    notes: "Quote from broker pending",
+    createdAt: T2,
+    updatedAt: T3,
+  },
+];
+
+export const seedLegalQuestions: LegalQuestion[] = [
+  {
+    id: "legal-q-trust-timing",
+    question: "When should Ajax IP move into the holdings trust?",
+    context: "Pilot customers signing before trust formation completes",
+    status: "open",
+    priority: "high",
+    entityId: ENTITY_IDS.holdingsTrust,
+    projectId: PROJECT_IDS.ajax,
+    createdAt: T1,
+    updatedAt: T3,
+  },
+  {
+    id: "legal-q-revenue-flow",
+    question: "Operating revenue routing: Labs vs trust?",
+    status: "researching",
+    priority: "high",
+    entityId: ENTITY_IDS.labsLlc,
+    createdAt: T1,
+    updatedAt: T2,
+  },
+  {
+    id: "legal-q-caplab-securities",
+    question: "Does Capital Lab signal product need registration analysis?",
+    status: "open",
+    priority: "medium",
+    entityId: ENTITY_IDS.capitalLab,
+    projectId: PROJECT_IDS.capitalLab,
+    createdAt: T2,
+    updatedAt: T2,
+  },
+  {
+    id: "legal-q-nexus-data",
+    question: "Nexus corpus — sublicensing terms for third-party feeds?",
+    status: "deferred",
+    priority: "low",
+    projectId: PROJECT_IDS.nexus,
+    createdAt: T2,
+    updatedAt: T2,
+  },
+  {
+    id: "legal-q-brand-assignment",
+    question: "Trademark filing entity: Labs or trust?",
+    status: "open",
+    priority: "medium",
+    entityId: ENTITY_IDS.labsLlc,
+    notes: "Counsel draft references trust as eventual owner",
+    createdAt: T0,
+    updatedAt: T1,
+  },
+];
+
+export const seedFormationChecklistItems: FormationChecklistItem[] = [
+  {
+    id: "formation-trust-deed",
+    title: "Execute trust deed",
+    description: "Sign and notarize with Wyoming counsel",
+    status: "in_progress",
+    entityId: ENTITY_IDS.holdingsTrust,
+    sortOrder: 1,
+    createdAt: T0,
+    updatedAt: T2,
+  },
+  {
+    id: "formation-trust-ein",
+    title: "Obtain trust EIN",
+    status: "pending",
+    entityId: ENTITY_IDS.holdingsTrust,
+    sortOrder: 2,
+    createdAt: T0,
+    updatedAt: T0,
+  },
+  {
+    id: "formation-trust-bank",
+    title: "Open trust bank account",
+    status: "blocked",
+    entityId: ENTITY_IDS.holdingsTrust,
+    sortOrder: 3,
+    notes: "Blocked on executed deed",
+    createdAt: T1,
+    updatedAt: T2,
+  },
+  {
+    id: "formation-ip-assignment",
+    title: "Draft IP assignment schedule",
+    status: "in_progress",
+    entityId: ENTITY_IDS.holdingsTrust,
+    sortOrder: 4,
+    createdAt: T1,
+    updatedAt: T3,
+  },
+  {
+    id: "formation-labs-operating",
+    title: "Labs LLC operating agreement — final",
+    status: "done",
+    entityId: ENTITY_IDS.labsLlc,
+    sortOrder: 5,
+    createdAt: T0,
+    updatedAt: T1,
+  },
+  {
+    id: "formation-caplab-register",
+    title: "Register Capital Lab entity",
+    status: "done",
+    entityId: ENTITY_IDS.capitalLab,
+    sortOrder: 6,
+    createdAt: T1,
+    updatedAt: T2,
+  },
+  {
+    id: "formation-capitalization-table",
+    title: "Internal capitalization table",
+    status: "pending",
+    sortOrder: 7,
+    createdAt: T2,
+    updatedAt: T2,
+  },
+  {
+    id: "formation-beneficial-owners",
+    title: "Beneficial ownership disclosure draft",
+    status: "pending",
+    entityId: ENTITY_IDS.holdingsTrust,
+    sortOrder: 8,
+    createdAt: T2,
+    updatedAt: T3,
+  },
+];
+
 export interface SeedData {
   profile: Profile;
   projects: Project[];
@@ -1042,6 +1224,9 @@ export interface SeedData {
   workSessions: WorkSession[];
   inboxItems: InboxItem[];
   founderNotes: FounderNote[];
+  complianceReminders: ComplianceReminder[];
+  legalQuestions: LegalQuestion[];
+  formationChecklistItems: FormationChecklistItem[];
 }
 
 export function createSeedData(referenceDate = new Date()): SeedData {
@@ -1060,6 +1245,9 @@ export function createSeedData(referenceDate = new Date()): SeedData {
     workSessions: seedWorkSessions,
     inboxItems: seedInboxItems,
     founderNotes: seedFounderNotes,
+    complianceReminders: seedComplianceReminders,
+    legalQuestions: seedLegalQuestions,
+    formationChecklistItems: seedFormationChecklistItems,
   };
 }
 

@@ -9,12 +9,15 @@ import type { OctaneSnapshot } from "@/lib/data/snapshot";
 import { createSeedData, PROJECT_IDS } from "@/lib/mock/seed";
 import type {
   Agent,
+  ComplianceReminder,
   Decision,
   Document,
   Entity,
+  FormationChecklistItem,
   FounderNote,
   InboxItem,
   IPAsset,
+  LegalQuestion,
   Profile,
   Project,
   RoadmapItem,
@@ -49,6 +52,9 @@ export interface OctanePersistedState {
   workSessions: WorkSession[];
   inboxItems: InboxItem[];
   founderNotes: FounderNote[];
+  complianceReminders: ComplianceReminder[];
+  legalQuestions: LegalQuestion[];
+  formationChecklistItems: FormationChecklistItem[];
 }
 
 type CreatableProject = Omit<Project, "id" | "createdAt" | "updatedAt">;
@@ -62,6 +68,15 @@ type CreatableEntity = Omit<Entity, "id" | "createdAt" | "updatedAt">;
 type CreatableAgent = Omit<Agent, "id" | "createdAt" | "updatedAt">;
 type CreatableInboxItem = Omit<InboxItem, "id" | "createdAt" | "updatedAt">;
 type CreatableFounderNote = Omit<FounderNote, "id" | "createdAt" | "updatedAt">;
+type CreatableComplianceReminder = Omit<
+  ComplianceReminder,
+  "id" | "createdAt" | "updatedAt"
+>;
+type CreatableLegalQuestion = Omit<LegalQuestion, "id" | "createdAt" | "updatedAt">;
+type CreatableFormationChecklistItem = Omit<
+  FormationChecklistItem,
+  "id" | "createdAt" | "updatedAt"
+>;
 
 type StartWorkSessionInput = {
   title: string;
@@ -177,6 +192,34 @@ export interface OctaneStore extends OctanePersistedState {
   deleteFounderNote: (id: string) => void;
   getFounderNoteById: (id: string) => FounderNote | undefined;
 
+  // Compliance reminders
+  createComplianceReminder: (data: CreatableComplianceReminder) => ComplianceReminder;
+  updateComplianceReminder: (
+    id: string,
+    data: Partial<ComplianceReminder>,
+  ) => void;
+  deleteComplianceReminder: (id: string) => void;
+  getComplianceReminderById: (id: string) => ComplianceReminder | undefined;
+
+  // Legal questions
+  createLegalQuestion: (data: CreatableLegalQuestion) => LegalQuestion;
+  updateLegalQuestion: (id: string, data: Partial<LegalQuestion>) => void;
+  deleteLegalQuestion: (id: string) => void;
+  getLegalQuestionById: (id: string) => LegalQuestion | undefined;
+
+  // Formation checklist
+  createFormationChecklistItem: (
+    data: CreatableFormationChecklistItem,
+  ) => FormationChecklistItem;
+  updateFormationChecklistItem: (
+    id: string,
+    data: Partial<FormationChecklistItem>,
+  ) => void;
+  deleteFormationChecklistItem: (id: string) => void;
+  getFormationChecklistItemById: (
+    id: string,
+  ) => FormationChecklistItem | undefined;
+
   // Bulk
   resetToSeed: () => void;
   exportSnapshotData: () => OctaneSnapshot;
@@ -204,6 +247,9 @@ export function selectOctanePersistedState(
     workSessions: state.workSessions,
     inboxItems: state.inboxItems,
     founderNotes: state.founderNotes,
+    complianceReminders: state.complianceReminders,
+    legalQuestions: state.legalQuestions,
+    formationChecklistItems: state.formationChecklistItems,
   };
 }
 
@@ -257,6 +303,9 @@ function normalizePersistedState(
     workSessions: asArray(persisted.workSessions),
     inboxItems: asArray(persisted.inboxItems),
     founderNotes: asArray(persisted.founderNotes),
+    complianceReminders: asArray(persisted.complianceReminders),
+    legalQuestions: asArray(persisted.legalQuestions),
+    formationChecklistItems: asArray(persisted.formationChecklistItems),
   };
 }
 
@@ -584,19 +633,46 @@ export const useOctaneStore = create<OctaneStore>()(
           ...timestamps(),
         };
         set((state) => ({ ipAssets: [...state.ipAssets, asset] }));
+        logActivity(set, get, {
+          action: "created",
+          entityType: "ip_asset",
+          entityId: asset.id,
+          entityName: asset.name,
+          description: `Created IP asset "${asset.name}"`,
+        });
         return asset;
       },
       updateIPAsset: (id, data) => {
+        const existing = get().ipAssets.find((a) => a.id === id);
         set((state) => ({
           ipAssets: state.ipAssets.map((a) =>
             a.id === id ? { ...a, ...data, ...touch() } : a,
           ),
         }));
+        if (existing) {
+          logActivity(set, get, {
+            action: "updated",
+            entityType: "ip_asset",
+            entityId: id,
+            entityName: data.name ?? existing.name,
+            description: `Updated IP asset "${data.name ?? existing.name}"`,
+          });
+        }
       },
       deleteIPAsset: (id) => {
+        const existing = get().ipAssets.find((a) => a.id === id);
         set((state) => ({
           ipAssets: state.ipAssets.filter((a) => a.id !== id),
         }));
+        if (existing) {
+          logActivity(set, get, {
+            action: "deleted",
+            entityType: "ip_asset",
+            entityId: id,
+            entityName: existing.name,
+            description: `Deleted IP asset "${existing.name}"`,
+          });
+        }
       },
       getIPAssetById: (id) => get().ipAssets.find((a) => a.id === id),
 
@@ -990,6 +1066,169 @@ export const useOctaneStore = create<OctaneStore>()(
       },
       getFounderNoteById: (id) => get().founderNotes.find((n) => n.id === id),
 
+      createComplianceReminder: (data) => {
+        const reminder: ComplianceReminder = {
+          ...data,
+          id: createId("compliance"),
+          ...timestamps(),
+        };
+        set((state) => ({
+          complianceReminders: [...state.complianceReminders, reminder],
+        }));
+        logActivity(set, get, {
+          action: "created",
+          entityType: "compliance_reminder",
+          entityId: reminder.id,
+          entityName: reminder.title,
+          description: `Added compliance reminder "${reminder.title}"`,
+        });
+        return reminder;
+      },
+      updateComplianceReminder: (id, data) => {
+        const existing = get().complianceReminders.find((r) => r.id === id);
+        set((state) => ({
+          complianceReminders: state.complianceReminders.map((r) =>
+            r.id === id ? { ...r, ...data, ...touch() } : r,
+          ),
+        }));
+        if (existing) {
+          logActivity(set, get, {
+            action: "updated",
+            entityType: "compliance_reminder",
+            entityId: id,
+            entityName: data.title ?? existing.title,
+            description: `Updated compliance reminder "${data.title ?? existing.title}"`,
+          });
+        }
+      },
+      deleteComplianceReminder: (id) => {
+        const existing = get().complianceReminders.find((r) => r.id === id);
+        set((state) => ({
+          complianceReminders: state.complianceReminders.filter(
+            (r) => r.id !== id,
+          ),
+        }));
+        if (existing) {
+          logActivity(set, get, {
+            action: "deleted",
+            entityType: "compliance_reminder",
+            entityId: id,
+            entityName: existing.title,
+            description: `Deleted compliance reminder "${existing.title}"`,
+          });
+        }
+      },
+      getComplianceReminderById: (id) =>
+        get().complianceReminders.find((r) => r.id === id),
+
+      createLegalQuestion: (data) => {
+        const question: LegalQuestion = {
+          ...data,
+          id: createId("legal-q"),
+          ...timestamps(),
+        };
+        set((state) => ({
+          legalQuestions: [...state.legalQuestions, question],
+        }));
+        logActivity(set, get, {
+          action: "created",
+          entityType: "legal_question",
+          entityId: question.id,
+          entityName: question.question.slice(0, 80),
+          description: `Logged legal question`,
+        });
+        return question;
+      },
+      updateLegalQuestion: (id, data) => {
+        const existing = get().legalQuestions.find((q) => q.id === id);
+        set((state) => ({
+          legalQuestions: state.legalQuestions.map((q) =>
+            q.id === id ? { ...q, ...data, ...touch() } : q,
+          ),
+        }));
+        if (existing) {
+          logActivity(set, get, {
+            action: "updated",
+            entityType: "legal_question",
+            entityId: id,
+            entityName: (data.question ?? existing.question).slice(0, 80),
+            description: `Updated legal question`,
+          });
+        }
+      },
+      deleteLegalQuestion: (id) => {
+        const existing = get().legalQuestions.find((q) => q.id === id);
+        set((state) => ({
+          legalQuestions: state.legalQuestions.filter((q) => q.id !== id),
+        }));
+        if (existing) {
+          logActivity(set, get, {
+            action: "deleted",
+            entityType: "legal_question",
+            entityId: id,
+            entityName: existing.question.slice(0, 80),
+            description: `Deleted legal question`,
+          });
+        }
+      },
+      getLegalQuestionById: (id) =>
+        get().legalQuestions.find((q) => q.id === id),
+
+      createFormationChecklistItem: (data) => {
+        const item: FormationChecklistItem = {
+          ...data,
+          id: createId("formation"),
+          ...timestamps(),
+        };
+        set((state) => ({
+          formationChecklistItems: [...state.formationChecklistItems, item],
+        }));
+        logActivity(set, get, {
+          action: "created",
+          entityType: "formation_checklist",
+          entityId: item.id,
+          entityName: item.title,
+          description: `Added formation checklist item "${item.title}"`,
+        });
+        return item;
+      },
+      updateFormationChecklistItem: (id, data) => {
+        const existing = get().formationChecklistItems.find((i) => i.id === id);
+        set((state) => ({
+          formationChecklistItems: state.formationChecklistItems.map((i) =>
+            i.id === id ? { ...i, ...data, ...touch() } : i,
+          ),
+        }));
+        if (existing) {
+          logActivity(set, get, {
+            action: "updated",
+            entityType: "formation_checklist",
+            entityId: id,
+            entityName: data.title ?? existing.title,
+            description: `Updated formation checklist "${data.title ?? existing.title}"`,
+          });
+        }
+      },
+      deleteFormationChecklistItem: (id) => {
+        const existing = get().formationChecklistItems.find((i) => i.id === id);
+        set((state) => ({
+          formationChecklistItems: state.formationChecklistItems.filter(
+            (i) => i.id !== id,
+          ),
+        }));
+        if (existing) {
+          logActivity(set, get, {
+            action: "deleted",
+            entityType: "formation_checklist",
+            entityId: id,
+            entityName: existing.title,
+            description: `Deleted formation checklist "${existing.title}"`,
+          });
+        }
+      },
+      getFormationChecklistItemById: (id) =>
+        get().formationChecklistItems.find((i) => i.id === id),
+
       resetToSeed: () => {
         const hadActivity = get().activityLogs.length > 0;
         set({ ...createSeedData(), activityLogs: [] });
@@ -1020,6 +1259,9 @@ export const useOctaneStore = create<OctaneStore>()(
           workSessions: state.workSessions,
           inboxItems: state.inboxItems,
           founderNotes: state.founderNotes,
+          complianceReminders: state.complianceReminders,
+          legalQuestions: state.legalQuestions,
+          formationChecklistItems: state.formationChecklistItems,
         });
       },
 
@@ -1040,6 +1282,9 @@ export const useOctaneStore = create<OctaneStore>()(
           workSessions: snapshot.workSessions,
           inboxItems: snapshot.inboxItems,
           founderNotes: snapshot.founderNotes,
+          complianceReminders: snapshot.complianceReminders,
+          legalQuestions: snapshot.legalQuestions,
+          formationChecklistItems: snapshot.formationChecklistItems,
         });
         logActivity(set, get, {
           action: "updated",
@@ -1076,6 +1321,9 @@ export const useOctaneStore = create<OctaneStore>()(
         workSessions: state.workSessions,
         inboxItems: state.inboxItems,
         founderNotes: state.founderNotes,
+        complianceReminders: state.complianceReminders,
+        legalQuestions: state.legalQuestions,
+        formationChecklistItems: state.formationChecklistItems,
       }),
       merge: (persisted, current) => {
         const persistedState = normalizePersistedState(
@@ -1091,6 +1339,14 @@ export const useOctaneStore = create<OctaneStore>()(
           workSessions: persistedState?.workSessions ?? [],
           inboxItems: persistedState?.inboxItems ?? [],
           founderNotes: persistedState?.founderNotes ?? [],
+          complianceReminders:
+            persistedState?.complianceReminders ??
+            createSeedData().complianceReminders,
+          legalQuestions:
+            persistedState?.legalQuestions ?? createSeedData().legalQuestions,
+          formationChecklistItems:
+            persistedState?.formationChecklistItems ??
+            createSeedData().formationChecklistItems,
         };
       },
     },

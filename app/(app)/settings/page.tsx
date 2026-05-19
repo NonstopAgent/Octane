@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Building2, Pencil, Plus, Trash2 } from "lucide-react";
 
@@ -172,6 +173,17 @@ function SettingsPageContent() {
       <PageHeader
         title="Settings"
         description="Founder profile, company details, and legal entities."
+        actions={
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="border-zinc-700"
+            render={<Link href="/holdings" />}
+          >
+            Open Holdings Command Center
+          </Button>
+        }
       />
 
       <section className="space-y-4">

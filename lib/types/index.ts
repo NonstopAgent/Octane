@@ -47,3 +47,17 @@ export type {
 } from "./inbox-item";
 export type { FounderNote } from "./founder-note";
 export type { TaskSubtask, TaskLinkDocument } from "./task";
+export type {
+  ComplianceReminder,
+  ComplianceReminderCategory,
+  ComplianceReminderStatus,
+} from "./compliance-reminder";
+export type {
+  LegalQuestion,
+  LegalQuestionPriority,
+  LegalQuestionStatus,
+} from "./legal-question";
+export type {
+  FormationChecklistItem,
+  FormationChecklistStatus,
+} from "./formation-checklist-item";
