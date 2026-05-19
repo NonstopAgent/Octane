@@ -1,13 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Pencil } from "lucide-react";
-import { useShallow } from "zustand/react/shallow";
+import { NotebookPen, Pencil, Plus } from "lucide-react";
+import { toast } from "sonner";
 
 import { PriorityBadge, StatusBadge } from "@/components/modules";
-import { formatStatusLabel } from "@/components/modules/badge-tones";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -17,11 +18,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { formatCurrency } from "@/lib/dashboard/metrics";
-import { computeProjectHealth } from "@/lib/scoring/project-health";
 import { useOctaneStore } from "@/lib/store/octane-store";
 import type { Project } from "@/lib/types";
-import { cn } from "@/lib/utils";
 
 import { ProjectForm } from "./project-form";
 import { formatRevenueStatus, formatUpdatedAt } from "./project-utils";
@@ -31,30 +29,6 @@ type ProjectDetailSheetProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onEditRequest?: () => void;
-};
-
-const TABS = [
-  "overview",
-  "tasks",
-  "finance",
-  "documents",
-  "decisions",
-  "roadmap",
-  "risks",
-  "nextActions",
-] as const;
-
-type TabId = (typeof TABS)[number];
-
-const TAB_LABELS: Record<TabId, string> = {
-  overview: "Overview",
-  tasks: "Tasks",
-  finance: "Finance",
-  documents: "Documents/IP",
-  decisions: "Decisions",
-  roadmap: "Roadmap",
-  risks: "Risks",
-  nextActions: "Next Actions",
 };
 
 function BulletList({
@@ -79,79 +53,55 @@ function BulletList({
   );
 }
 
-function RecordList({
-  empty,
-  count,
-  children,
-}: {
-  empty: string;
-  count: number;
-  children: React.ReactNode;
-}) {
-  if (count === 0) {
-    return <p className="text-sm text-zinc-500">{empty}</p>;
-  }
-  return <ul className="space-y-2">{children}</ul>;
-}
-
 export function ProjectDetailSheet({
   projectId,
   open,
   onOpenChange,
   onEditRequest,
 }: ProjectDetailSheetProps) {
-  const storeSlice = useOctaneStore(
-    useShallow((s) => ({
-      projects: s.projects,
-      tasks: s.tasks,
-      transactions: s.transactions,
-      documents: s.documents,
-      ipAssets: s.ipAssets,
-      decisions: s.decisions,
-      roadmapItems: s.roadmapItems,
-    })),
+  const project = useOctaneStore((s) =>
+    projectId ? s.projects.find((p) => p.id === projectId) : undefined,
   );
-
+  const tasks = useOctaneStore((s) =>
+    projectId ? s.tasks.filter((t) => t.projectId === projectId) : [],
+  );
+  const founderNotes = useOctaneStore((s) => s.founderNotes);
+  const createFounderNote = useOctaneStore((s) => s.createFounderNote);
   const [editing, setEditing] = useState(false);
-  const [tab, setTab] = useState<TabId>("overview");
+  const [noteFormOpen, setNoteFormOpen] = useState(false);
+  const [noteTitle, setNoteTitle] = useState("");
+  const [noteBody, setNoteBody] = useState("");
 
-  const project = useMemo(
-    () =>
-      projectId
-        ? storeSlice.projects.find((p) => p.id === projectId)
-        : undefined,
-    [storeSlice.projects, projectId],
+  const sortedTasks = useMemo(
+    () => [...tasks].sort((a, b) => a.title.localeCompare(b.title)),
+    [tasks],
   );
 
-  const health = useMemo(() => {
-    if (!project) return null;
-    return computeProjectHealth(project, storeSlice);
-  }, [project, storeSlice]);
+  const linkedNotes = useMemo(() => {
+    if (!projectId) return [];
+    return founderNotes
+      .filter((note) => note.linkedProjectId === projectId)
+      .sort(
+        (a, b) =>
+          new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+      );
+  }, [founderNotes, projectId]);
 
-  const linked = useMemo(() => {
-    if (!projectId) {
-      return {
-        tasks: [],
-        transactions: [],
-        documents: [],
-        ipAssets: [],
-        decisions: [],
-        roadmapItems: [],
-      };
-    }
-    return {
-      tasks: storeSlice.tasks.filter((t) => t.projectId === projectId),
-      transactions: storeSlice.transactions.filter(
-        (t) => t.projectId === projectId,
-      ),
-      documents: storeSlice.documents.filter((d) => d.projectId === projectId),
-      ipAssets: storeSlice.ipAssets.filter((a) => a.projectId === projectId),
-      decisions: storeSlice.decisions.filter((d) => d.projectId === projectId),
-      roadmapItems: storeSlice.roadmapItems.filter(
-        (r) => r.projectId === projectId,
-      ),
-    };
-  }, [projectId, storeSlice]);
+  const handleCreateLinkedNote = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!projectId || !noteTitle.trim() || !noteBody.trim()) return;
+
+    createFounderNote({
+      title: noteTitle.trim(),
+      body: noteBody.trim(),
+      linkedProjectId: projectId,
+      tags: ["project"],
+    });
+    setNoteTitle("");
+    setNoteBody("");
+    setNoteFormOpen(false);
+    toast.success("Founder note linked to project");
+  };
 
   if (!project) {
     return (
@@ -172,18 +122,23 @@ export function ProjectDetailSheet({
       onOpenChange={(next) => {
         if (!next) {
           setEditing(false);
-          setTab("overview");
+          setNoteFormOpen(false);
+          setNoteTitle("");
+          setNoteBody("");
         }
         onOpenChange(next);
       }}
     >
-      <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
+      <SheetContent className="w-full overflow-y-auto sm:max-w-lg">
         <SheetHeader className="border-b border-zinc-800/80 pb-4">
           <div className="flex items-start justify-between gap-2 pr-8">
             <div className="space-y-1">
               <SheetTitle>{project.name}</SheetTitle>
               <SheetDescription>{project.description}</SheetDescription>
-              <ProjectBadges project={project} />
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              <StatusBadge domain="project" status={project.status} />
+              <PriorityBadge priority={project.priority} />
             </div>
           </div>
           {!editing ? (
@@ -212,299 +167,171 @@ export function ProjectDetailSheet({
             />
           </div>
         ) : (
-          <div className="space-y-4 p-4 pt-0">
-            {health ? (
-              <section className="rounded-lg border border-zinc-800/80 bg-zinc-900/40 p-3">
-                <HealthHeader health={health} />
-                <p className="mt-2 text-xs text-zinc-500">
-                  {health.recentActivitySummary}
+          <div className="space-y-6 p-4 pt-0">
+            <section className="space-y-2">
+              <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                Overview
+              </h3>
+              <div className="grid gap-2 text-sm text-zinc-300">
+                <p>
+                  <span className="text-zinc-500">Owner · </span>
+                  {project.owner}
                 </p>
-                <p className="mt-2 text-sm text-amber-200/90">
-                  {health.nextRecommendedAction}
+                <p>
+                  <span className="text-zinc-500">Revenue · </span>
+                  {formatRevenueStatus(project.revenueStatus)}
                 </p>
+                <p>
+                  <span className="text-zinc-500">Updated · </span>
+                  {formatUpdatedAt(project.updatedAt)}
+                </p>
+              </div>
+              <Progress value={project.progress} />
+            </section>
+
+            {project.currentPhase ? (
+              <section className="space-y-1">
+                <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                  Phase
+                </h3>
+                <p className="text-sm text-zinc-300">{project.currentPhase}</p>
               </section>
             ) : null}
 
-            <TabNav tab={tab} onTabChange={setTab} />
+            <BulletList title="Goals" items={project.goals} />
+            <BulletList title="Risks" items={project.risks} />
+            <BulletList title="Next actions" items={project.nextActions} />
 
-            <TabPanel
-              tab={tab}
-              project={project}
-              linked={linked}
-              health={health}
-            />
+            {project.revenueNotes ? (
+              <section className="space-y-1">
+                <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                  Revenue notes
+                </h3>
+                <p className="text-sm text-zinc-300">{project.revenueNotes}</p>
+              </section>
+            ) : null}
+
+            <Separator className="bg-zinc-800/80" />
+
+            <section className="space-y-2">
+              <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                Linked tasks ({sortedTasks.length})
+              </h3>
+              {sortedTasks.length === 0 ? (
+                <p className="text-sm text-zinc-500">No tasks for this project.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {sortedTasks.map((task) => (
+                    <li
+                      key={task.id}
+                      className="rounded-lg border border-zinc-800/80 bg-zinc-900/40 px-3 py-2 text-sm"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-medium text-zinc-200">
+                          {task.title}
+                        </span>
+                        <StatusBadge domain="task" status={task.status} />
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+
+            <Separator className="bg-zinc-800/80" />
+
+            <section
+              className="space-y-3"
+              data-section="project-founder-notes"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                  Founder notes ({linkedNotes.length})
+                </h3>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="border-zinc-700"
+                  data-action="create-linked-note"
+                  onClick={() => setNoteFormOpen((open) => !open)}
+                >
+                  <Plus className="size-3.5" />
+                  {noteFormOpen ? "Cancel" : "Add note"}
+                </Button>
+              </div>
+
+              {noteFormOpen ? (
+                <form
+                  id="project-linked-note-form"
+                  onSubmit={handleCreateLinkedNote}
+                  className="space-y-2 rounded-lg border border-zinc-800/80 bg-zinc-900/40 p-3"
+                >
+                  <div className="grid gap-2">
+                    <Label htmlFor="project-note-title">Title</Label>
+                    <Input
+                      id="project-note-title"
+                      value={noteTitle}
+                      onChange={(event) => setNoteTitle(event.target.value)}
+                      className="border-zinc-700 bg-zinc-900"
+                      required
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="project-note-body">Body</Label>
+                    <textarea
+                      id="project-note-body"
+                      rows={3}
+                      className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100"
+                      value={noteBody}
+                      onChange={(event) => setNoteBody(event.target.value)}
+                      required
+                    />
+                  </div>
+                  <Button type="submit" size="sm" id="project-note-submit">
+                    <NotebookPen className="size-3.5" />
+                    Save linked note
+                  </Button>
+                </form>
+              ) : null}
+
+              {linkedNotes.length === 0 ? (
+                <p className="text-sm text-zinc-500">
+                  No founder notes linked to this project.
+                </p>
+              ) : (
+                <ul className="space-y-2" data-list="project-founder-notes">
+                  {linkedNotes.map((note) => (
+                    <li
+                      key={note.id}
+                      data-note-id={note.id}
+                      className="rounded-lg border border-zinc-800/80 bg-zinc-900/40 px-3 py-2 text-sm"
+                    >
+                      <p className="font-medium text-zinc-200">{note.title}</p>
+                      <p className="mt-1 line-clamp-2 text-zinc-400">
+                        {note.body}
+                      </p>
+                      {note.tags.length > 0 ? (
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {note.tags.map((tag) => (
+                            <Badge
+                              key={tag}
+                              variant="outline"
+                              className="border-zinc-700 text-xs text-zinc-400"
+                            >
+                              {tag}
+                            </Badge>
+                          ))}
+                        </div>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
           </div>
         )}
       </SheetContent>
     </Sheet>
-  );
-}
-
-function ProjectBadges({ project }: { project: Project }) {
-  return (
-    <div className="flex flex-wrap gap-1.5">
-      <StatusBadge domain="project" status={project.status} />
-      <PriorityBadge priority={project.priority} />
-    </div>
-  );
-}
-
-function HealthHeader({
-  health,
-}: {
-  health: NonNullable<ReturnType<typeof computeProjectHealth>>;
-}) {
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-2">
-      <p className="text-sm font-medium text-zinc-200">Project health</p>
-      <Badge
-        variant="outline"
-        className={cn(
-          "tabular-nums",
-          health.score >= 70
-            ? "border-emerald-800 text-emerald-300"
-            : health.score >= 40
-              ? "border-amber-800 text-amber-300"
-              : "border-red-800 text-red-300",
-        )}
-      >
-        {health.score}/100
-      </Badge>
-    </div>
-  );
-}
-
-function TabNav({
-  tab,
-  onTabChange,
-}: {
-  tab: TabId;
-  onTabChange: (tab: TabId) => void;
-}) {
-  return (
-    <div className="flex flex-wrap gap-1 border-b border-zinc-800/80 pb-2">
-      {TABS.map((id) => (
-        <button
-          key={id}
-          type="button"
-          onClick={() => onTabChange(id)}
-          className={cn(
-            "rounded-md px-2 py-1 text-xs font-medium transition-colors",
-            tab === id
-              ? "bg-zinc-800 text-zinc-100"
-              : "text-zinc-500 hover:text-zinc-300",
-          )}
-        >
-          {TAB_LABELS[id]}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function TabPanel({
-  tab,
-  project,
-  linked,
-  health,
-}: {
-  tab: TabId;
-  project: Project;
-  linked: {
-    tasks: ReturnType<typeof useOctaneStore.getState>["tasks"];
-    transactions: ReturnType<typeof useOctaneStore.getState>["transactions"];
-    documents: ReturnType<typeof useOctaneStore.getState>["documents"];
-    ipAssets: ReturnType<typeof useOctaneStore.getState>["ipAssets"];
-    decisions: ReturnType<typeof useOctaneStore.getState>["decisions"];
-    roadmapItems: ReturnType<typeof useOctaneStore.getState>["roadmapItems"];
-  };
-  health: ReturnType<typeof computeProjectHealth> | null;
-}) {
-  if (tab === "overview") {
-    return (
-      <div className="space-y-6">
-        <section className="space-y-2">
-          <div className="grid gap-2 text-sm text-zinc-300">
-            <p>
-              <span className="text-zinc-500">Owner · </span>
-              {project.owner}
-            </p>
-            <p>
-              <span className="text-zinc-500">Revenue · </span>
-              {formatRevenueStatus(project.revenueStatus)}
-            </p>
-            <p>
-              <span className="text-zinc-500">Updated · </span>
-              {formatUpdatedAt(project.updatedAt)}
-            </p>
-            {health ? (
-              <p>
-                <span className="text-zinc-500">Open tasks · </span>
-                {health.openTasksCount} · blockers {health.blockersCount}
-              </p>
-            ) : null}
-          </div>
-          <Progress value={project.progress} />
-        </section>
-        {project.currentPhase ? (
-          <section className="space-y-1">
-            <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-              Phase
-            </h3>
-            <p className="text-sm text-zinc-300">{project.currentPhase}</p>
-          </section>
-        ) : null}
-        <BulletList title="Goals" items={project.goals} />
-        {project.revenueNotes ? (
-          <section className="space-y-1">
-            <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-              Revenue notes
-            </h3>
-            <p className="text-sm text-zinc-300">{project.revenueNotes}</p>
-          </section>
-        ) : null}
-      </div>
-    );
-  }
-
-  if (tab === "tasks") {
-    const sorted = [...linked.tasks].sort((a, b) =>
-      a.title.localeCompare(b.title),
-    );
-    return (
-      <RecordList empty="No tasks for this project." count={sorted.length}>
-        {sorted.map((task) => (
-          <li
-            key={task.id}
-            className="rounded-lg border border-zinc-800/80 bg-zinc-900/40 px-3 py-2 text-sm"
-          >
-            <div className="flex items-center justify-between gap-2">
-              <span className="font-medium text-zinc-200">{task.title}</span>
-              <StatusBadge domain="task" status={task.status} />
-            </div>
-          </li>
-        ))}
-      </RecordList>
-    );
-  }
-
-  if (tab === "finance") {
-    const net = linked.transactions.reduce((sum, t) => sum + t.amount, 0);
-    return (
-      <FinanceTab transactions={linked.transactions} net={net} />
-    );
-  }
-
-  if (tab === "documents") {
-    return (
-      <div className="space-y-4">
-        <section>
-          <h3 className="mb-2 text-xs font-medium uppercase text-zinc-500">
-            Documents
-          </h3>
-          <RecordList empty="No documents linked." count={linked.documents.length}>
-            {linked.documents.map((doc) => (
-              <li
-                key={doc.id}
-                className="rounded-lg border border-zinc-800/80 px-3 py-2 text-sm text-zinc-300"
-              >
-                {doc.name}
-              </li>
-            ))}
-          </RecordList>
-        </section>
-        <section>
-          <h3 className="mb-2 text-xs font-medium uppercase text-zinc-500">
-            IP assets
-          </h3>
-          <RecordList empty="No IP assets linked." count={linked.ipAssets.length}>
-            {linked.ipAssets.map((asset) => (
-              <li
-                key={asset.id}
-                className="rounded-lg border border-zinc-800/80 px-3 py-2 text-sm text-zinc-300"
-              >
-                {asset.name} · {formatStatusLabel(asset.type)}
-              </li>
-            ))}
-          </RecordList>
-        </section>
-      </div>
-    );
-  }
-
-  if (tab === "decisions") {
-    return (
-      <RecordList
-        empty="No decisions linked. Log one to capture strategic calls."
-        count={linked.decisions.length}
-      >
-        {linked.decisions.map((d) => (
-          <li
-            key={d.id}
-            className="rounded-lg border border-zinc-800/80 px-3 py-2 text-sm"
-          >
-            <p className="font-medium text-zinc-200">{d.title}</p>
-            <p className="mt-1 line-clamp-2 text-xs text-zinc-500">
-              {d.summary}
-            </p>
-          </li>
-        ))}
-      </RecordList>
-    );
-  }
-
-  if (tab === "roadmap") {
-    return (
-      <RecordList empty="No roadmap items for this project." count={linked.roadmapItems.length}>
-        {linked.roadmapItems.map((item) => (
-          <li
-            key={item.id}
-            className="rounded-lg border border-zinc-800/80 px-3 py-2 text-sm text-zinc-300"
-          >
-            {item.title} · {formatStatusLabel(item.status)}
-          </li>
-        ))}
-      </RecordList>
-    );
-  }
-
-  if (tab === "risks") {
-    return <BulletList title="Risks" items={project.risks} />;
-  }
-
-  return <BulletList title="Next actions" items={project.nextActions} />;
-}
-
-function FinanceTab({
-  transactions,
-  net,
-}: {
-  transactions: ReturnType<typeof useOctaneStore.getState>["transactions"];
-  net: number;
-}) {
-  return (
-    <div className="space-y-3">
-      <p className="text-sm text-zinc-400">
-        Net:{" "}
-        <span className="font-medium text-zinc-200">
-          {formatCurrency(net)}
-        </span>
-      </p>
-      <RecordList empty="No transactions for this project." count={transactions.length}>
-        {transactions.map((txn) => (
-          <li
-            key={txn.id}
-            className="flex justify-between rounded-lg border border-zinc-800/80 px-3 py-2 text-sm"
-          >
-            <span className="text-zinc-300">
-              {formatStatusLabel(txn.type)} · {txn.category}
-            </span>
-            <span className="tabular-nums text-zinc-200">
-              {formatCurrency(txn.amount)}
-            </span>
-          </li>
-        ))}
-      </RecordList>
-    </div>
   );
 }

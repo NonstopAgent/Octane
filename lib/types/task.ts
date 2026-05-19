@@ -38,4 +38,5 @@ export interface Task {
   linkedDocument?: TaskLinkDocument;
   createdAt: string;
   updatedAt: string;
+  completedAt?: string;
 }

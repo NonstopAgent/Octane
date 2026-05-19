@@ -1,12 +1,19 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-import { seedData } from "@/lib/mock/seed";
+import {
+  exportSnapshotData as buildSnapshot,
+  importSnapshotData as parseSnapshot,
+} from "@/lib/data/snapshot";
+import type { OctaneSnapshot } from "@/lib/data/snapshot";
+import { PROJECT_IDS, seedData } from "@/lib/mock/seed";
 import type {
   Agent,
   Decision,
   Document,
   Entity,
+  FounderNote,
+  InboxItem,
   IPAsset,
   Profile,
   Project,
@@ -14,11 +21,17 @@ import type {
   Task,
   TaskStatus,
   Transaction,
+  WorkSession,
 } from "@/lib/types";
 
 import type { ActivityLog } from "@/lib/types/activity-log";
 
-import { prependActivityLog, type ActivityLogInput } from "./activity";
+import {
+  createActivityLog,
+  normalizeActivityLogs,
+  prependActivityLog,
+  type ActivityLogInput,
+} from "./activity";
 import { createId, timestamps, touch } from "./utils";
 
 export interface OctanePersistedState {
@@ -33,6 +46,9 @@ export interface OctanePersistedState {
   entities: Entity[];
   agents: Agent[];
   activityLogs: ActivityLog[];
+  workSessions: WorkSession[];
+  inboxItems: InboxItem[];
+  founderNotes: FounderNote[];
 }
 
 type CreatableProject = Omit<Project, "id" | "createdAt" | "updatedAt">;
@@ -44,6 +60,31 @@ type CreatableDocument = Omit<Document, "id" | "createdAt" | "updatedAt">;
 type CreatableIPAsset = Omit<IPAsset, "id" | "createdAt" | "updatedAt">;
 type CreatableEntity = Omit<Entity, "id" | "createdAt" | "updatedAt">;
 type CreatableAgent = Omit<Agent, "id" | "createdAt" | "updatedAt">;
+type CreatableInboxItem = Omit<InboxItem, "id" | "createdAt" | "updatedAt">;
+type CreatableFounderNote = Omit<FounderNote, "id" | "createdAt" | "updatedAt">;
+
+type StartWorkSessionInput = {
+  title: string;
+  projectId?: string;
+  taskId?: string;
+  notes?: string;
+};
+
+type CreatableWorkSessionUpdate = Partial<
+  Pick<WorkSession, "title" | "projectId" | "taskId" | "notes" | "outcome">
+>;
+
+function workSessionDurationMinutes(
+  startedAt: string,
+  endedAt: string,
+): number {
+  return Math.max(
+    0,
+    Math.round(
+      (new Date(endedAt).getTime() - new Date(startedAt).getTime()) / 60_000,
+    ),
+  );
+}
 
 export interface OctaneStore extends OctanePersistedState {
   // Projects
@@ -106,11 +147,65 @@ export interface OctaneStore extends OctanePersistedState {
   // Profile
   updateProfile: (data: Partial<Profile>) => void;
 
+  // Work sessions
+  startWorkSession: (data: StartWorkSessionInput) => WorkSession;
+  completeWorkSession: (
+    id: string,
+    data?: Pick<WorkSession, "outcome" | "notes">,
+  ) => WorkSession | undefined;
+  abandonWorkSession: (
+    id: string,
+    data?: Pick<WorkSession, "notes">,
+  ) => WorkSession | undefined;
+  updateWorkSession: (id: string, data: CreatableWorkSessionUpdate) => void;
+  deleteWorkSession: (id: string) => void;
+  getWorkSessionById: (id: string) => WorkSession | undefined;
+
+  // Inbox
+  createInboxItem: (data: CreatableInboxItem) => InboxItem;
+  updateInboxItem: (id: string, data: Partial<InboxItem>) => void;
+  convertInboxItemToTask: (inboxId: string) => Task | undefined;
+  convertInboxItemToDecision: (inboxId: string) => Decision | undefined;
+  convertInboxItemToFounderNote: (inboxId: string) => FounderNote | undefined;
+  archiveInboxItem: (id: string) => void;
+  deleteInboxItem: (id: string) => void;
+  getInboxItemById: (id: string) => InboxItem | undefined;
+
+  // Founder notes
+  createFounderNote: (data: CreatableFounderNote) => FounderNote;
+  updateFounderNote: (id: string, data: Partial<FounderNote>) => void;
+  deleteFounderNote: (id: string) => void;
+  getFounderNoteById: (id: string) => FounderNote | undefined;
+
   // Bulk
   resetToSeed: () => void;
+  exportSnapshotData: () => OctaneSnapshot;
+  importSnapshotData: (raw: unknown) => void;
+  clearLocalData: () => void;
 }
 
 const STORAGE_KEY = "octane-core-storage";
+
+export function selectOctanePersistedState(
+  state: OctaneStore,
+): OctanePersistedState {
+  return {
+    profile: state.profile,
+    projects: state.projects,
+    tasks: state.tasks,
+    decisions: state.decisions,
+    roadmapItems: state.roadmapItems,
+    transactions: state.transactions,
+    documents: state.documents,
+    ipAssets: state.ipAssets,
+    entities: state.entities,
+    agents: state.agents,
+    activityLogs: state.activityLogs,
+    workSessions: state.workSessions,
+    inboxItems: state.inboxItems,
+    founderNotes: state.founderNotes,
+  };
+}
 
 function logActivity(
   set: (
@@ -243,10 +338,16 @@ export const useOctaneStore = create<OctaneStore>()(
       },
       moveTaskStatus: (id, status) => {
         const existing = get().tasks.find((t) => t.id === id);
+        const now = new Date().toISOString();
         set((state) => ({
-          tasks: state.tasks.map((t) =>
-            t.id === id ? { ...t, status, ...touch() } : t,
-          ),
+          tasks: state.tasks.map((t) => {
+            if (t.id !== id) return t;
+            const completedAt =
+              status === "done"
+                ? t.completedAt ?? now
+                : t.completedAt;
+            return { ...t, status, completedAt, ...touch() };
+          }),
         }));
         if (existing && existing.status !== status) {
           logActivity(set, get, {
@@ -304,16 +405,36 @@ export const useOctaneStore = create<OctaneStore>()(
         return decision;
       },
       updateDecision: (id, data) => {
+        const existing = get().decisions.find((d) => d.id === id);
         set((state) => ({
           decisions: state.decisions.map((d) =>
             d.id === id ? { ...d, ...data, ...touch() } : d,
           ),
         }));
+        if (existing) {
+          logActivity(set, get, {
+            action: "updated",
+            entityType: "decision",
+            entityId: id,
+            entityName: data.title ?? existing.title,
+            description: `Updated decision "${data.title ?? existing.title}"`,
+          });
+        }
       },
       deleteDecision: (id) => {
+        const existing = get().decisions.find((d) => d.id === id);
         set((state) => ({
           decisions: state.decisions.filter((d) => d.id !== id),
         }));
+        if (existing) {
+          logActivity(set, get, {
+            action: "deleted",
+            entityType: "decision",
+            entityId: id,
+            entityName: existing.title,
+            description: `Deleted decision "${existing.title}"`,
+          });
+        }
       },
       getDecisionById: (id) => get().decisions.find((d) => d.id === id),
 
@@ -522,15 +643,394 @@ export const useOctaneStore = create<OctaneStore>()(
         }));
       },
 
-      resetToSeed: () => {
-        set({ ...seedData, activityLogs: [] });
+      startWorkSession: (data) => {
+        const session: WorkSession = {
+          title: data.title,
+          projectId: data.projectId,
+          taskId: data.taskId,
+          notes: data.notes,
+          id: createId("ws"),
+          startedAt: new Date().toISOString(),
+          status: "active",
+          ...timestamps(),
+        };
+        set((state) => ({
+          workSessions: [...state.workSessions, session],
+        }));
         logActivity(set, get, {
+          action: "created",
+          entityType: "work_session",
+          entityId: session.id,
+          entityName: session.title,
+          description: `Started work session "${session.title}"`,
+        });
+        return session;
+      },
+      completeWorkSession: (id, data) => {
+        const existing = get().workSessions.find((s) => s.id === id);
+        if (!existing || existing.status !== "active") return undefined;
+        const endedAt = new Date().toISOString();
+        const session: WorkSession = {
+          ...existing,
+          ...data,
+          endedAt,
+          status: "completed",
+          durationMinutes: workSessionDurationMinutes(
+            existing.startedAt,
+            endedAt,
+          ),
+          ...touch(),
+        };
+        set((state) => ({
+          workSessions: state.workSessions.map((s) =>
+            s.id === id ? session : s,
+          ),
+        }));
+        logActivity(set, get, {
+          action: "updated",
+          entityType: "work_session",
+          entityId: id,
+          entityName: session.title,
+          description: `Completed work session "${session.title}"`,
+        });
+        return session;
+      },
+      abandonWorkSession: (id, data) => {
+        const existing = get().workSessions.find((s) => s.id === id);
+        if (!existing || existing.status !== "active") return undefined;
+        const endedAt = new Date().toISOString();
+        const session: WorkSession = {
+          ...existing,
+          ...data,
+          endedAt,
+          status: "abandoned",
+          durationMinutes: workSessionDurationMinutes(
+            existing.startedAt,
+            endedAt,
+          ),
+          ...touch(),
+        };
+        set((state) => ({
+          workSessions: state.workSessions.map((s) =>
+            s.id === id ? session : s,
+          ),
+        }));
+        logActivity(set, get, {
+          action: "updated",
+          entityType: "work_session",
+          entityId: id,
+          entityName: session.title,
+          description: `Abandoned work session "${session.title}"`,
+        });
+        return session;
+      },
+      updateWorkSession: (id, data) => {
+        const existing = get().workSessions.find((s) => s.id === id);
+        set((state) => ({
+          workSessions: state.workSessions.map((s) =>
+            s.id === id ? { ...s, ...data, ...touch() } : s,
+          ),
+        }));
+        if (existing) {
+          logActivity(set, get, {
+            action: "updated",
+            entityType: "work_session",
+            entityId: id,
+            entityName: data.title ?? existing.title,
+            description: `Updated work session "${data.title ?? existing.title}"`,
+          });
+        }
+      },
+      deleteWorkSession: (id) => {
+        const existing = get().workSessions.find((s) => s.id === id);
+        set((state) => ({
+          workSessions: state.workSessions.filter((s) => s.id !== id),
+        }));
+        if (existing) {
+          logActivity(set, get, {
+            action: "deleted",
+            entityType: "work_session",
+            entityId: id,
+            entityName: existing.title,
+            description: `Deleted work session "${existing.title}"`,
+          });
+        }
+      },
+      getWorkSessionById: (id) => get().workSessions.find((s) => s.id === id),
+
+      createInboxItem: (data) => {
+        const item: InboxItem = {
+          ...data,
+          status: data.status ?? "unprocessed",
+          id: createId("inbox"),
+          ...timestamps(),
+        };
+        set((state) => ({ inboxItems: [...state.inboxItems, item] }));
+        logActivity(set, get, {
+          action: "created",
+          entityType: "inbox_item",
+          entityId: item.id,
+          entityName: item.title,
+          description: `Captured inbox item "${item.title}"`,
+        });
+        return item;
+      },
+      updateInboxItem: (id, data) => {
+        const existing = get().inboxItems.find((i) => i.id === id);
+        set((state) => ({
+          inboxItems: state.inboxItems.map((i) =>
+            i.id === id ? { ...i, ...data, ...touch() } : i,
+          ),
+        }));
+        if (existing) {
+          logActivity(set, get, {
+            action: "updated",
+            entityType: "inbox_item",
+            entityId: id,
+            entityName: data.title ?? existing.title,
+            description: `Updated inbox item "${data.title ?? existing.title}"`,
+          });
+        }
+      },
+      convertInboxItemToTask: (inboxId) => {
+        const item = get().inboxItems.find((i) => i.id === inboxId);
+        if (!item || item.status !== "unprocessed") return undefined;
+        const projectId =
+          item.linkedProjectId ??
+          get().projects[0]?.id ??
+          PROJECT_IDS.core;
+        const task = get().createTask({
+          title: item.title,
+          description: item.body ?? "Converted from inbox",
+          projectId,
+          assignedTo: "Logan",
+          priority: "medium",
+          status: "backlog",
+          tags: ["inbox"],
+        });
+        set((state) => ({
+          inboxItems: state.inboxItems.map((i) =>
+            i.id === inboxId
+              ? { ...i, status: "converted" as const, ...touch() }
+              : i,
+          ),
+        }));
+        logActivity(set, get, {
+          action: "converted",
+          entityType: "inbox_item",
+          entityId: inboxId,
+          entityName: item.title,
+          description: `Converted inbox item "${item.title}" to task`,
+        });
+        return task;
+      },
+      convertInboxItemToDecision: (inboxId) => {
+        const item = get().inboxItems.find((i) => i.id === inboxId);
+        if (!item || item.status !== "unprocessed") return undefined;
+        const decision = get().createDecision({
+          title: item.title,
+          summary: item.body ?? "Converted from inbox",
+          category: "operations",
+          projectId: item.linkedProjectId,
+          reasoning: "Captured in inbox and converted to a decision record.",
+          optionsConsidered: [],
+          finalDecision: "",
+          expectedOutcome: "",
+          status: "active",
+        });
+        set((state) => ({
+          inboxItems: state.inboxItems.map((i) =>
+            i.id === inboxId
+              ? { ...i, status: "converted" as const, ...touch() }
+              : i,
+          ),
+        }));
+        logActivity(set, get, {
+          action: "converted",
+          entityType: "inbox_item",
+          entityId: inboxId,
+          entityName: item.title,
+          description: `Converted inbox item "${item.title}" to decision`,
+        });
+        return decision;
+      },
+      convertInboxItemToFounderNote: (inboxId) => {
+        const item = get().inboxItems.find((i) => i.id === inboxId);
+        if (!item || item.status !== "unprocessed") return undefined;
+        const note = get().createFounderNote({
+          title: item.title,
+          body: item.body ?? "",
+          linkedProjectId: item.linkedProjectId,
+          tags: ["inbox"],
+        });
+        set((state) => ({
+          inboxItems: state.inboxItems.map((i) =>
+            i.id === inboxId
+              ? { ...i, status: "converted" as const, ...touch() }
+              : i,
+          ),
+        }));
+        logActivity(set, get, {
+          action: "converted",
+          entityType: "inbox_item",
+          entityId: inboxId,
+          entityName: item.title,
+          description: `Converted inbox item "${item.title}" to founder note`,
+        });
+        return note;
+      },
+      archiveInboxItem: (id) => {
+        const existing = get().inboxItems.find((i) => i.id === id);
+        set((state) => ({
+          inboxItems: state.inboxItems.map((i) =>
+            i.id === id ? { ...i, status: "archived", ...touch() } : i,
+          ),
+        }));
+        if (existing) {
+          logActivity(set, get, {
+            action: "archived",
+            entityType: "inbox_item",
+            entityId: id,
+            entityName: existing.title,
+            description: `Archived inbox item "${existing.title}"`,
+          });
+        }
+      },
+      deleteInboxItem: (id) => {
+        const existing = get().inboxItems.find((i) => i.id === id);
+        set((state) => ({
+          inboxItems: state.inboxItems.filter((i) => i.id !== id),
+        }));
+        if (existing) {
+          logActivity(set, get, {
+            action: "deleted",
+            entityType: "inbox_item",
+            entityId: id,
+            entityName: existing.title,
+            description: `Deleted inbox item "${existing.title}"`,
+          });
+        }
+      },
+      getInboxItemById: (id) => get().inboxItems.find((i) => i.id === id),
+
+      createFounderNote: (data) => {
+        const note: FounderNote = {
+          ...data,
+          tags: data.tags ?? [],
+          id: createId("fnote"),
+          ...timestamps(),
+        };
+        set((state) => ({ founderNotes: [...state.founderNotes, note] }));
+        logActivity(set, get, {
+          action: "created",
+          entityType: "founder_note",
+          entityId: note.id,
+          entityName: note.title,
+          description: `Created founder note "${note.title}"`,
+        });
+        return note;
+      },
+      updateFounderNote: (id, data) => {
+        const existing = get().founderNotes.find((n) => n.id === id);
+        set((state) => ({
+          founderNotes: state.founderNotes.map((n) =>
+            n.id === id ? { ...n, ...data, ...touch() } : n,
+          ),
+        }));
+        if (existing) {
+          logActivity(set, get, {
+            action: "updated",
+            entityType: "founder_note",
+            entityId: id,
+            entityName: data.title ?? existing.title,
+            description: `Updated founder note "${data.title ?? existing.title}"`,
+          });
+        }
+      },
+      deleteFounderNote: (id) => {
+        const existing = get().founderNotes.find((n) => n.id === id);
+        set((state) => ({
+          founderNotes: state.founderNotes.filter((n) => n.id !== id),
+        }));
+        if (existing) {
+          logActivity(set, get, {
+            action: "deleted",
+            entityType: "founder_note",
+            entityId: id,
+            entityName: existing.title,
+            description: `Deleted founder note "${existing.title}"`,
+          });
+        }
+      },
+      getFounderNoteById: (id) => get().founderNotes.find((n) => n.id === id),
+
+      resetToSeed: () => {
+        const hadActivity = get().activityLogs.length > 0;
+        set({ ...seedData, activityLogs: [] });
+        if (hadActivity) {
+          logActivity(set, get, {
+            action: "reset",
+            entityType: "system",
+            entityName: "Demo data",
+            description: "Reset all data to seed dataset",
+          });
+        }
+      },
+
+      exportSnapshotData: () => {
+        const state = get();
+        return buildSnapshot({
+          profile: state.profile,
+          projects: state.projects,
+          tasks: state.tasks,
+          agents: state.agents,
+          transactions: state.transactions,
+          documents: state.documents,
+          ipAssets: state.ipAssets,
+          decisions: state.decisions,
+          roadmapItems: state.roadmapItems,
+          entities: state.entities,
+          activityLogs: state.activityLogs,
+          workSessions: state.workSessions,
+          inboxItems: state.inboxItems,
+          founderNotes: state.founderNotes,
+        });
+      },
+
+      importSnapshotData: (raw) => {
+        const snapshot = parseSnapshot(raw);
+        set({
+          profile: snapshot.profile,
+          projects: snapshot.projects,
+          tasks: snapshot.tasks,
+          agents: snapshot.agents,
+          transactions: snapshot.transactions,
+          documents: snapshot.documents,
+          ipAssets: snapshot.ipAssets,
+          decisions: snapshot.decisions,
+          roadmapItems: snapshot.roadmapItems,
+          entities: snapshot.entities,
+          activityLogs: snapshot.activityLogs,
+          workSessions: snapshot.workSessions,
+          inboxItems: snapshot.inboxItems,
+          founderNotes: snapshot.founderNotes,
+        });
+        logActivity(set, get, {
+          action: "updated",
+          entityType: "system",
+          entityName: "Snapshot import",
+          description: `Imported snapshot (${snapshot.dataSchemaVersion})`,
+        });
+      },
+
+      clearLocalData: () => {
+        const entry = createActivityLog({
           action: "reset",
           entityType: "system",
-          entityId: "demo",
-          entityName: "Demo data",
-          description: "Reset all data to seed dataset",
+          entityName: "Local data",
+          description: "Cleared all local workspace data",
         });
+        set({ ...seedData, activityLogs: [entry] });
       },
     }),
     {
@@ -547,6 +1047,9 @@ export const useOctaneStore = create<OctaneStore>()(
         entities: state.entities,
         agents: state.agents,
         activityLogs: state.activityLogs,
+        workSessions: state.workSessions,
+        inboxItems: state.inboxItems,
+        founderNotes: state.founderNotes,
       }),
       merge: (persisted, current) => {
         const persistedState = persisted as
@@ -558,7 +1061,10 @@ export const useOctaneStore = create<OctaneStore>()(
         return {
           ...current,
           ...persistedState,
-          activityLogs: persistedState?.activityLogs ?? [],
+          activityLogs: normalizeActivityLogs(persistedState?.activityLogs),
+          workSessions: persistedState?.workSessions ?? [],
+          inboxItems: persistedState?.inboxItems ?? [],
+          founderNotes: persistedState?.founderNotes ?? [],
         };
       },
     },

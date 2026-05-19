@@ -39,4 +39,11 @@ export type {
   ActivityAction,
   ActivityEntityType,
 } from "./activity-log";
+export type { WorkSession, WorkSessionStatus } from "./work-session";
+export type {
+  InboxItem,
+  InboxItemType,
+  InboxItemStatus,
+} from "./inbox-item";
+export type { FounderNote } from "./founder-note";
 export type { TaskSubtask, TaskLinkDocument } from "./task";

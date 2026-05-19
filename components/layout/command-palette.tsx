@@ -20,12 +20,19 @@ import {
   type CommandSearchResult,
   type SearchResultType,
 } from "@/lib/search/command-search";
-import { useOctaneStore } from "@/lib/store/octane-store";
+import {
+  selectOctanePersistedState,
+  useOctaneStore,
+} from "@/lib/store/octane-store";
 import { cn } from "@/lib/utils";
 
 const GROUP_ORDER: SearchResultType[] = [
+  "page",
   "project",
   "task",
+  "workSession",
+  "inboxItem",
+  "founderNote",
   "decision",
   "transaction",
   "document",
@@ -43,21 +50,7 @@ type CommandPaletteProps = {
 export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const router = useRouter();
   const [query, setQuery] = useState("");
-  const state = useOctaneStore(
-    useShallow((s) => ({
-      projects: s.projects,
-      tasks: s.tasks,
-      agents: s.agents,
-      transactions: s.transactions,
-      documents: s.documents,
-      ipAssets: s.ipAssets,
-      decisions: s.decisions,
-      roadmapItems: s.roadmapItems,
-      entities: s.entities,
-      profile: s.profile,
-      activityLogs: s.activityLogs,
-    })),
-  );
+  const state = useOctaneStore(useShallow(selectOctanePersistedState));
 
   const results = useMemo(
     () => searchCommandIndex(state, query),
@@ -95,7 +88,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search projects, tasks, decisions…"
+              placeholder="Search projects, tasks, inbox, notes…"
               className="border-zinc-700 bg-zinc-900 pl-8"
               autoFocus
             />

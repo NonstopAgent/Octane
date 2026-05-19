@@ -6,11 +6,14 @@ import {
   CheckSquare,
   FileText,
   FolderKanban,
+  Inbox,
   LogOut,
   Map,
+  NotebookPen,
   Plus,
   Scale,
   Search,
+  Timer,
   User,
   Wallet,
 } from "lucide-react";
@@ -32,6 +35,9 @@ import { Input } from "@/components/ui/input";
 import { CommandPalette } from "./command-palette";
 
 const NEW_ITEMS = [
+  { label: "New Inbox Item", href: "/inbox?new=1", icon: Inbox },
+  { label: "New Work Session", href: "/today?session=1", icon: Timer },
+  { label: "New Founder Note", href: "/notes?new=1", icon: NotebookPen },
   { label: "New Project", href: "/projects?new=1", icon: FolderKanban },
   { label: "New Task", href: "/tasks?new=1", icon: CheckSquare },
   { label: "New Decision", href: "/decisions?new=1", icon: Scale },

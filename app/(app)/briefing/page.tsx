@@ -26,7 +26,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { generateMorningBriefing } from "@/lib/briefing/generate-briefing";
-import { useOctaneStore } from "@/lib/store/octane-store";
+import {
+  selectOctanePersistedState,
+  useOctaneStore,
+} from "@/lib/store/octane-store";
 import { cn } from "@/lib/utils";
 
 function BriefingSection({
@@ -64,21 +67,7 @@ function BriefingSection({
 }
 
 export default function BriefingPage() {
-  const state = useOctaneStore(
-    useShallow((s) => ({
-      profile: s.profile,
-      projects: s.projects,
-      tasks: s.tasks,
-      agents: s.agents,
-      decisions: s.decisions,
-      transactions: s.transactions,
-      documents: s.documents,
-      roadmapItems: s.roadmapItems,
-      ipAssets: s.ipAssets,
-      entities: s.entities,
-      activityLogs: s.activityLogs,
-    })),
-  );
+  const state = useOctaneStore(useShallow(selectOctanePersistedState));
 
   const briefing = useMemo(() => generateMorningBriefing(state), [state]);
 

@@ -4,12 +4,15 @@ import type {
   Decision,
   Document,
   Entity,
+  FounderNote,
+  InboxItem,
   IPAsset,
   Profile,
   Project,
   RoadmapItem,
   Task,
   Transaction,
+  WorkSession,
 } from "@/lib/types";
 
 const T0 = "2025-11-01T10:00:00.000Z";
@@ -272,6 +275,7 @@ export const seedTasks: Task[] = [
     tags: ["design"],
     createdAt: T1,
     updatedAt: T2,
+    completedAt: T2,
   },
   {
     id: "task-core-repo-layer",
@@ -812,6 +816,166 @@ export const seedAgents: Agent[] = [
   },
 ];
 
+export const seedWorkSessions: WorkSession[] = [
+  {
+    id: "ws-core-store-sprint",
+    title: "Octane store CRUD wiring",
+    projectId: PROJECT_IDS.core,
+    taskId: "task-core-store-crud",
+    startedAt: "2026-05-17T14:00:00.000Z",
+    endedAt: "2026-05-17T16:25:00.000Z",
+    durationMinutes: 145,
+    status: "completed",
+    outcome: "Persisted slices and activity hooks for 7B foundation.",
+    notes: "Focused implementation block before UI agents.",
+    createdAt: T3,
+    updatedAt: T3,
+  },
+  {
+    id: "ws-ajax-pilot-prep",
+    title: "Ajax pilot pricing review",
+    projectId: PROJECT_IDS.ajax,
+    taskId: "task-ajax-pilot-pricing",
+    startedAt: "2026-05-18T09:30:00.000Z",
+    status: "active",
+    notes: "Comparing tiered pilot vs flat monthly.",
+    createdAt: T3,
+    updatedAt: T3,
+  },
+  {
+    id: "ws-nexus-signal-scan",
+    title: "Nexus weekly signal skim",
+    projectId: PROJECT_IDS.nexus,
+    startedAt: "2026-05-16T11:00:00.000Z",
+    endedAt: "2026-05-16T11:40:00.000Z",
+    durationMinutes: 40,
+    status: "abandoned",
+    notes: "Interrupted by trust-structure call.",
+    createdAt: T2,
+    updatedAt: T2,
+  },
+];
+
+export const seedInboxItems: InboxItem[] = [
+  {
+    id: "inbox-ajax-trust-timing",
+    title: "Clarify Ajax launch vs trust timing",
+    body: "Legal wants a single paragraph on entity readiness before pilot contracts.",
+    type: "risk",
+    status: "unprocessed",
+    linkedProjectId: PROJECT_IDS.ajax,
+    createdAt: T3,
+    updatedAt: T3,
+  },
+  {
+    id: "inbox-core-inbox-slice",
+    title: "Ship inbox capture slice in Core",
+    body: "Foundation types + store only; UI comes in Agent 2.",
+    type: "task",
+    status: "unprocessed",
+    linkedProjectId: PROJECT_IDS.core,
+    createdAt: T3,
+    updatedAt: T3,
+  },
+  {
+    id: "inbox-caplab-data-vendor",
+    title: "Evaluate market data vendor for Capital Lab",
+    type: "decision",
+    status: "converted",
+    linkedProjectId: PROJECT_IDS.capitalLab,
+    createdAt: T2,
+    updatedAt: T2,
+  },
+  {
+    id: "inbox-nexus-newsletter-idea",
+    title: "Weekly founder signal newsletter",
+    body: "Short PDF export from Nexus brief generator.",
+    type: "idea",
+    status: "archived",
+    linkedProjectId: PROJECT_IDS.nexus,
+    createdAt: T1,
+    updatedAt: T2,
+  },
+];
+
+export const seedActivityLogs: ActivityLog[] = [
+  {
+    id: "act-task-moved-design",
+    action: "moved",
+    entityType: "task",
+    entityId: "task-core-design-system",
+    entityName: "Audit shadcn component usage",
+    description: 'Moved task "Audit shadcn component usage" to done',
+    createdAt: "2026-05-17T10:15:00.000Z",
+  },
+  {
+    id: "act-ws-completed",
+    action: "updated",
+    entityType: "work_session",
+    entityId: "ws-core-store-sprint",
+    entityName: "Octane store CRUD wiring",
+    description: 'Completed work session "Octane store CRUD wiring"',
+    createdAt: "2026-05-17T16:30:00.000Z",
+  },
+  {
+    id: "act-inbox-converted",
+    action: "converted",
+    entityType: "inbox_item",
+    entityId: "inbox-caplab-data-vendor",
+    entityName: "Evaluate market data vendor for Capital Lab",
+    description:
+      'Converted inbox item "Evaluate market data vendor for Capital Lab" to decision',
+    createdAt: "2026-05-16T14:00:00.000Z",
+  },
+  {
+    id: "act-founder-note",
+    action: "created",
+    entityType: "founder_note",
+    entityId: "fnote-core-local-first",
+    entityName: "Local-first is the default",
+    description: 'Created founder note "Local-first is the default"',
+    createdAt: "2026-05-18T08:00:00.000Z",
+  },
+  {
+    id: "act-project-updated",
+    action: "updated",
+    entityType: "project",
+    entityId: PROJECT_IDS.core,
+    entityName: "Octane Core",
+    description: 'Updated project "Octane Core"',
+    createdAt: "2026-05-18T09:00:00.000Z",
+  },
+];
+
+export const seedFounderNotes: FounderNote[] = [
+  {
+    id: "fnote-core-local-first",
+    title: "Local-first is the default",
+    body: "No Supabase or paid APIs in 7B. Zustand + snapshot export is the portability story.",
+    linkedProjectId: PROJECT_IDS.core,
+    tags: ["architecture", "7b"],
+    createdAt: T3,
+    updatedAt: T3,
+  },
+  {
+    id: "fnote-ajax-pilot-narrative",
+    title: "Ajax pilot narrative",
+    body: "Lead with operator time saved, not model novelty. One paying pilot unlocks Nexus cross-sell.",
+    linkedProjectId: PROJECT_IDS.ajax,
+    tags: ["gtm", "positioning"],
+    createdAt: T2,
+    updatedAt: T3,
+  },
+  {
+    id: "fnote-holdings-structure",
+    title: "Holdings structure reminder",
+    body: "Keep IP in labs LLC; operating revenue flows through holdings trust per counsel draft.",
+    tags: ["legal", "entities"],
+    createdAt: T1,
+    updatedAt: T1,
+  },
+];
+
 export interface SeedData {
   profile: Profile;
   projects: Project[];
@@ -824,6 +988,9 @@ export interface SeedData {
   entities: Entity[];
   agents: Agent[];
   activityLogs: ActivityLog[];
+  workSessions: WorkSession[];
+  inboxItems: InboxItem[];
+  founderNotes: FounderNote[];
 }
 
 export const seedData: SeedData = {
@@ -837,5 +1004,8 @@ export const seedData: SeedData = {
   ipAssets: seedIPAssets,
   entities: seedEntities,
   agents: seedAgents,
-  activityLogs: [],
+  activityLogs: seedActivityLogs,
+  workSessions: seedWorkSessions,
+  inboxItems: seedInboxItems,
+  founderNotes: seedFounderNotes,
 };

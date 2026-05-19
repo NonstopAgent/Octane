@@ -34,7 +34,10 @@ import {
   selectDashboardMetrics,
 } from "@/lib/dashboard/metrics";
 import { computeOctaneScore } from "@/lib/scoring/octane-score";
-import { useOctaneStore } from "@/lib/store/octane-store";
+import {
+  selectOctanePersistedState,
+  useOctaneStore,
+} from "@/lib/store/octane-store";
 import { cn } from "@/lib/utils";
 
 function ProgressBar({ value, className }: { value: number; className?: string }) {
@@ -52,21 +55,7 @@ function ProgressBar({ value, className }: { value: number; className?: string }
 }
 
 export default function DashboardPage() {
-  const state = useOctaneStore(
-    useShallow((s) => ({
-      profile: s.profile,
-      projects: s.projects,
-      tasks: s.tasks,
-      agents: s.agents,
-      decisions: s.decisions,
-      transactions: s.transactions,
-      documents: s.documents,
-      roadmapItems: s.roadmapItems,
-      ipAssets: s.ipAssets,
-      entities: s.entities,
-      activityLogs: s.activityLogs,
-    })),
-  );
+  const state = useOctaneStore(useShallow(selectOctanePersistedState));
 
   const metrics = useMemo(() => selectDashboardMetrics(state), [state]);
   const octaneScore = useMemo(() => computeOctaneScore(state), [state]);

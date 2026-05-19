@@ -6,6 +6,9 @@ export type ActivityEntityType =
   | "document"
   | "entity"
   | "roadmap"
+  | "work_session"
+  | "inbox_item"
+  | "founder_note"
   | "system";
 
 export type ActivityAction =
@@ -13,14 +16,16 @@ export type ActivityAction =
   | "updated"
   | "deleted"
   | "moved"
+  | "converted"
+  | "archived"
   | "reset";
 
 export interface ActivityLog {
   id: string;
-  timestamp: string;
   action: ActivityAction;
   entityType: ActivityEntityType;
-  entityId: string;
+  entityId?: string;
   entityName: string;
   description: string;
+  createdAt: string;
 }

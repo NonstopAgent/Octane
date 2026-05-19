@@ -7,6 +7,12 @@ import { Pencil, Plus, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { ConfirmDialog, SectionHeader } from "@/components/modules";
 import { formatStatusLabel } from "@/components/modules/badge-tones";
+import {
+  DataManagementSection,
+  LAST_EXPORTED_AT_KEY,
+} from "@/components/settings/data-management-section";
+import { selectEntityOwnershipStats } from "@/components/settings/entity-ownership";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -69,7 +75,6 @@ function SettingsPageContent() {
   const createEntity = useOctaneStore((state) => state.createEntity);
   const updateEntity = useOctaneStore((state) => state.updateEntity);
   const deleteEntity = useOctaneStore((state) => state.deleteEntity);
-  const resetToSeed = useOctaneStore((state) => state.resetToSeed);
 
   const [founderForm, setFounderForm] = useState({
     name: profile.name,
@@ -87,37 +92,24 @@ function SettingsPageContent() {
   const [editingEntity, setEditingEntity] = useState<Entity | null>(null);
   const [entityForm, setEntityForm] = useState(emptyEntityForm);
   const [deleteTarget, setDeleteTarget] = useState<Entity | null>(null);
-  const [resetOpen, setResetOpen] = useState(false);
+  const [lastExportedAt, setLastExportedAt] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return localStorage.getItem(LAST_EXPORTED_AT_KEY);
+  });
 
-  const ownershipRows = useMemo(() => {
-    return entities.map((entity) => {
-      const entityIp = ipAssets.filter((a) => a.ownerEntity === entity.id);
-      const projectIds = new Set(
-        entityIp
-          .map((a) => a.projectId)
-          .filter((id): id is string => Boolean(id)),
+  const ownershipByEntityId = useMemo(() => {
+    const map = new Map<
+      string,
+      ReturnType<typeof selectEntityOwnershipStats>
+    >();
+    for (const entity of entities) {
+      map.set(
+        entity.id,
+        selectEntityOwnershipStats(entity, projects, documents, ipAssets),
       );
-      const projectNames = [...projectIds].map(
-        (id) => projects.find((p) => p.id === id)?.name ?? id,
-      );
-      const entityDocs = documents.filter(
-        (d) => d.projectId && projectIds.has(d.projectId),
-      );
-      const reminder =
-        entity.status === "forming"
-          ? "Formation in progress — confirm filing dates."
-          : entity.formationDate
-            ? "Annual compliance review recommended."
-            : "Add formation date for compliance tracking.";
-      return {
-        entity,
-        projectNames: [...new Set(projectNames)],
-        docCount: entityDocs.length,
-        ipCount: entityIp.length,
-        reminder,
-      };
-    });
-  }, [entities, projects, documents, ipAssets]);
+    }
+    return map;
+  }, [documents, entities, ipAssets, projects]);
 
   const saveFounder = (event: React.FormEvent) => {
     event.preventDefault();
@@ -132,7 +124,9 @@ function SettingsPageContent() {
 
   useEffect(() => {
     if (searchParams.get("new") === "entity") {
-      openCreateEntity();
+      setEditingEntity(null);
+      setEntityForm(emptyEntityForm);
+      setEntityDialogOpen(true);
     }
   }, [searchParams]);
 
@@ -310,66 +304,113 @@ function SettingsPageContent() {
         </Card>
       </section>
 
-      <section className="space-y-4">
+      <section className="space-y-4" data-testid="settings-ownership-map">
         <SectionHeader
-          title="Entity Tracker"
-          description="Trusts, LLCs, and labs in the Octane structure."
+          title="Ownership Map"
+          description="Entity → linked projects, IP, documents, and compliance reminders."
           actions={
-            <Button type="button" size="sm" onClick={openCreateEntity}>
+            <Button
+              type="button"
+              size="sm"
+              data-testid="settings-add-entity"
+              onClick={openCreateEntity}
+            >
               <Plus className="size-4" />
               Add Entity
             </Button>
           }
         />
-        <Card className="border-zinc-800/80 bg-zinc-900/30 overflow-x-auto">
+        <Card className="overflow-x-auto border-zinc-800/80 bg-zinc-900/30">
           <CardContent className="p-0">
-            <table className={tableClass}>
+            <table className={tableClass} data-testid="settings-ownership-table">
               <thead>
                 <tr>
-                  <th>Name</th>
-                  <th>Type</th>
+                  <th>Entity</th>
                   <th>Status</th>
-                  <th>Jurisdiction</th>
+                  <th>Projects</th>
+                  <th>Docs</th>
+                  <th>IP</th>
+                  <th>Compliance</th>
                   <th className="text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {entities.map((entity) => (
-                  <tr key={entity.id}>
-                    <td className="font-medium text-zinc-200">{entity.name}</td>
-                    <td>{formatStatusLabel(entity.type)}</td>
-                    <td>{formatStatusLabel(entity.status)}</td>
-                    <td className="text-zinc-400">
-                      {entity.jurisdiction ?? "—"}
-                    </td>
-                    <td className="text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button
-                          type="button"
-                          size="icon-sm"
-                          variant="ghost"
-                          onClick={() => openEditEntity(entity)}
+                {entities.map((entity) => {
+                  const stats = ownershipByEntityId.get(entity.id);
+                  return (
+                    <tr
+                      key={entity.id}
+                      data-testid={`settings-entity-row-${entity.id}`}
+                    >
+                      <td>
+                        <div className="font-medium text-zinc-200">
+                          {entity.name}
+                        </div>
+                        <div className="text-xs text-zinc-500">
+                          {formatStatusLabel(entity.type)}
+                          {entity.jurisdiction
+                            ? ` · ${entity.jurisdiction}`
+                            : ""}
+                        </div>
+                      </td>
+                      <td>
+                        <Badge
+                          variant="outline"
+                          className="border-zinc-700 text-zinc-300"
                         >
-                          <Pencil className="size-4" />
-                        </Button>
-                        <Button
-                          type="button"
-                          size="icon-sm"
-                          variant="ghost"
-                          className="text-red-400"
-                          onClick={() => setDeleteTarget(entity)}
-                        >
-                          <Trash2 className="size-4" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                          {formatStatusLabel(entity.status)}
+                        </Badge>
+                      </td>
+                      <td className="max-w-[12rem] text-zinc-300">
+                        {stats && stats.linkedProjectNames.length > 0
+                          ? stats.linkedProjectNames.join(", ")
+                          : "—"}
+                      </td>
+                      <td className="tabular-nums text-zinc-300">
+                        {stats?.docCount ?? 0}
+                      </td>
+                      <td className="tabular-nums text-zinc-300">
+                        {stats?.ipCount ?? 0}
+                      </td>
+                      <td className="max-w-[14rem] text-xs text-amber-200/90">
+                        {stats?.complianceHint ?? "—"}
+                      </td>
+                      <td className="text-right">
+                        <div className="flex justify-end gap-1">
+                          <Button
+                            type="button"
+                            size="icon-sm"
+                            variant="ghost"
+                            data-testid={`settings-edit-entity-${entity.id}`}
+                            onClick={() => openEditEntity(entity)}
+                          >
+                            <Pencil className="size-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            size="icon-sm"
+                            variant="ghost"
+                            className="text-red-400"
+                            data-testid={`settings-delete-entity-${entity.id}`}
+                            onClick={() => setDeleteTarget(entity)}
+                          >
+                            <Trash2 className="size-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </CardContent>
         </Card>
       </section>
+
+      <DataManagementSection
+        lastExportedAt={lastExportedAt}
+        onExported={setLastExportedAt}
+      />
 
       <Dialog open={entityDialogOpen} onOpenChange={setEntityDialogOpen}>
         <DialogContent className="border-zinc-800 bg-zinc-950 text-zinc-100 ring-zinc-800/80 sm:max-w-md">
@@ -491,72 +532,6 @@ function SettingsPageContent() {
         </DialogContent>
       </Dialog>
 
-      <section className="space-y-4">
-        <SectionHeader
-          title="Ownership Map"
-          description="Entity → linked projects, IP, documents, and compliance reminders."
-        />
-        <Card className="border-zinc-800/80 bg-zinc-900/30 overflow-x-auto">
-          <CardContent className="p-0">
-            <table className={tableClass}>
-              <thead>
-                <tr>
-                  <th>Entity</th>
-                  <th>Status</th>
-                  <th>Linked projects</th>
-                  <th>Docs / IP</th>
-                  <th>Reminder</th>
-                </tr>
-              </thead>
-              <tbody>
-                {ownershipRows.map((row) => (
-                  <tr key={row.entity.id}>
-                    <td className="font-medium text-zinc-200">
-                      {row.entity.name}
-                    </td>
-                    <td>{formatStatusLabel(row.entity.status)}</td>
-                    <td className="text-zinc-400">
-                      {row.projectNames.length
-                        ? row.projectNames.join(", ")
-                        : "—"}
-                    </td>
-                    <td className="text-zinc-400">
-                      {row.docCount} / {row.ipCount}
-                    </td>
-                    <td className="text-xs text-amber-300/90">
-                      {row.reminder}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </CardContent>
-        </Card>
-      </section>
-
-      <section className="space-y-4">
-        <SectionHeader
-          title="Demo Data"
-          description="Restore all modules to the seeded mock dataset."
-        />
-        <Card className="border-zinc-800/80 bg-zinc-900/30">
-          <CardContent className="flex flex-col gap-4 pt-4 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-zinc-400">
-              Clears local changes and reloads projects, tasks, finance, and
-              other seed records from the store.
-            </p>
-            <Button
-              type="button"
-              variant="outline"
-              className="shrink-0 border-red-800/80 text-red-300 hover:bg-red-950/30"
-              onClick={() => setResetOpen(true)}
-            >
-              Reset Demo Data
-            </Button>
-          </CardContent>
-        </Card>
-      </section>
-
       <ConfirmDialog
         open={Boolean(deleteTarget)}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
@@ -566,25 +541,6 @@ function SettingsPageContent() {
         onConfirm={() => {
           if (deleteTarget) deleteEntity(deleteTarget.id);
           setDeleteTarget(null);
-        }}
-      />
-
-      <ConfirmDialog
-        open={resetOpen}
-        onOpenChange={setResetOpen}
-        title="Reset demo data?"
-        description="This replaces all local data with the original seed dataset. Your profile and entity changes will be lost."
-        confirmLabel="Reset"
-        onConfirm={() => {
-          resetToSeed();
-          const seededProfile = useOctaneStore.getState().profile;
-          setFounderForm({
-            name: seededProfile.name,
-            role: seededProfile.role,
-            email: seededProfile.email,
-            timezone: seededProfile.timezone,
-          });
-          setResetOpen(false);
         }}
       />
     </div>

@@ -1,6 +1,8 @@
+import { mainNavItems } from "@/lib/nav";
 import type { OctanePersistedState } from "@/lib/store/octane-store";
 
 export type SearchResultType =
+  | "page"
   | "project"
   | "task"
   | "agent"
@@ -9,7 +11,10 @@ export type SearchResultType =
   | "ipAsset"
   | "decision"
   | "roadmapItem"
-  | "entity";
+  | "entity"
+  | "workSession"
+  | "inboxItem"
+  | "founderNote";
 
 export interface CommandSearchResult {
   id: string;
@@ -23,7 +28,19 @@ export interface CommandSearchResult {
   detailParam?: string;
 }
 
+const NAV_PAGES = mainNavItems.map((item) => {
+  const slug = item.href.slice(1);
+  return {
+    id: `page-${slug}`,
+    title: item.title,
+    description: `Go to ${item.title}`,
+    href: item.href,
+    keywords: [slug, item.title.toLowerCase()],
+  };
+});
+
 const TYPE_LABELS: Record<SearchResultType, string> = {
+  page: "Page",
   project: "Project",
   task: "Task",
   agent: "Agent",
@@ -33,6 +50,9 @@ const TYPE_LABELS: Record<SearchResultType, string> = {
   decision: "Decision",
   roadmapItem: "Roadmap",
   entity: "Entity",
+  workSession: "Work Session",
+  inboxItem: "Inbox",
+  founderNote: "Founder Note",
 };
 
 export function getSearchResultTypeLabel(type: SearchResultType): string {
@@ -56,6 +76,21 @@ export function searchCommandIndex(
 
   const projectNames = projectNameMap(state.projects);
   const results: CommandSearchResult[] = [];
+
+  for (const page of NAV_PAGES) {
+    const haystack = [page.title, page.description, ...page.keywords]
+      .join(" ")
+      .toLowerCase();
+    if (matchesQuery(haystack, query) || matchesQuery(page.title, query)) {
+      results.push({
+        id: page.id,
+        type: "page",
+        title: page.title,
+        description: page.description,
+        href: page.href,
+      });
+    }
+  }
 
   const push = (result: CommandSearchResult) => {
     const haystack = [
@@ -188,6 +223,7 @@ export function searchCommandIndex(
       projectId: item.projectId,
       projectName,
       href: "/roadmap",
+      detailParam: item.id,
     });
   }
 
@@ -201,6 +237,57 @@ export function searchCommandIndex(
     });
   }
 
+  for (const session of state.workSessions) {
+    const projectName = session.projectId
+      ? projectNames.get(session.projectId)
+      : undefined;
+    push({
+      id: session.id,
+      type: "workSession",
+      title: session.title,
+      description:
+        session.outcome ||
+        session.notes ||
+        `${session.status}${session.durationMinutes ? ` · ${session.durationMinutes}m` : ""}`,
+      projectId: session.projectId,
+      projectName,
+      href: "/today",
+      detailParam: session.id,
+    });
+  }
+
+  for (const inboxItem of state.inboxItems) {
+    const projectName = inboxItem.linkedProjectId
+      ? projectNames.get(inboxItem.linkedProjectId)
+      : undefined;
+    push({
+      id: inboxItem.id,
+      type: "inboxItem",
+      title: inboxItem.title,
+      description: inboxItem.body || `${inboxItem.type} · ${inboxItem.status}`,
+      projectId: inboxItem.linkedProjectId,
+      projectName,
+      href: "/inbox",
+      detailParam: inboxItem.id,
+    });
+  }
+
+  for (const note of state.founderNotes) {
+    const projectName = note.linkedProjectId
+      ? projectNames.get(note.linkedProjectId)
+      : undefined;
+    push({
+      id: note.id,
+      type: "founderNote",
+      title: note.title,
+      description: note.body.slice(0, 120) || note.tags.join(", "),
+      projectId: note.linkedProjectId,
+      projectName,
+      href: "/notes",
+      detailParam: note.id,
+    });
+  }
+
   return results.slice(0, 50);
 }
 
@@ -208,6 +295,7 @@ export function groupSearchResults(
   results: CommandSearchResult[],
 ): Record<SearchResultType, CommandSearchResult[]> {
   const grouped: Record<SearchResultType, CommandSearchResult[]> = {
+    page: [],
     project: [],
     task: [],
     agent: [],
@@ -217,6 +305,9 @@ export function groupSearchResults(
     decision: [],
     roadmapItem: [],
     entity: [],
+    workSession: [],
+    inboxItem: [],
+    founderNote: [],
   };
   for (const result of results) {
     grouped[result.type].push(result);
