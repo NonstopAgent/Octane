@@ -302,7 +302,8 @@ export interface OctaneStore extends OctanePersistedState {
   getCodingJobById: (id: string) => CodingJob | undefined;
 }
 
-const STORAGE_KEY = "octane-core-storage";
+// Bumped to v2 — clears cached seed/demo data from all existing sessions
+const STORAGE_KEY = "octane-core-storage-v2";
 
 export function selectOctanePersistedState(
   state: OctaneStore,
@@ -375,7 +376,7 @@ function normalizePersistedState(
 export const useOctaneStore = create<OctaneStore>()(
   persist(
     (set, get) => ({
-      ...createSeedData(),
+      ...createBlankState(),
 
       createProject: (data) => {
         const project: Project = {
@@ -1861,7 +1862,8 @@ export const useOctaneStore = create<OctaneStore>()(
           persisted as Partial<OctanePersistedState> | undefined,
         );
         if (isPersistedStateEmpty(persistedState)) {
-          return { ...current, ...normalizeOctaneData(createSeedData()) };
+          // No saved data — start blank. Supabase sync will hydrate on mount.
+          return { ...current, ...normalizeOctaneData(createBlankState()) };
         }
         return {
           ...current,

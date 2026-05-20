@@ -328,7 +328,7 @@ export default function DashboardPage() {
         </div>
         <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/30 px-4 py-3">
           <p className="text-2xl font-bold text-zinc-100">{state.agents.length}</p>
-          <p className="mt-0.5 text-[11px] text-zinc-500">Demo agents (seed)</p>
+          <p className="mt-0.5 text-[11px] text-zinc-500">Active agents</p>
         </div>
       </div>
 
