@@ -143,21 +143,23 @@ export function CodingJobCard({
       </div>
 
       {job.plan ? (
-        <section className="mt-4 space-y-2">
+        <section className="mt-4 space-y-3">
           <h4 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
             Plan
           </h4>
+          {job.plan.understoodRequest ? (
+            <p className="text-sm text-zinc-400">
+              <span className="text-zinc-500">Understood: </span>
+              {job.plan.understoodRequest}
+            </p>
+          ) : null}
           <p className="text-sm text-zinc-300">{job.plan.summary}</p>
-          <ol className="list-decimal list-inside space-y-1 text-sm text-zinc-400">
-            {job.plan.steps.map((step) => (
-              <li key={step.id}>
-                {step.title}
-                {step.description ? (
-                  <span className="text-zinc-600"> — {step.description}</span>
-                ) : null}
-              </li>
-            ))}
-          </ol>
+          <PlanList title="Steps" items={job.plan.steps.map((s) => s.title)} />
+          <PlanList title="Files likely" items={job.plan.files} />
+          <PlanList title="Risks" items={job.plan.risks} />
+          <PlanList title="Test / build" items={job.plan.testPlan} />
+          <PlanList title="Review items" items={job.plan.reviewItems} />
+          <PlanList title="Won't auto-happen" items={job.plan.wontAutoHappen} />
         </section>
       ) : null}
 
@@ -264,6 +266,22 @@ export function CodingJobCard({
         ) : null}
       </div>
     </article>
+  );
+}
+
+function PlanList({ title, items }: { title: string; items?: string[] }) {
+  if (!items?.length) return null;
+  return (
+    <div>
+      <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-600">
+        {title}
+      </p>
+      <ul className="mt-1 list-inside list-disc text-xs text-zinc-500">
+        {items.map((item) => (
+          <li key={`${title}-${item}`}>{item}</li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

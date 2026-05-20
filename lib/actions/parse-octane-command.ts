@@ -1,3 +1,5 @@
+import { resolveCodingRepo } from "@/lib/coding/github-repo-context";
+import type { CodingJobMode } from "@/lib/types/coding-job";
 import type { OctaneAction, OctaneActionSource, OctaneActionType } from "@/lib/types/octane-action";
 import type { ProjectConnection } from "@/lib/types/project-connection";
 
@@ -9,10 +11,40 @@ export type ParseOctaneCommandInput = {
   projects?: { id: string; name: string }[];
 };
 
+export type ParsedCodingJobIntent = {
+  prompt: string;
+  repo?: string;
+  projectId?: string;
+  title: string;
+  mode: CodingJobMode;
+};
+
 export type ParseOctaneCommandResult = {
   actions: OctaneAction[];
   replies: string[];
+  codingJob?: ParsedCodingJobIntent;
 };
+
+function buildCodingJobIntent(
+  text: string,
+  input: ParseOctaneCommandInput,
+): ParsedCodingJobIntent {
+  const { repo, projectId } = resolveCodingRepo({
+    text,
+    projectId: input.projectId,
+    projectConnections: input.projectConnections ?? [],
+    projects: input.projects ?? [],
+  });
+  return {
+    prompt: text,
+    repo,
+    projectId,
+    title: repo
+      ? `Coding: ${text.slice(0, 60)}${text.length > 60 ? "…" : ""}`
+      : "Coding job (repo required)",
+    mode: "review",
+  };
+}
 
 function actionId(): string {
   return `action-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -39,8 +71,11 @@ function propose(
   };
 }
 
+const CODING_INTENT_PATTERN =
+  /\b(fix|clean\s*up|improve|edit|build|work\s+on|make\s+(a\s+)?pr|open\s+(a\s+)?pr|change\s+code|coding\s+job|code\s+change|pull\s+request)\b/;
+
 /**
- * Deterministic command parser — returns proposed actions and read-only replies (never auto-executes).
+ * Deterministic command parser — returns proposed actions, coding job intents, and read-only replies (never auto-executes).
  */
 export function parseOctaneCommand(input: ParseOctaneCommandInput): ParseOctaneCommandResult {
   const text = input.text.trim();
@@ -70,29 +105,17 @@ export function parseOctaneCommand(input: ParseOctaneCommandInput): ParseOctaneC
     );
   }
 
-  const codingIntent =
-    /\b(fix|build|change\s+code|edit\s+repo|work\s+on|make\s+(a\s+)?pr|open\s+(a\s+)?pr)\b/.test(
-      lower,
-    ) ||
-    /\b(coding\s+job|code\s+change|pull\s+request)\b/.test(lower);
-  const repoInText = text.match(/([\w.-]+\/[\w.-]+)/);
-  if (codingIntent) {
-    const repo = repoInText?.[1];
-    actions.push(
-      propose(
-        "create_coding_job",
-        repo ? `Coding job for ${repo}` : "Create coding job",
-        "Opens the GitHub coding workbench (review mode) — plan and PR, never auto-merge.",
-        {
-          prompt: text,
-          repo,
-          projectId: input.projectId,
-        },
-        source,
-        input.projectId,
-      ),
-    );
-  } else if (/\b(create|add)\s+(a\s+)?task\b/.test(lower) || /\btask\s*:/.test(lower)) {
+  let codingJob: ParsedCodingJobIntent | undefined;
+  if (CODING_INTENT_PATTERN.test(lower)) {
+    codingJob = buildCodingJobIntent(text, input);
+    if (!codingJob.repo) {
+      replies.push(
+        "Connect a GitHub repo first — link one in Connections or include owner/repo in your message.",
+      );
+    }
+  }
+
+  if (/\b(create|add)\s+(a\s+)?task\b/.test(lower) || /\btask\s*:/.test(lower)) {
     const titleMatch =
       text.match(/task\s*(?::|—|-)\s*["']?([^"'\n]+)["']?/i) ??
       text.match(/(?:create|add)\s+(?:a\s+)?task\s+["']?([^"'\n.]+)["']?/i);
@@ -309,5 +332,5 @@ export function parseOctaneCommand(input: ParseOctaneCommandInput): ParseOctaneC
     );
   }
 
-  return { actions, replies };
+  return { actions, replies, codingJob };
 }

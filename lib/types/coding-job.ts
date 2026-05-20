@@ -30,10 +30,16 @@ export interface CodingJobPlanStep {
 
 export interface CodingJobPlan {
   summary: string;
+  /** Plain-language restatement of the founder request. */
+  understoodRequest?: string;
   steps: CodingJobPlanStep[];
   files: string[];
   risks: string[];
   testPlan: string[];
+  /** Human review checklist before merge. */
+  reviewItems?: string[];
+  /** Explicit safety boundaries (no merge, deploy, etc.). */
+  wontAutoHappen?: string[];
 }
 
 export type CodingJobFileAction = "add" | "modify" | "delete";

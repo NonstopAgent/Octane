@@ -1,6 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Code2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -11,10 +13,23 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import {
+  getGithubRepoForProject,
+  getLinkedGithubRepos,
+} from "@/lib/coding/github-repo-context";
 import { useOctaneStore } from "@/lib/store/octane-store";
 import type { CodingJobMode, CodingJobPlan } from "@/lib/types/coding-job";
 
 export default function CodingPage() {
+  return (
+    <Suspense fallback={<p className="p-8 text-sm text-zinc-500">Loading coding…</p>}>
+      <CodingPageContent />
+    </Suspense>
+  );
+}
+
+function CodingPageContent() {
+  const searchParams = useSearchParams();
   const projects = useOctaneStore((s) => s.projects);
   const projectConnections = useOctaneStore((s) => s.projectConnections);
   const codingJobs = useOctaneStore((s) => s.codingJobs);
@@ -29,13 +44,14 @@ export default function CodingPage() {
   const [prompt, setPrompt] = useState("");
   const [mode, setMode] = useState<CodingJobMode>("review");
   const [creating, setCreating] = useState(false);
+  const [highlightId, setHighlightId] = useState<string | null>(null);
 
-  const githubRepos = useMemo(() => {
-    const fromLinks = projectConnections
-      .filter((pc) => pc.kind === "github" && pc.repo)
-      .map((pc) => pc.repo as string);
-    return [...new Set(fromLinks)];
-  }, [projectConnections]);
+  const githubRepos = useMemo(
+    () => getLinkedGithubRepos(projectConnections),
+    [projectConnections],
+  );
+
+  const singleLinkedRepo = githubRepos.length === 1 ? githubRepos[0] : undefined;
 
   const projectNameById = useMemo(
     () => new Map(projects.map((p) => [p.id, p.name])),
@@ -51,6 +67,28 @@ export default function CodingPage() {
     [codingJobs],
   );
 
+  useEffect(() => {
+    const paramProject = searchParams.get("project") ?? "";
+    const paramRepo = searchParams.get("repo") ?? "";
+    const paramDetail = searchParams.get("detail");
+    const paramPrompt = searchParams.get("prompt") ?? "";
+
+    if (paramProject) {
+      setProjectId(paramProject);
+      const linked = getGithubRepoForProject(projectConnections, paramProject);
+      if (linked) setRepo(linked);
+    }
+    if (paramRepo) setRepo(paramRepo);
+    if (!paramRepo && !paramProject && singleLinkedRepo) {
+      setRepo(singleLinkedRepo);
+    }
+    if (paramPrompt) setPrompt(paramPrompt);
+    if (paramDetail) setHighlightId(paramDetail);
+  }, [searchParams, projectConnections, singleLinkedRepo]);
+
+  const hasRepo = Boolean(repo.trim());
+  const repoReady = /^[\w.-]+\/[\w.-]+$/.test(repo.trim());
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     const repoValue = repo.trim();
@@ -59,7 +97,7 @@ export default function CodingPage() {
       toast.error("Repo and prompt are required");
       return;
     }
-    if (!/^[\w.-]+\/[\w.-]+$/.test(repoValue)) {
+    if (!repoReady) {
       toast.error("Use owner/repo format");
       return;
     }
@@ -102,6 +140,7 @@ export default function CodingPage() {
         message: `Plan generated (${data.planSource ?? "server"})`,
         phase: "plan",
       });
+      setHighlightId(job.id);
       toast.success("Coding job created — approve before run");
       setPrompt("");
     } catch (err) {
@@ -115,7 +154,7 @@ export default function CodingPage() {
     <div className="space-y-8">
       <PageHeader
         title="Coding"
-        description="Codex-style GitHub workbench: plan → approve → branch → PR. Review mode by default. Never auto-merges."
+        description="Ask Octane to work on a repo — plan → approve → branch → PR. Review mode only: never auto-merge or deploy."
       />
 
       <form
@@ -123,6 +162,10 @@ export default function CodingPage() {
         className="space-y-4 rounded-xl border border-zinc-800/80 bg-zinc-900/30 p-4"
       >
         <h2 className="text-sm font-medium text-zinc-300">New coding job</h2>
+        <p className="text-xs text-zinc-500">
+          Review mode creates a branch and planning PR. Octane does not merge, deploy, or edit
+          source in v1.
+        </p>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="grid gap-2">
             <Label htmlFor="coding-project">Project (optional)</Label>
@@ -131,13 +174,11 @@ export default function CodingPage() {
               value={projectId}
               onChange={(e) => {
                 setProjectId(e.target.value);
-                const link = projectConnections.find(
-                  (pc) =>
-                    pc.projectId === e.target.value &&
-                    pc.kind === "github" &&
-                    pc.repo,
+                const linked = getGithubRepoForProject(
+                  projectConnections,
+                  e.target.value,
                 );
-                if (link?.repo) setRepo(link.repo);
+                if (linked) setRepo(linked);
               }}
               className="border-zinc-700 bg-zinc-900"
             >
@@ -149,11 +190,17 @@ export default function CodingPage() {
               ))}
             </Select>
           </div>
-          <CodingFormRepo repo={repo} setRepo={setRepo} githubRepos={githubRepos} />
+          <CodingFormRepo
+            repo={repo}
+            setRepo={setRepo}
+            githubRepos={githubRepos}
+            hasRepo={hasRepo}
+            repoReady={repoReady}
+          />
           <CodingFormMode mode={mode} setMode={setMode} />
           <CodingFormPrompt prompt={prompt} setPrompt={setPrompt} />
         </div>
-        <Button type="submit" disabled={creating} className="gap-2">
+        <Button type="submit" disabled={creating || !repoReady} className="gap-2">
           {creating ? (
             <Loader2 className="size-4 animate-spin" />
           ) : (
@@ -167,7 +214,7 @@ export default function CodingPage() {
         <EmptyState
           icon={Code2}
           title="No coding jobs yet"
-          description='Try "fix the auth flow in owner/repo" in Ask Octane, or create a job above.'
+          description='Try Ask Octane: "improve the Vercel connection flow in owner/repo" — or create a job above after linking a repo.'
         />
       ) : (
         <section className="space-y-3">
@@ -176,17 +223,26 @@ export default function CodingPage() {
           </h2>
           <div className="space-y-3">
             {sortedJobs.map((job) => (
-              <CodingJobCard
+              <div
                 key={job.id}
-                job={job}
-                projectName={
-                  job.projectId ? projectNameById.get(job.projectId) : undefined
+                id={`coding-job-${job.id}`}
+                className={
+                  highlightId === job.id
+                    ? "rounded-xl ring-2 ring-amber-600/50 ring-offset-2 ring-offset-zinc-950"
+                    : undefined
                 }
-                onApprove={approveCodingJob}
-                onCancel={cancelCodingJob}
-                onUpdate={updateCodingJob}
-                onAppendLog={appendCodingJobLog}
-              />
+              >
+                <CodingJobCard
+                  job={job}
+                  projectName={
+                    job.projectId ? projectNameById.get(job.projectId) : undefined
+                  }
+                  onApprove={approveCodingJob}
+                  onCancel={cancelCodingJob}
+                  onUpdate={updateCodingJob}
+                  onAppendLog={appendCodingJobLog}
+                />
+              </div>
             ))}
           </div>
         </section>
@@ -199,10 +255,14 @@ function CodingFormRepo({
   repo,
   setRepo,
   githubRepos,
+  hasRepo,
+  repoReady,
 }: {
   repo: string;
   setRepo: (v: string) => void;
   githubRepos: string[];
+  hasRepo: boolean;
+  repoReady: boolean;
 }) {
   return (
     <div className="grid gap-2">
@@ -221,6 +281,17 @@ function CodingFormRepo({
           <option key={r} value={r} />
         ))}
       </datalist>
+      {!hasRepo ? (
+        <p className="text-xs text-amber-300/80">
+          Connect a GitHub repo first —{" "}
+          <Link href="/connections" className="underline hover:text-amber-200">
+            open Connections
+          </Link>
+          .
+        </p>
+      ) : !repoReady ? (
+        <p className="text-xs text-zinc-500">Use owner/repo format (e.g. acme/app).</p>
+      ) : null}
     </div>
   );
 }
@@ -241,12 +312,16 @@ function CodingFormMode({
         onChange={(e) => setMode(e.target.value as CodingJobMode)}
         className="border-zinc-700 bg-zinc-900"
       >
-        <option value="review">Review (default)</option>
-        <option value="assisted">Assisted</option>
+        <option value="review">Review — branch + PR, you merge on GitHub</option>
+        <option value="assisted">Assisted — plan + PR with approval gate</option>
         <option value="autopilot" disabled>
-          Autopilot (disabled — docs-only low-risk placeholder)
+          Autopilot (disabled)
         </option>
       </Select>
+      <p className="text-[11px] text-zinc-600">
+        Status in review mode: branch → planning PR → your review. Never merge or deploy from
+        Octane.
+      </p>
     </div>
   );
 }
@@ -260,14 +335,14 @@ function CodingFormPrompt({
 }) {
   return (
     <div className="grid gap-2 sm:col-span-2">
-      <Label htmlFor="coding-prompt">Prompt</Label>
+      <Label htmlFor="coding-prompt">What should Octane plan?</Label>
       <textarea
         id="coding-prompt"
         rows={4}
         value={prompt}
         onChange={(e) => setPrompt(e.target.value)}
         className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100"
-        placeholder="Describe the change you want as a PR…"
+        placeholder='e.g. "Improve the Vercel deployment card on the dashboard and add a link from Outlook Ask Octane"'
         required
       />
     </div>

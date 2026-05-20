@@ -14,11 +14,15 @@ export function DashboardCodingCards() {
   const awaitingReview = codingJobs.filter((j) => j.status === "pr_open");
   const failed = codingJobs.filter((j) => j.status === "failed");
 
+  const suggestedReview =
+    codingJobs.find((j) => j.status === "pr_open") ??
+    codingJobs.find((j) => j.status === "pending_approval");
+
   if (codingJobs.length === 0) return null;
 
   return (
     <section className="space-y-3">
-      <h2 className="text-sm font-medium text-zinc-400">Coding workbench</h2>
+      <h2 className="text-sm font-medium text-zinc-400">What Octane is doing</h2>
       <div className="grid gap-3 sm:grid-cols-3">
         <Link
           href="/coding"
@@ -48,6 +52,20 @@ export function DashboardCodingCards() {
           <p className="mt-0.5 text-[11px] text-zinc-500">Failed jobs</p>
         </Link>
       </div>
+      {suggestedReview ? (
+        <p className="text-xs text-zinc-500">
+          Suggested next:{" "}
+          <Link
+            href={`/coding?detail=${suggestedReview.id}`}
+            className="text-amber-400/90 hover:underline"
+          >
+            {suggestedReview.title}
+          </Link>
+          {suggestedReview.status === "pr_open" && suggestedReview.prUrl
+            ? ` — PR #${suggestedReview.prNumber}`
+            : " — approve plan, then run"}
+        </p>
+      ) : null}
     </section>
   );
 }

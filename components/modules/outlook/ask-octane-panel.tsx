@@ -27,6 +27,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { parseOctaneCommand } from "@/lib/actions/parse-octane-command";
+import type { CodingJobPlan } from "@/lib/types/coding-job";
 import { generateExecutiveAnswer } from "@/lib/executive";
 import { ActionProposalCard } from "@/components/modules/actions/action-proposal-card";
 import type { ExecutiveAnswer, ExecutiveConfidence } from "@/lib/executive";
@@ -365,12 +366,16 @@ export function AskOctanePanel() {
   const proposeOctaneActions = useOctaneStore((s) => s.proposeOctaneActions);
   const approveOctaneAction = useOctaneStore((s) => s.approveOctaneAction);
   const rejectOctaneAction = useOctaneStore((s) => s.rejectOctaneAction);
+  const createCodingJob = useOctaneStore((s) => s.createCodingJob);
+  const appendCodingJobLog = useOctaneStore((s) => s.appendCodingJobLog);
   const octaneActions = useOctaneStore((s) => s.octaneActions);
   const [questionInput, setQuestionInput] = useState("");
   const [submittedQuestion, setSubmittedQuestion] = useState<string | null>(null);
   const [activeChip, setActiveChip] = useState<string | null>(null);
   const [lastProposedIds, setLastProposedIds] = useState<string[]>([]);
   const [commandReplies, setCommandReplies] = useState<string[]>([]);
+  const [codingJobLink, setCodingJobLink] = useState<string | null>(null);
+  const [codingJobLoading, setCodingJobLoading] = useState(false);
 
   const answer = useMemo(() => {
     if (!submittedQuestion?.trim()) return null;
@@ -393,12 +398,13 @@ export function AskOctanePanel() {
     [octaneActions, lastProposedIds],
   );
 
-  function submitQuestion(question: string, chipLabel: string | null = null) {
+  async function submitQuestion(question: string, chipLabel: string | null = null) {
     const trimmed = question.trim();
     if (!trimmed) return;
     setQuestionInput(trimmed);
     setSubmittedQuestion(trimmed);
     setActiveChip(chipLabel);
+    setCodingJobLink(null);
 
     const parsed = parseOctaneCommand({
       text: trimmed,
@@ -406,10 +412,74 @@ export function AskOctanePanel() {
       projectConnections: state.projectConnections,
       projects: state.projects.map((p) => ({ id: p.id, name: p.name })),
     });
-    setCommandReplies(parsed.replies);
-    if (parsed.actions.length > 0) {
+
+    const replies = [...parsed.replies];
+
+    if (parsed.codingJob) {
+      if (!parsed.codingJob.repo) {
+        replies.push(
+          "Add owner/repo in your message or link a repo in Connections, then try again.",
+        );
+      } else {
+        setCodingJobLoading(true);
+        try {
+          const project = parsed.codingJob.projectId
+            ? state.projects.find((p) => p.id === parsed.codingJob?.projectId)
+            : undefined;
+          const res = await fetch("/api/coding/jobs", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              prompt: parsed.codingJob.prompt,
+              repo: parsed.codingJob.repo,
+              mode: parsed.codingJob.mode,
+              projectId: parsed.codingJob.projectId,
+              projectName: project?.name,
+              title: parsed.codingJob.title,
+            }),
+          });
+          const data = (await res.json()) as {
+            title?: string;
+            plan?: CodingJobPlan;
+            error?: string;
+            planSource?: string;
+          };
+          if (!res.ok) {
+            throw new Error(data.error ?? "Failed to create coding job");
+          }
+          const job = createCodingJob({
+            title: data.title ?? parsed.codingJob.title,
+            prompt: parsed.codingJob.prompt,
+            repo: parsed.codingJob.repo,
+            mode: parsed.codingJob.mode,
+            status: "pending_approval",
+            projectId: parsed.codingJob.projectId,
+            plan: data.plan,
+          });
+          appendCodingJobLog(job.id, {
+            level: "info",
+            message: `Plan from Ask Octane (${data.planSource ?? "server"})`,
+            phase: "plan",
+          });
+          setCodingJobLink(`/coding?detail=${job.id}`);
+          replies.push(
+            `Coding job created (review mode — branch + PR, never merge). Open in Coding to approve and run.`,
+          );
+        } catch (err) {
+          replies.push(
+            err instanceof Error ? err.message : "Could not create coding job.",
+          );
+        } finally {
+          setCodingJobLoading(false);
+        }
+      }
+    }
+
+    setCommandReplies(replies);
+    const nonCodingActions = parsed.actions.filter((a) => a.type !== "create_coding_job");
+    if (nonCodingActions.length > 0) {
       const created = proposeOctaneActions(
-        parsed.actions.map((p) => ({
+        nonCodingActions.map((p) => ({
           type: p.type,
           title: p.title,
           description: p.description,
@@ -426,7 +496,7 @@ export function AskOctanePanel() {
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    submitQuestion(questionInput, null);
+    void submitQuestion(questionInput, null);
   }
 
   return (
@@ -441,7 +511,7 @@ export function AskOctanePanel() {
             id={inputId}
             value={questionInput}
             onChange={(event) => setQuestionInput(event.target.value)}
-            placeholder="Ask about focus, money, risks, outlook…"
+            placeholder='Ask about focus, money, risks… or "fix auth in owner/repo"'
             className="border-zinc-700/80 bg-zinc-950/60 text-zinc-100 placeholder:text-zinc-600"
             autoComplete="off"
           />
@@ -449,9 +519,13 @@ export function AskOctanePanel() {
             type="submit"
             size="sm"
             className="shrink-0 gap-1.5 bg-amber-600 text-zinc-950 hover:bg-amber-500"
-            disabled={!questionInput.trim()}
+            disabled={!questionInput.trim() || codingJobLoading}
           >
-            <Send className="size-3.5" aria-hidden />
+            {codingJobLoading ? (
+              <Loader2 className="size-3.5 animate-spin" aria-hidden />
+            ) : (
+              <Send className="size-3.5" aria-hidden />
+            )}
             Ask
           </Button>
         </div>
@@ -466,7 +540,7 @@ export function AskOctanePanel() {
             <button
               key={chip.label}
               type="button"
-              onClick={() => submitQuestion(chip.question, chip.label)}
+              onClick={() => void submitQuestion(chip.question, chip.label)}
               className={cn(
                 "rounded-full border px-2.5 py-1 text-xs transition-colors",
                 activeChip === chip.label
@@ -480,13 +554,22 @@ export function AskOctanePanel() {
         </div>
       </div>
 
-      {commandReplies.length > 0 ? (
-        <section className="space-y-1 rounded-xl border border-zinc-800/80 bg-zinc-900/40 p-4">
+      {commandReplies.length > 0 || codingJobLink ? (
+        <section className="space-y-2 rounded-xl border border-zinc-800/80 bg-zinc-900/40 p-4">
           {commandReplies.map((reply) => (
             <p key={reply} className="text-sm text-zinc-300">
               {reply}
             </p>
           ))}
+          {codingJobLink ? (
+            <Link
+              href={codingJobLink}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-amber-400 hover:underline"
+            >
+              Open coding job
+              <ArrowRight className="size-3.5" aria-hidden />
+            </Link>
+          ) : null}
         </section>
       ) : null}
 

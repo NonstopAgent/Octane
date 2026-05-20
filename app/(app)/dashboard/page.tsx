@@ -222,10 +222,6 @@ export default function DashboardPage() {
     () => openTasks.filter((t) => t.status === "blocked"),
     [openTasks],
   );
-  const runningAgents = useMemo(
-    () => state.agents.filter((a) => a.status === "running"),
-    [state.agents],
-  );
   const activeProjects = useMemo(
     () => state.projects.filter((p) =>
       p.status === "building" || p.status === "testing" || p.status === "launched"
@@ -330,19 +326,9 @@ export default function DashboardPage() {
           <p className="text-2xl font-bold text-zinc-100">{openTasks.length}</p>
           <p className="mt-0.5 text-[11px] text-zinc-500">Open tasks</p>
         </div>
-        <div className={cn(
-          "rounded-xl border px-4 py-3",
-          runningAgents.length > 0
-            ? "border-emerald-900/50 bg-emerald-950/20"
-            : "border-zinc-800/80 bg-zinc-900/30"
-        )}>
-          <p className={cn(
-            "text-2xl font-bold",
-            runningAgents.length > 0 ? "text-emerald-400" : "text-zinc-100"
-          )}>
-            {runningAgents.length}
-          </p>
-          <p className="mt-0.5 text-[11px] text-zinc-500">Agents running</p>
+        <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/30 px-4 py-3">
+          <p className="text-2xl font-bold text-zinc-100">{state.agents.length}</p>
+          <p className="mt-0.5 text-[11px] text-zinc-500">Demo agents (seed)</p>
         </div>
       </div>
 
@@ -494,7 +480,7 @@ export default function DashboardPage() {
         <div>
           <h2 className="mb-3 text-sm font-medium text-zinc-400 flex items-center gap-2">
             <Bot className="size-3.5 text-purple-400" />
-            Agent Status
+            Demo agents (portfolio seed)
           </h2>
           {state.agents.length === 0 ? (
             <div className="rounded-xl border border-dashed border-zinc-800 p-6 text-center">
@@ -513,7 +499,7 @@ export default function DashboardPage() {
                   <div
                     className={cn(
                       "size-2 rounded-full shrink-0",
-                      agent.status === "running" && "bg-emerald-400 animate-pulse",
+                      agent.status === "running" && "bg-zinc-500",
                       agent.status === "idle" && "bg-zinc-600",
                       agent.status === "error" && "bg-red-500",
                       agent.status === "paused" && "bg-amber-400",

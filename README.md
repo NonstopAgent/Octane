@@ -4,6 +4,7 @@ Octane Core is a **founder operating system** for running multiple projects, bet
 
 ## Status
 
+- **Checkpoint 12A** — Coding workbench alive loop (Ask Octane → job → plan → PR; dashboard activity)
 - **Checkpoint 11C** — GitHub coding workbench (`/coding`, plan → approve → PR; review mode default)
 - **Checkpoint 11B** — Read-only GitHub + Vercel connectors (server tokens, `/connections`, project links)
 - **Checkpoint 11A** — Conversational command layer, Connections hub, action approvals, data normalizer

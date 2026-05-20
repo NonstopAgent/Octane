@@ -19,7 +19,6 @@ export function ProjectCodingSection({
   const codingJobs = useOctaneStore((s) =>
     s.codingJobs.filter((j) => j.projectId === projectId),
   );
-  const proposeOctaneAction = useOctaneStore((s) => s.proposeOctaneAction);
 
   const open = codingJobs.filter((j) =>
     ["pending_approval", "approved", "running", "pr_open"].includes(j.status),
@@ -28,24 +27,9 @@ export function ProjectCodingSection({
     (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
   )[0];
 
-  function askOctane() {
-    proposeOctaneAction({
-      type: "create_coding_job",
-      title: githubRepo
-        ? `Coding job for ${githubRepo}`
-        : "Create coding job",
-      description: "Proposes a GitHub coding workbench job (review mode).",
-      payload: {
-        prompt: githubRepo
-          ? `Work on ${githubRepo}: `
-          : "Describe the change for this project repo",
-        repo: githubRepo,
-        projectId,
-      },
-      source: "manual",
-      projectId,
-    });
-  }
+  const codingHref = githubRepo
+    ? `/coding?project=${encodeURIComponent(projectId)}&repo=${encodeURIComponent(githubRepo)}`
+    : `/coding?project=${encodeURIComponent(projectId)}`;
 
   return (
     <section className="space-y-3" data-section="project-coding">
@@ -59,14 +43,23 @@ export function ProjectCodingSection({
       </div>
       {!githubRepo ? (
         <p className="text-sm text-zinc-500">
-          Link a GitHub repo in Connections to enable coding jobs for this project.
+          No GitHub repo linked.{" "}
+          <Link href="/connections" className="text-amber-400/90 hover:underline">
+            Connect a repo
+          </Link>{" "}
+          to enable coding jobs for this project.
         </p>
       ) : (
-        <p className="font-mono text-xs text-zinc-500">{githubRepo}</p>
+        <div className="rounded-lg border border-zinc-800/80 bg-zinc-950/40 px-3 py-2">
+          <p className="text-[10px] font-medium uppercase tracking-wide text-zinc-600">
+            Linked GitHub repo
+          </p>
+          <p className="font-mono text-sm text-zinc-300">{githubRepo}</p>
+        </div>
       )}
       {latest ? (
         <p className="text-sm text-zinc-400">
-          Last job:{" "}
+          Latest job:{" "}
           <Badge variant="outline" className="border-zinc-700 text-xs capitalize">
             {latest.status.replace(/_/g, " ")}
           </Badge>
@@ -94,19 +87,28 @@ export function ProjectCodingSection({
         </p>
       ) : null}
       <div className="flex flex-wrap gap-2">
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          className="gap-1 border-zinc-700"
-          onClick={askOctane}
-          disabled={!githubRepo}
-        >
-          <Sparkles className="size-3.5" />
-          Ask Octane to work on this repo
-        </Button>
+        {githubRepo ? (
+          <Link
+            href={codingHref}
+            className="inline-flex h-8 items-center gap-1 rounded-lg border border-zinc-700 bg-transparent px-3 text-sm text-zinc-200 hover:bg-zinc-800/60"
+          >
+            <Sparkles className="size-3.5" />
+            Ask Octane to work on this project
+          </Link>
+        ) : (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="gap-1 border-zinc-700"
+            disabled
+          >
+            <Sparkles className="size-3.5" />
+            Ask Octane to work on this project
+          </Button>
+        )}
         <Link
-          href={`/coding?project=${projectId}`}
+          href={codingHref}
           className="inline-flex h-8 items-center gap-1 rounded-lg px-3 text-sm text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-200"
         >
           <Code2 className="size-3.5" />
