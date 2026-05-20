@@ -63,6 +63,18 @@ export function ProjectCodingSection({
           <Badge variant="outline" className="border-zinc-700 text-xs capitalize">
             {latest.status.replace(/_/g, " ")}
           </Badge>
+          {latest.editApprovalStatus === "pending" && latest.proposedEdits?.length ? (
+            <>
+              {" "}
+              ·{" "}
+              <Link
+                href={`/coding?detail=${latest.id}`}
+                className="text-amber-400/90 hover:underline"
+              >
+                edits awaiting approval
+              </Link>
+            </>
+          ) : null}
           {latest.prUrl ? (
             <>
               {" "}
@@ -73,7 +85,7 @@ export function ProjectCodingSection({
                 rel="noopener noreferrer"
                 className="text-violet-400 hover:underline"
               >
-                PR #{latest.prNumber}
+                {latest.prKind === "source" ? "Source" : "Planning"} PR #{latest.prNumber}
               </a>
             </>
           ) : null}
@@ -107,6 +119,15 @@ export function ProjectCodingSection({
             Ask Octane to work on this project
           </Button>
         )}
+        {githubRepo && latest?.status === "approved" ? (
+          <Link
+            href={`/coding?detail=${latest.id}`}
+            className="inline-flex h-8 items-center gap-1 rounded-lg border border-amber-900/40 px-3 text-sm text-amber-300/90 hover:bg-amber-950/40"
+          >
+            <Code2 className="size-3.5" />
+            Source edits
+          </Link>
+        ) : null}
         <Link
           href={codingHref}
           className="inline-flex h-8 items-center gap-1 rounded-lg px-3 text-sm text-zinc-400 hover:bg-zinc-800/60 hover:text-zinc-200"

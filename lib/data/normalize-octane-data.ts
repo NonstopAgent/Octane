@@ -32,7 +32,11 @@ import type {
 } from "@/lib/types/project-connection";
 import type {
   CodingJob,
+  CodingJobEditApprovalStatus,
+  CodingJobEditMode,
   CodingJobMode,
+  CodingJobPrKind,
+  CodingJobProposedEdit,
   CodingJobStatus,
 } from "@/lib/types/coding-job";
 import type { RoadmapItem } from "@/lib/types/roadmap-item";
@@ -52,6 +56,33 @@ const CODING_JOB_STATUSES: CodingJobStatus[] = [
   "cancelled",
 ];
 const CODING_JOB_MODES: CodingJobMode[] = ["review", "assisted", "autopilot"];
+const CODING_JOB_EDIT_MODES: CodingJobEditMode[] = ["planning_pr", "source_pr"];
+const CODING_JOB_PR_KINDS: CodingJobPrKind[] = ["planning", "source"];
+const CODING_JOB_EDIT_APPROVAL: CodingJobEditApprovalStatus[] = [
+  "pending",
+  "approved",
+  "rejected",
+];
+
+function normalizeProposedEdits(raw: unknown): CodingJobProposedEdit[] | undefined {
+  const list = asArray(raw);
+  if (!list.length) return undefined;
+  const edits: CodingJobProposedEdit[] = [];
+  for (const item of list) {
+    if (!item || typeof item !== "object") continue;
+    const e = item as Partial<CodingJobProposedEdit>;
+    const path = safeString(e.path, "");
+    if (!path) continue;
+    edits.push({
+      path,
+      beforePreview: safeString(e.beforePreview, ""),
+      afterPreview: safeString(e.afterPreview, ""),
+      summary: safeString(e.summary, ""),
+      afterContent: safeString(e.afterContent, e.afterPreview ?? ""),
+    });
+  }
+  return edits.length ? edits : undefined;
+}
 
 export interface NormalizedOctaneState extends OctanePersistedState {
   connections: Connection[];
@@ -419,6 +450,20 @@ function normalizeCodingJob(raw: unknown, index: number): CodingJob | null {
     approvedAt: safeOptionalString(r.approvedAt),
     completedAt: safeOptionalString(r.completedAt),
     errorMessage: safeOptionalString(r.errorMessage),
+    editMode: r.editMode
+      ? pickEnum(r.editMode, CODING_JOB_EDIT_MODES, "planning_pr")
+      : undefined,
+    proposedFiles: asArray(r.proposedFiles).length
+      ? asArray(r.proposedFiles).map((f) => String(f))
+      : undefined,
+    proposedEdits:
+      normalizeProposedEdits(r.proposedEdits) ??
+      normalizeProposedEdits(r.filePatches),
+    filePatches: undefined,
+    editApprovalStatus: r.editApprovalStatus
+      ? pickEnum(r.editApprovalStatus, CODING_JOB_EDIT_APPROVAL, "pending")
+      : undefined,
+    prKind: r.prKind ? pickEnum(r.prKind, CODING_JOB_PR_KINDS, "planning") : undefined,
     createdAt,
     updatedAt,
   };

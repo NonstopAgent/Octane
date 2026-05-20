@@ -132,6 +132,7 @@ export type RunCodingJobResult = {
   baseBranch?: string;
   prNumber?: number;
   prUrl?: string;
+  prKind?: "planning";
   errorMessage?: string;
 };
 
@@ -259,5 +260,6 @@ export async function runCodingJobOnGitHub(job: CodingJob): Promise<RunCodingJob
     baseBranch: base.data.branch,
     prNumber: pr.data.number,
     prUrl: pr.data.html_url,
+    prKind: "planning" as const,
   };
 }

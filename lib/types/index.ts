@@ -81,11 +81,15 @@ export type {
 export type {
   CodingJob,
   CodingJobChangedFile,
+  CodingJobEditApprovalStatus,
+  CodingJobEditMode,
   CodingJobFileAction,
   CodingJobMode,
   CodingJobPlan,
   CodingJobPlanStep,
   CodingJobPlanStepStatus,
+  CodingJobPrKind,
+  CodingJobProposedEdit,
   CodingJobStatus,
 } from "./coding-job";
 export type { CodingJobLog, CodingJobLogLevel } from "./coding-job-log";

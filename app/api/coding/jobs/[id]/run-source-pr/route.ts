@@ -1,14 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { requireApiAuth } from "@/lib/auth/require-api-auth";
-import { runCodingJobOnGitHub } from "@/lib/coding/run-coding-job";
+import { runSourceCodingJobOnGitHub } from "@/lib/coding/run-source-coding-job";
 import type { CodingJob } from "@/lib/types/coding-job";
 
 export const runtime = "nodejs";
-
-function isApprovedJob(job: Partial<CodingJob>): boolean {
-  return job.status === "approved";
-}
 
 export async function POST(
   request: NextRequest,
@@ -40,17 +36,14 @@ export async function POST(
     return NextResponse.json({ error: "job payload must match route id" }, { status: 400 });
   }
 
-  if (!isApprovedJob(job)) {
-    return NextResponse.json(
-      { error: "Job must be approved before run" },
-      { status: 403 },
-    );
+  if (job.mode === "autopilot") {
+    return NextResponse.json({ error: "autopilot mode is disabled" }, { status: 400 });
   }
 
-  if (job.mode === "autopilot") {
+  if (job.editApprovalStatus !== "approved") {
     return NextResponse.json(
-      { error: "autopilot mode is disabled" },
-      { status: 400 },
+      { error: "Approve proposed edits before running source PR" },
+      { status: 403 },
     );
   }
 
@@ -69,6 +62,10 @@ export async function POST(
     plan: job.plan,
     changedFiles: Array.isArray(job.changedFiles) ? job.changedFiles : [],
     logs: Array.isArray(job.logs) ? job.logs : [],
+    editMode: "source_pr",
+    proposedFiles: Array.isArray(job.proposedFiles) ? job.proposedFiles : undefined,
+    proposedEdits: Array.isArray(job.proposedEdits) ? job.proposedEdits : undefined,
+    editApprovalStatus: job.editApprovalStatus,
     branchName: job.branchName,
     baseBranch: job.baseBranch,
     prNumber: job.prNumber,
@@ -78,13 +75,13 @@ export async function POST(
     updatedAt: new Date().toISOString(),
   };
 
-  const result = await runCodingJobOnGitHub(fullJob);
+  const result = await runSourceCodingJobOnGitHub(fullJob);
 
   return NextResponse.json({
     id,
     ...result,
-    prKind: "planning" as const,
-    editMode: "planning_pr" as const,
+    prKind: "source" as const,
+    editMode: "source_pr" as const,
     updatedAt: new Date().toISOString(),
   });
 }

@@ -17,7 +17,7 @@ const WONT_AUTO_DEFAULT = [
   "Auto-merge on GitHub",
   "Deploy to Vercel or production",
   "Delete branches, repos, or settings changes",
-  "Commit source code edits in v1 (planning doc PR only)",
+  "Commit source code without human edit approval in Octane",
 ];
 
 /** Deterministic fallback when Anthropic is unavailable. */

@@ -204,6 +204,51 @@ export async function getOpenIssues(
     }));
 }
 
+/** List blob paths from the default branch tree (read-only, capped). */
+export async function getRepoBlobPaths(
+  fullName: string,
+  maxPaths = 4000,
+): Promise<{ configured: boolean; paths: string[]; branch?: string }> {
+  const headers = githubHeaders();
+  if (!headers) {
+    return { configured: false, paths: [] };
+  }
+
+  const repo = await getRepo(fullName);
+  if (!repo) {
+    return { configured: true, paths: [] };
+  }
+
+  const encoded = fullName
+    .split("/")
+    .map((s) => encodeURIComponent(s))
+    .join("/");
+  const branchRes = await fetchWithTimeout(
+    `${GITHUB_API}/repos/${encoded}/git/ref/heads/${encodeURIComponent(repo.defaultBranch)}`,
+    { headers },
+  );
+  if (!branchRes.ok) {
+    return { configured: true, paths: [], branch: repo.defaultBranch };
+  }
+  const branchData = (await branchRes.json()) as { object: { sha: string } };
+  const treeRes = await fetchWithTimeout(
+    `${GITHUB_API}/repos/${encoded}/git/trees/${branchData.object.sha}?recursive=1`,
+    { headers },
+  );
+  if (!treeRes.ok) {
+    return { configured: true, paths: [], branch: repo.defaultBranch };
+  }
+  const tree = (await treeRes.json()) as {
+    tree: { path: string; type: string }[];
+  };
+  const paths = (tree.tree ?? [])
+    .filter((t) => t.type === "blob")
+    .map((t) => t.path)
+    .slice(0, maxPaths);
+
+  return { configured: true, paths, branch: repo.defaultBranch };
+}
+
 export async function getOpenPullRequests(
   fullName: string,
   perPage = 10,

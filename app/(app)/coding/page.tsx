@@ -154,7 +154,7 @@ function CodingPageContent() {
     <div className="space-y-8">
       <PageHeader
         title="Coding"
-        description="Ask Octane to work on a repo — plan → approve → branch → PR. Review mode only: never auto-merge or deploy."
+        description="Plan → approve → generate source edits → approve edits → source PR. Or use planning PR (docs only). Never auto-merge or deploy."
       />
 
       <form
@@ -163,8 +163,8 @@ function CodingPageContent() {
       >
         <h2 className="text-sm font-medium text-zinc-300">New coding job</h2>
         <p className="text-xs text-zinc-500">
-          Review mode creates a branch and planning PR. Octane does not merge, deploy, or edit
-          source in v1.
+          After approving a plan, generate edits (review before PR), or open a planning PR (docs
+          only). Source PRs require approved edits. Octane never merges or deploys.
         </p>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="grid gap-2">
