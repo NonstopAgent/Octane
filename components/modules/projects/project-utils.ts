@@ -30,7 +30,8 @@ export const REVENUE_STATUSES: ProjectRevenueStatus[] = [
   "profitable",
 ];
 
-export function formatRevenueStatus(status: ProjectRevenueStatus): string {
+export function formatRevenueStatus(status: ProjectRevenueStatus | null | undefined): string {
+  if (!status) return "None";
   return status
     .split("_")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))

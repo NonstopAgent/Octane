@@ -11,7 +11,8 @@ export const badgeToneClass: Record<BadgeTone, string> = {
   danger: "border-red-800/60 bg-red-950/50 text-red-300",
 };
 
-export function formatStatusLabel(value: string): string {
+export function formatStatusLabel(value: string | null | undefined): string {
+  if (!value) return "Unknown";
   return value
     .split("_")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))

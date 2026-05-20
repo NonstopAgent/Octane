@@ -39,8 +39,7 @@ export class ErrorBoundary extends Component<
               Something went wrong
             </h2>
             <p className="text-sm text-zinc-500">
-              Local data may be corrupted. Try resetting demo data in Settings,
-              or export a backup before clearing.
+              A render error occurred. Open Settings to clear local data or export a backup.
             </p>
           </div>
           <Button

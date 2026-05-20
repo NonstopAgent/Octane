@@ -58,7 +58,7 @@ export function TodayView() {
         <EmptyState
           icon={ListTodo}
           title="Today is wide open"
-          description="Today surfaces due work, blockers, and top moves. Create a project and tasks, or reset demo data in Settings to see your operating view."
+          description="Today surfaces due work, blockers, and top moves. Create a project and add tasks to see your operating view."
           action={{
             label: "New task",
             onClick: () => {
