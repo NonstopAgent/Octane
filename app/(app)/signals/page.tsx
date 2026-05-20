@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
   AlertCircle,
@@ -325,7 +325,8 @@ export default function SignalsPage() {
   // workspace = all persisted state EXCEPT signals (avoids the update loop)
   const workspace = useOctaneStore(useShallow(selectWorkspaceForSignals));
 
-  const signals = useOctaneStore((s) => s.signals);
+  // Stored signals = persisted status overrides (acknowledged, dismissed, resolved)
+  const storedSignals = useOctaneStore((s) => s.signals);
   const upsertSignals = useOctaneStore((s) => s.upsertSignals);
   const updateSignalStatus = useOctaneStore((s) => s.updateSignalStatus);
 
@@ -333,34 +334,59 @@ export default function SignalsPage() {
   const [severityFilter, setSeverityFilter] = useState<SignalSeverity | "all">("all");
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
 
-  // Run generator on mount and when workspace data (not signals) changes
-  useEffect(() => {
-    const derived = generateSignals({ ...workspace, signals });
-    // Preserve existing status for signals already in store
-    const existingMap = new Map(signals.map((s) => [s.id, s]));
-    const toUpsert = derived.map((s) => {
-      const existing = existingMap.get(s.id);
-      return existing ? { ...s, status: existing.status } : s;
-    });
-    upsertSignals(toUpsert);
+  // ── Pure signal generation (no side effects, no store writes) ──────────────
+  // Recomputes whenever workspace data changes. This is the live derived view.
+  const freshSignals = useMemo(() => {
+    return generateSignals({ ...workspace, signals: storedSignals });
+    // storedSignals intentionally excluded from deps — we only need workspace
+    // changes to re-derive. Status overrides are merged below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [workspace]); // workspace excludes signals — no loop
+  }, [workspace]);
+
+  // Merge fresh signals with stored statuses so user changes (dismiss, resolve)
+  // survive workspace re-derivation.
+  const signals = useMemo(() => {
+    const statusMap = new Map(storedSignals.map((s) => [s.id, s]));
+    return freshSignals.map((s) => {
+      const stored = statusMap.get(s.id);
+      return stored ? { ...s, status: stored.status, resolvedAt: stored.resolvedAt } : s;
+    });
+  }, [freshSignals, storedSignals]);
+
+  // ── One-time mount sync ────────────────────────────────────────────────────
+  // Populate the store once so updateSignalStatus() can find signals by id.
+  // We intentionally do NOT react to workspace changes here — that would cause
+  // the infinite loop that previously crashed /tasks. Users click Refresh.
+  const mountSyncDone = useRef(false);
+  useEffect(() => {
+    if (mountSyncDone.current) return;
+    mountSyncDone.current = true;
+    upsertSignals(freshSignals);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // empty deps — run exactly once on mount
 
   function handleRefresh() {
-    const derived = generateSignals({ ...workspace, signals });
+    const derived = generateSignals({ ...workspace, signals: storedSignals });
     upsertSignals(derived);
     setLastRefresh(new Date());
   }
 
   function handleAcknowledge(id: string) {
+    // Ensure signal exists in store first (in case it was generated after mount sync)
+    const missing = signals.find((s) => s.id === id && !storedSignals.some((ss) => ss.id === id));
+    if (missing) upsertSignals([missing]);
     updateSignalStatus(id, "acknowledged");
   }
 
   function handleResolve(id: string) {
+    const missing = signals.find((s) => s.id === id && !storedSignals.some((ss) => ss.id === id));
+    if (missing) upsertSignals([missing]);
     updateSignalStatus(id, "resolved");
   }
 
   function handleDismiss(id: string) {
+    const missing = signals.find((s) => s.id === id && !storedSignals.some((ss) => ss.id === id));
+    if (missing) upsertSignals([missing]);
     updateSignalStatus(id, "dismissed");
   }
 

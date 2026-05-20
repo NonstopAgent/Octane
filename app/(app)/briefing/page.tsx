@@ -104,7 +104,7 @@ export default function BriefingPage() {
   // Portfolio-level stats for the health strip
   const stats = useMemo(() => {
     const openProjects = state.projects.filter(
-      (p) => p.status !== "complete" && p.status !== "archived",
+      (p) => p.status !== "killed",
     ).length;
     const openTasks = state.tasks.filter(
       (t) => t.status !== "done",
