@@ -105,7 +105,7 @@ export function ProjectCodingSection({
             className="inline-flex h-8 items-center gap-1 rounded-lg border border-zinc-700 bg-transparent px-3 text-sm text-zinc-200 hover:bg-zinc-800/60"
           >
             <Sparkles className="size-3.5" />
-            Ask Octane to work on this project
+            Ask Octane to work on repo
           </Link>
         ) : (
           <Button
@@ -116,7 +116,7 @@ export function ProjectCodingSection({
             disabled
           >
             <Sparkles className="size-3.5" />
-            Ask Octane to work on this project
+            Ask Octane to work on repo
           </Button>
         )}
         {githubRepo && latest?.status === "approved" ? (

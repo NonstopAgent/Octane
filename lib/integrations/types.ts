@@ -5,9 +5,14 @@ export type IntegrationAuthStatus = {
   configured: boolean;
   connected: boolean;
   message?: string;
+  /** Sanitized API error from provider (never includes tokens). */
+  lastError?: string;
   login?: string;
   name?: string;
   teamId?: string;
+  /** Human-readable team/personal scope for Vercel. */
+  teamScope?: string;
+  redeployHint?: string;
   checkedAt: string;
 };
 

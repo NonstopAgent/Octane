@@ -1,4 +1,9 @@
 import { fetchWithTimeout } from "@/lib/integrations/http";
+import {
+  githubTokenInvalidMessage,
+  githubTokenMissingMessage,
+  integrationRedeployHint,
+} from "@/lib/integrations/integration-messages";
 import type {
   GitHubCommitSummary,
   GitHubIssueSummary,
@@ -62,26 +67,49 @@ function mapRepo(raw: {
   };
 }
 
+async function githubGetWithError<T>(
+  path: string,
+): Promise<{ data: T | null; error?: string; status?: number }> {
+  const headers = githubHeaders();
+  if (!headers) return { data: null };
+  const res = await fetchWithTimeout(`${GITHUB_API}${path}`, { headers });
+  if (!res.ok) {
+    let detail: string | undefined;
+    try {
+      const body = (await res.json()) as { message?: string };
+      detail = body.message;
+    } catch {
+      detail = undefined;
+    }
+    return { data: null, status: res.status, error: detail ?? `HTTP ${res.status}` };
+  }
+  return { data: (await res.json()) as T };
+}
+
 export async function getAuthenticatedStatus(): Promise<IntegrationAuthStatus> {
   const at = checkedAt();
+  const redeployHint = integrationRedeployHint();
   const headers = githubHeaders();
   if (!headers) {
     return {
       provider: "github",
       configured: false,
       connected: false,
-      message: "GITHUB_TOKEN not configured on server",
+      message: githubTokenMissingMessage(),
+      redeployHint,
       checkedAt: at,
     };
   }
 
-  const user = await githubGet<{ login: string; name: string | null }>("/user");
-  if (!user) {
+  const user = await githubGetWithError<{ login: string; name: string | null }>("/user");
+  if (!user.data) {
     return {
       provider: "github",
       configured: true,
       connected: false,
-      message: "GitHub token invalid or API unreachable",
+      message: githubTokenInvalidMessage(user.error),
+      lastError: user.error,
+      redeployHint,
       checkedAt: at,
     };
   }
@@ -90,8 +118,9 @@ export async function getAuthenticatedStatus(): Promise<IntegrationAuthStatus> {
     provider: "github",
     configured: true,
     connected: true,
-    login: user.login,
-    name: user.name ?? user.login,
+    login: user.data.login,
+    name: user.data.name ?? user.data.login,
+    redeployHint,
     checkedAt: at,
   };
 }

@@ -41,12 +41,14 @@ export function ProjectIntegrationStats({
   const [github, setGithub] = useState<GitHubStats | null>(null);
   const [vercel, setVercel] = useState<VercelStats | null>(null);
   const [error, setError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
       setLoading(true);
       setError(false);
+      setErrorMessage(null);
       try {
         if (connection.kind === "github" && connection.repo) {
           const res = await fetch(
@@ -70,19 +72,27 @@ export function ProjectIntegrationStats({
           const res = await fetch(
             `/api/integrations/vercel/project?name=${encodeURIComponent(name)}`,
           );
-          if (!res.ok) throw new Error("vercel");
           const data = (await res.json()) as {
-            project: { name: string; latestDeployment?: VercelStats["latestDeployment"] };
+            project?: { name: string; latestDeployment?: VercelStats["latestDeployment"] };
+            error?: string;
           };
-          if (!cancelled) {
+          if (!res.ok) {
+            throw new Error(data.error ?? "vercel");
+          }
+          if (!cancelled && data.project) {
             setVercel({
               project: data.project,
               latestDeployment: data.project.latestDeployment ?? null,
             });
           }
         }
-      } catch {
-        if (!cancelled) setError(true);
+      } catch (err) {
+        if (!cancelled) {
+          setError(true);
+          setErrorMessage(
+            err instanceof Error ? err.message : "Could not load integration stats",
+          );
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -113,7 +123,8 @@ export function ProjectIntegrationStats({
   if (error) {
     return (
       <p className="text-xs text-amber-400/80">
-        Could not load stats — check server tokens on Connections.
+        {errorMessage ??
+          "Could not load stats — check GITHUB_TOKEN / VERCEL_TOKEN and team scope on Connections."}
       </p>
     );
   }

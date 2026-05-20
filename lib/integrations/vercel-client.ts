@@ -1,4 +1,11 @@
 import { fetchWithTimeout } from "@/lib/integrations/http";
+import {
+  integrationRedeployHint,
+  vercelProjectMismatchMessage,
+  vercelTeamScopeMessage,
+  vercelTokenInvalidMessage,
+  vercelTokenMissingMessage,
+} from "@/lib/integrations/integration-messages";
 import type {
   IntegrationAuthStatus,
   VercelDeploymentSummary,
@@ -28,14 +35,33 @@ function withTeam(path: string): string {
   return path.includes("?") ? `${path}&${q}` : `${path}?${q}`;
 }
 
-async function vercelGet<T>(path: string): Promise<T | null> {
+type VercelFetchResult<T> = {
+  data: T | null;
+  error?: string;
+  status?: number;
+};
+
+async function vercelGet<T>(path: string): Promise<VercelFetchResult<T>> {
   const token = vercelToken();
-  if (!token) return null;
+  if (!token) return { data: null };
   const res = await fetchWithTimeout(withTeam(path), {
     headers: { Authorization: `Bearer ${token}` },
   });
-  if (!res.ok) return null;
-  return (await res.json()) as T;
+  if (!res.ok) {
+    let detail: string | undefined;
+    try {
+      const body = (await res.json()) as { error?: { message?: string }; message?: string };
+      detail = body.error?.message ?? body.message;
+    } catch {
+      detail = undefined;
+    }
+    return {
+      data: null,
+      status: res.status,
+      error: detail ?? `HTTP ${res.status}`,
+    };
+  }
+  return { data: (await res.json()) as T };
 }
 
 function mapProject(raw: {
@@ -77,25 +103,33 @@ function mapDeployment(raw: {
 
 export async function getAuthenticatedStatus(): Promise<IntegrationAuthStatus> {
   const at = checkedAt();
+  const teamId = process.env.VERCEL_TEAM_ID?.trim() || undefined;
+  const teamScope = vercelTeamScopeMessage(teamId);
+  const redeployHint = integrationRedeployHint();
   const token = vercelToken();
   if (!token) {
     return {
       provider: "vercel",
       configured: false,
       connected: false,
-      message: "VERCEL_TOKEN not configured on server",
+      message: vercelTokenMissingMessage(),
+      teamScope,
+      redeployHint,
       checkedAt: at,
     };
   }
 
   const user = await vercelGet<{ user: { username: string; name?: string } }>("/v2/user");
-  if (!user?.user) {
+  if (!user.data?.user) {
     return {
       provider: "vercel",
       configured: true,
       connected: false,
-      message: "Vercel token invalid or API unreachable",
-      teamId: process.env.VERCEL_TEAM_ID,
+      message: vercelTokenInvalidMessage(user.error),
+      lastError: user.error,
+      teamId,
+      teamScope,
+      redeployHint,
       checkedAt: at,
     };
   }
@@ -104,9 +138,11 @@ export async function getAuthenticatedStatus(): Promise<IntegrationAuthStatus> {
     provider: "vercel",
     configured: true,
     connected: true,
-    login: user.user.username,
-    name: user.user.name ?? user.user.username,
-    teamId: process.env.VERCEL_TEAM_ID,
+    login: user.data.user.username,
+    name: user.data.user.name ?? user.data.user.username,
+    teamId,
+    teamScope,
+    redeployHint,
     checkedAt: at,
   };
 }
@@ -125,21 +161,33 @@ export async function listProjects(limit = 20): Promise<{
 
   return {
     configured: true,
-    projects: (data?.projects ?? []).map(mapProject),
+    projects: (data.data?.projects ?? []).map(mapProject),
   };
 }
 
-export async function getProject(nameOrId: string): Promise<VercelProjectDetail | null> {
+export async function getProject(
+  nameOrId: string,
+): Promise<{ project: VercelProjectDetail | null; error?: string }> {
   const encoded = encodeURIComponent(nameOrId);
   const data = await vercelGet<Parameters<typeof mapProject>[0] & { link?: { url?: string } }>(
     `/v9/projects/${encoded}`,
   );
-  if (!data) return null;
-  const latest = await getLatestDeployment(data.id);
+  if (!data.data) {
+    const mismatch =
+      data.status === 404
+        ? vercelProjectMismatchMessage(nameOrId)
+        : data.error
+          ? vercelTokenInvalidMessage(data.error)
+          : vercelProjectMismatchMessage(nameOrId);
+    return { project: null, error: mismatch };
+  }
+  const latest = await getLatestDeployment(data.data.id);
   return {
-    ...mapProject(data),
-    link: data.link?.url,
-    latestDeployment: latest,
+    project: {
+      ...mapProject(data.data),
+      link: data.data.link?.url,
+      latestDeployment: latest,
+    },
   };
 }
 
@@ -155,7 +203,7 @@ export async function getDeployments(
     deployments: Parameters<typeof mapDeployment>[0][];
   }>(`/v6/deployments?${params.toString()}`);
 
-  return (data?.deployments ?? []).map(mapDeployment);
+  return (data.data?.deployments ?? []).map(mapDeployment);
 }
 
 export async function getLatestDeployment(

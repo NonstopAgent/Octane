@@ -4,80 +4,88 @@
 
 | Item | Value |
 |------|--------|
-| Checkpoint | **12B** — Review-first source edit PR workflow |
+| Checkpoint | **12C** — Proof-of-life, connector hardening, product clarity |
+| Base commit | `524f0af` (12B source-edit PR workflow) |
 | Stack | Next.js 16, React 19, Zustand persist, Tailwind 4, Supabase client |
 | Intelligence | Rule-based engines + optional Anthropic (`/chat`, coding plans/edits, cron briefing) |
 
+## 12C summary
+
+| Area | Result |
+|------|--------|
+| Env audit | `/api/integrations/env-audit` — server-only key presence, no values exposed |
+| Connector errors | GitHub/Vercel status + project routes return sanitized messages (missing/invalid token, team scope, redeploy, project mismatch) |
+| Vercel card | Configured/connected, team scope, last error, last checked, redeploy hint |
+| Outlook UI | Reordered sections; detailed domain analysis in collapsible `<details>` |
+| Data mode | Banner (Demo seed / Real workspace / Mixed) + Settings data-sources section |
+| Project linking | Connect this project + Ask Octane CTAs; integration stats show API errors |
+| Source PR proof | **Skipped** — `GITHUB_TOKEN` and `ANTHROPIC_API_KEY` empty in local `.env.local` |
+| Build | **Pass** at commit time |
+| Push | **Skipped** per checkpoint |
+
+## Source PR proof-of-life (Phase 4)
+
+**Target repo:** `NonstopAgent/Octane`  
+**Prompt (not run):** simplify Outlook page layout per user spec  
+
+**Blocker:** Local `.env.local` has `GITHUB_TOKEN=EMPTY` and `ANTHROPIC_API_KEY=EMPTY` (Supabase public keys only). Without server tokens the flow cannot reach GitHub to open a PR.
+
+**To run manually when tokens are set:**
+
+1. Set `GITHUB_TOKEN`, `ANTHROPIC_API_KEY`, optional `NEXT_PUBLIC_APP_URL` in `.env.local` or Vercel env; redeploy if on Vercel.
+2. Link `NonstopAgent/Octane` (or `octane-core` path) to a project on Connections.
+3. Coding → create job → generate edits → approve → **Run source PR**.
+
+## Env audit (local, names only)
+
+| Variable | Local `.env.local` | Scope |
+|----------|-------------------|--------|
+| `GITHUB_TOKEN` | missing | server |
+| `VERCEL_TOKEN` | missing | server |
+| `VERCEL_TEAM_ID` | missing | server |
+| `ANTHROPIC_API_KEY` | missing | server |
+| `NEXT_PUBLIC_APP_URL` | missing | public (optional) |
+| `NEXT_PUBLIC_SUPABASE_*` | configured | public (expected) |
+
+No integration secrets use `NEXT_PUBLIC_` prefix in code.
+
 ## Feature list (shipped)
 
-- **Hybrid auth** — Supabase sign-in/sign-up on `/login` + cookie gate via `/api/mock-auth/login` + middleware
-- **Supabase sync** — pull on app load (normalized), push from Setup (`lib/supabase/sync.ts`)
-- **Data normalizer** — `lib/data/normalize-octane-data.ts` after sync, import, onboarding
-- **Read-only GitHub connector** — `lib/integrations/github-client.ts`, `/api/integrations/github/*`, dashboard + project stats
-- **Coding workbench (12A–12B)** — `/coding` with plan → approve → **generate/approve source edits** → source PR; planning PR (docs) retained; dashboard distinguishes PR kinds
-- **Read-only Vercel connector** — `lib/integrations/vercel-client.ts`, `/api/integrations/vercel/*`, deployment health on dashboard
-- **Connections hub** (`/connections`) — status, refresh, repo/project lists, project link form (validates via API)
-- **Project links** — `projectConnections` in Zustand; live stats on project detail when linked
-- **Action approvals** (`/actions`) — propose/approve/reject; chat & Ask Octane never auto-execute (except direct coding job create from Ask Octane with plan)
-- **Command parser** — connect github/vercel, coding intents → `codingJob` intent (not generic action), check deployment, repos connected (`parse-octane-command.ts`)
-- **Optional setup** — skip to dashboard; chat-first onboarding CTAs
-- App shell (sidebar, topbar, command palette)
-- Projects, tasks (kanban + DnD), decisions, roadmap, founder notes
-- Inbox capture with convert-to-task/decision/note
-- Finance ledger with metrics and weekly review money section
-- Documents metadata + IP assets table
-- Work sessions on Today
-- **Morning briefing** (`/briefing`) — rule-based
-- **Octane Advisor** — rule-based insights on dashboard, briefing, outlook
-- **Octane Outlook** (`/outlook`) — strategic score, risks, 30/60/90, **Ask Octane** panel (`#ask-octane`)
-- **Holdings** (`/holdings`) — entities, compliance, formation, legal questions
-- **Executive Query Layer** (`lib/executive/`) — classify + answer + sensitive-topic guard (Ask Octane core)
-- **Octane AI** (`/chat`) — optional Claude when `ANTHROPIC_API_KEY` set
-- **Cron briefing** (`/api/cron/briefing`) — optional scheduled GitHub issue
-- Dashboard metrics and Octane score
-- Activity log (includes integration refresh + link create/update + validation fail)
-- Settings: founder profile, entities, ownership map, export/import
-- Command search across entities (includes outlook jump)
-- Empty states, error boundary, current-week seed on reset
+- **Hybrid auth** — Supabase + mock cookie gate
+- **Read-only GitHub / Vercel connectors** — hardened status messages
+- **Coding workbench (12A–12B)** — review-first source edit PR workflow
+- **Connections hub** — env audit panel, integration cards, project link form
+- **Workspace data mode** — banner + Settings clarity (seed vs live vs mixed)
+- **Octane Outlook** — simplified layout + Ask Octane (`#ask-octane`)
+- **Action approvals** — review mode default; no auto-merge/deploy
+- App shell, projects, tasks, finance, holdings, briefing, optional AI chat/cron
+- Settings: export/import, reset demo seed
 
-## QA checklist (12B)
+## QA checklist (12C)
 
 | Check | Result | Notes |
 |-------|--------|-------|
-| Repo clean at start | **Pass** | `master` @ `97d7569`, working tree clean |
-| `npm run build` | **Run at commit** | Start + end |
-| Types: editMode, proposedEdits, prKind | **Pass** | Normalized in store merge |
-| `POST …/generate-edits` | **Pass** | Auth, no GitHub writes, Anthropic or fallback |
-| `POST …/run-source-pr` | **Pass** | Requires `editApprovalStatus: approved` |
-| Planning PR flow | **Pass** | `POST …/run` unchanged semantics + `prKind: planning` |
-| UI: approve/reject/regenerate edits | **Pass** | Coding job card |
-| Guardrails | **Pass** | `.env`, >5 files, package-lock, autopilot, branch names |
-| Real PR in QA | **Needs env** | `GITHUB_TOKEN` + `ANTHROPIC_API_KEY` on server |
-| Push to remote | **Skipped** | Per checkpoint instructions |
+| Repo clean at start | **Pass** | `master` @ `524f0af` |
+| `npm run build` (start) | **Pass** | |
+| `npm run build` (end) | **Pass** | After changes |
+| Env audit API | **Pass** | No secret values in response |
+| Vercel status errors | **Pass** | `lastError`, `teamScope`, `redeployHint` |
+| Outlook section order | **Pass** | UI-only; `generateOctaneOutlook` unchanged |
+| Data mode banner | **Pass** | Dismissible for demo seed |
+| Secrets in client | **Pass** | Tokens only in API routes / server libs |
+| Real source PR | **Skipped** | No `GITHUB_TOKEN` / `ANTHROPIC_API_KEY` locally |
+| Push to remote | **Skipped** | Per instructions |
 
-## QA checklist (12A)
+## Known limitations
 
-| Check | Result | Notes |
-|-------|--------|-------|
-| Review mode default | **Pass** | UI + API reject autopilot |
-| Ask Octane coding intent | **Pass** | Creates `CodingJob` + link `/coding?detail=` |
-| Plan sections | **Pass** | understoodRequest, reviewItems, wontAutoHappen |
-| No merge/deploy | **Pass** | Write client unchanged |
-
-## Known TODOs
-
-- [ ] OAuth flows for GitHub/Vercel (replace PAT env setup for founders)
-- [ ] Pre-flight `ANTHROPIC_API_KEY` on Ask Octane panel
-- [ ] Persist all company profile fields to Supabase
-- [ ] Real file storage for documents
-- [ ] Sync conflict handling for multi-device edit
-- [ ] E2E test suite in CI
-- [ ] Diff view / side-by-side editor for proposed edits
+- OAuth for GitHub/Vercel not implemented (PAT env only)
+- Source PR proof requires populated server env; not demonstrated in 12C QA
+- Vercel project links match by **project name** — must match Vercel dashboard under current token/team
+- Demo portfolio seed remains default until user resets or imports data
 
 ## Do not build yet
 
 - Auto-merge PRs, deploy, rollback, or repo settings changes from Octane
-- Mutating GitHub/Vercel APIs beyond approved coding workbench flow
 - Storing integration tokens in Zustand or localStorage
 - Production secrets in the repo
 
@@ -91,9 +99,9 @@
 
 | Checkpoint | Focus |
 |------------|--------|
+| **12C** | Connector clarity, outlook layout, data mode, env audit |
 | **12B** | Source-edit proposal + source PR after edit approval |
 | **12A** | Coding workbench plan → planning PR |
 | **11C** | GitHub coding workbench PR workflow |
-| **11A** | Conversational commands, Connections placeholders, action approvals |
-| **10** | Outlook, holdings, advisor, executive engine, optional AI chat/cron |
-| **7C** | Stability, polish, founder usability |
+| **11A** | Conversational commands, Connections, action approvals |
+| **10** | Outlook, holdings, advisor, executive engine |

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { EmptyState } from "@/components/modules";
 import { ConnectionCard } from "@/components/modules/connections/connection-card";
 import { IntegrationProviderCard } from "@/components/modules/connections/integration-provider-card";
+import { EnvAuditPanel } from "@/components/modules/connections/env-audit-panel";
 import { ProjectLinkForm } from "@/components/modules/connections/project-link-form";
 import { PageHeader } from "@/components/layout/page-header";
 import { useOctaneStore } from "@/lib/store/octane-store";
@@ -78,6 +79,8 @@ export default function ConnectionsPage() {
         title="Connections"
         description="Read-only GitHub and Vercel connectors. Tokens live in server env only — never in the browser."
       />
+
+      <EnvAuditPanel />
 
       <div className="grid gap-4 sm:grid-cols-2">
         {githubConn ? (

@@ -50,8 +50,12 @@ export function IntegrationProviderCard({
     setRefreshing(true);
     try {
       const statusRes = await fetch(statusPath);
-      if (!statusRes.ok) throw new Error("Status check failed");
-      const statusJson = (await statusRes.json()) as IntegrationAuthStatus;
+      const statusJson = (await statusRes.json()) as IntegrationAuthStatus & {
+        error?: string;
+      };
+      if (!statusRes.ok && !statusJson.provider) {
+        throw new Error(statusJson.error ?? "Status check failed");
+      }
       setStatus(statusJson);
 
       if (statusJson.configured && statusJson.connected) {
@@ -152,10 +156,22 @@ export function IntegrationProviderCard({
         ) : (
           <>
             <div className="grid gap-1 text-xs text-zinc-400">
+              <p>
+                Configured ·{" "}
+                <span className="text-zinc-300">{configured ? "yes" : "no"}</span>
+                {" · "}
+                Connected ·{" "}
+                <span className={connected ? "text-emerald-400" : "text-amber-400/90"}>
+                  {connected ? "yes" : "no"}
+                </span>
+              </p>
               {status?.login ? (
                 <p>
                   Account · <span className="text-zinc-300">{status.login}</span>
                 </p>
+              ) : null}
+              {provider === "vercel" && status?.teamScope ? (
+                <p className="text-zinc-500">{status.teamScope}</p>
               ) : null}
               {listCount !== null ? (
                 <p>
@@ -168,8 +184,14 @@ export function IntegrationProviderCard({
                   Last checked · {new Date(status.checkedAt).toLocaleString()}
                 </p>
               ) : null}
+              {status?.lastError && !connected ? (
+                <p className="text-red-400/80">Last error · {status.lastError}</p>
+              ) : null}
               {status?.message && !connected ? (
                 <p className="text-amber-400/80">{status.message}</p>
+              ) : null}
+              {status?.redeployHint && !connected ? (
+                <p className="text-zinc-600">{status.redeployHint}</p>
               ) : null}
             </div>
 

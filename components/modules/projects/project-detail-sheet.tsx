@@ -290,30 +290,42 @@ export function ProjectDetailSheet({
                 </Button>
               </div>
               {linkedConnections.length === 0 ? (
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <p className="text-sm text-zinc-500">
-                    No GitHub or Vercel links yet. Server tokens power read-only stats.
+                    No GitHub or Vercel links yet. Server tokens power read-only stats and
+                    coding PRs.
                   </p>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    className="h-8 text-xs text-amber-400/90"
-                    onClick={() => {
-                      proposeOctaneAction({
-                        type: "link_project_resource",
-                        title: `Connect integrations for ${project.name}`,
-                        description:
-                          "Proposes linking GitHub repo or Vercel project — approve in Actions.",
-                        payload: { projectId: project.id, kind: "github" },
-                        source: "manual",
-                        projectId: project.id,
-                      });
-                      toast.message("Link proposed — review in Actions");
-                    }}
-                  >
-                    Ask Octane to connect
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="border-zinc-700"
+                      render={<Link href={`/connections?project=${project.id}`} />}
+                    >
+                      Connect this project
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 text-xs text-amber-400/90"
+                      onClick={() => {
+                        proposeOctaneAction({
+                          type: "link_project_resource",
+                          title: `Connect integrations for ${project.name}`,
+                          description:
+                            "Proposes linking GitHub repo or Vercel project — approve in Actions.",
+                          payload: { projectId: project.id, kind: "github" },
+                          source: "manual",
+                          projectId: project.id,
+                        });
+                        toast.message("Link proposed — review in Actions");
+                      }}
+                    >
+                      Ask Octane to connect
+                    </Button>
+                  </div>
                 </div>
               ) : (
                 <ul className="space-y-2 text-sm">

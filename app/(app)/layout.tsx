@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { AppTopbar } from "@/components/layout/app-topbar";
+import { WorkspaceModeBanner } from "@/components/layout/workspace-mode-banner";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { normalizeOctaneData } from "@/lib/data/normalize-octane-data";
 import { loadFromSupabase } from "@/lib/supabase/sync";
@@ -83,6 +84,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <AppSidebar />
           </div>
           <div className="flex min-h-screen flex-1 flex-col">
+            <WorkspaceModeBanner />
             <AppTopbar />
             <main className="flex-1 p-4 sm:p-6">{children}</main>
           </div>

@@ -13,6 +13,7 @@ import {
   DataManagementSection,
   LAST_EXPORTED_AT_KEY,
 } from "@/components/settings/data-management-section";
+import { WorkspaceDataSourcesSection } from "@/components/settings/workspace-data-sources-section";
 import { KeyboardShortcutsSection } from "@/components/settings/keyboard-shortcuts-section";
 import { selectEntityOwnershipStats } from "@/components/settings/entity-ownership";
 import { Badge } from "@/components/ui/badge";
@@ -435,6 +436,8 @@ function SettingsPageContent() {
         </Card>
         )}
       </section>
+
+      <WorkspaceDataSourcesSection />
 
       <KeyboardShortcutsSection />
 

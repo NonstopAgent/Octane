@@ -14,10 +14,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Query name is required" }, { status: 400 });
   }
 
-  const project = await getProject(name.trim());
-  if (!project) {
+  const result = await getProject(name.trim());
+  if (!result.project) {
     return NextResponse.json(
-      { error: "Project not found or token not configured", configured: false },
+      {
+        error: result.error ?? "Project not found or token not configured",
+        configured: Boolean(process.env.VERCEL_TOKEN?.trim()),
+      },
       { status: 404 },
     );
   }
@@ -25,8 +28,8 @@ export async function GET(request: NextRequest) {
   const includeDeployments =
     request.nextUrl.searchParams.get("deployments") === "1";
   const deployments = includeDeployments
-    ? await getDeployments(project.id, 5)
+    ? await getDeployments(result.project.id, 5)
     : undefined;
 
-  return NextResponse.json({ project, deployments });
+  return NextResponse.json({ project: result.project, deployments });
 }

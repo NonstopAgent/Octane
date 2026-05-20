@@ -2,9 +2,12 @@
 
 import { format } from "date-fns";
 import {
+  AlertCircle,
   AlertTriangle,
   Bot,
   CheckCircle2,
+  ChevronDown,
+  Clock,
   DollarSign,
   Landmark,
   MessageCircleQuestion,
@@ -41,6 +44,7 @@ import {
   selectOctanePersistedState,
   useOctaneStore,
 } from "@/lib/store/octane-store";
+import { isOpenTaskStatus } from "@/lib/dashboard/metrics";
 import { cn } from "@/lib/utils";
 
 const OUTLOOK_LABEL_STYLES: Record<
@@ -92,15 +96,18 @@ function OutlookSection({
   icon: Icon,
   children,
   className,
+  id,
 }: {
   title: string;
   description?: string;
   icon: ComponentType<{ className?: string }>;
   children: React.ReactNode;
   className?: string;
+  id?: string;
 }) {
   return (
     <Card
+      id={id}
       className={cn(
         "border-zinc-800/80 bg-zinc-900/40 ring-zinc-800/60",
         className,
@@ -235,6 +242,35 @@ export default function OutlookPage() {
 
   const outlook = useMemo(() => generateOctaneOutlook(state), [state]);
 
+  const attentionItems = useMemo(() => {
+    const criticalTasks = state.tasks.filter(
+      (t) =>
+        isOpenTaskStatus(t.status) &&
+        (t.priority === "critical" || t.status === "blocked"),
+    );
+    const taskLines = criticalTasks.slice(0, 6).map((t) => {
+      const project = state.projects.find((p) => p.id === t.projectId);
+      return {
+        id: `task-${t.id}`,
+        title: t.title,
+        description: project ? `${project.name} · ${t.status}` : t.status,
+        severity: t.priority === "critical" ? ("high" as const) : ("medium" as const),
+        category: "task",
+      };
+    });
+    const improvement = outlook.whatNeedsImprovement.slice(0, 4).map((item, i) => ({
+      id: `improve-${i}`,
+      title: item,
+      description: "Portfolio gap flagged by outlook rules",
+      severity: "medium" as const,
+      category: "improvement",
+    }));
+    const urgentRisks = outlook.topRisks
+      .filter((r) => r.severity === "high" || r.severity === "critical")
+      .slice(0, 3);
+    return [...taskLines, ...urgentRisks, ...improvement];
+  }, [outlook, state.projects, state.tasks]);
+
   const labelStyles = OUTLOOK_LABEL_STYLES[outlook.overallOutlook];
 
   if (state.projects.length === 0) {
@@ -277,63 +313,56 @@ export default function OutlookPage() {
           </Badge>
         </div>
         <p className="mt-4 text-sm leading-relaxed text-zinc-300">{outlook.summary}</p>
+        <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <MetricCard
+            title="Execution"
+            value={outlook.executionOutlook.score}
+            subtitle={outlook.executionOutlook.label.replace("_", " ")}
+            icon={Target}
+          />
+          <MetricCard
+            title="Revenue"
+            value={outlook.revenueOutlook.score}
+            subtitle={outlook.revenueOutlook.label.replace("_", " ")}
+            icon={DollarSign}
+          />
+          <MetricCard
+            title="Agents"
+            value={outlook.agentOutlook.score}
+            subtitle={outlook.agentOutlook.label.replace("_", " ")}
+            icon={Bot}
+          />
+          <MetricCard
+            title="Holdings"
+            value={outlook.holdingsOutlook.score}
+            subtitle={outlook.holdingsOutlook.label.replace("_", " ")}
+            icon={Landmark}
+          />
+        </div>
       </OutlookSection>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard
-          title="Execution"
-          value={outlook.executionOutlook.score}
-          subtitle={outlook.executionOutlook.label.replace("_", " ")}
-          icon={Target}
-        />
-        <MetricCard
-          title="Revenue"
-          value={outlook.revenueOutlook.score}
-          subtitle={outlook.revenueOutlook.label.replace("_", " ")}
-          icon={DollarSign}
-        />
-        <MetricCard
-          title="Agents"
-          value={outlook.agentOutlook.score}
-          subtitle={outlook.agentOutlook.label.replace("_", " ")}
-          icon={Bot}
-        />
-        <MetricCard
-          title="Holdings"
-          value={outlook.holdingsOutlook.score}
-          subtitle={outlook.holdingsOutlook.label.replace("_", " ")}
-          icon={Landmark}
-        />
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <OutlookSection
-          title="Top opportunities"
-          description="Bets and signals worth amplifying"
-          icon={TrendingUp}
-        >
-          <InsightList
-            items={outlook.topOpportunities}
-            emptyTitle="No standout opportunities"
-            emptyDescription="Stable ops — create momentum on high-progress projects."
+      <OutlookSection
+        title="What needs attention"
+        description="Critical tasks, urgent risks, and improvement gaps"
+        icon={AlertCircle}
+      >
+        {attentionItems.length === 0 ? (
+          <EmptyState
+            icon={CheckCircle2}
+            title="Nothing urgent flagged"
+            description="Tasks, risks, and improvement signals look manageable."
           />
-        </OutlookSection>
-
-        <OutlookSection
-          title="Top risks"
-          description="Issues that could derail the quarter"
-          icon={AlertTriangle}
-        >
+        ) : (
           <InsightList
-            items={outlook.topRisks}
-            emptyTitle="No critical risks flagged"
-            emptyDescription="Rule engine sees no high-severity portfolio risks right now."
+            items={attentionItems}
+            emptyTitle="Nothing urgent"
+            emptyDescription="All clear."
           />
-        </OutlookSection>
-      </div>
+        )}
+      </OutlookSection>
 
       <OutlookSection
-        title="Biggest blockers"
+        title="Blockers"
         description="What is stopping progress today"
         icon={Zap}
       >
@@ -344,58 +373,29 @@ export default function OutlookPage() {
         />
       </OutlookSection>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <OutlookSection
-          title="What changed"
-          description="Week-over-week signals"
-          icon={Sparkles}
-        >
-          <ul className="space-y-2 text-sm text-zinc-300">
-            {outlook.whatChanged.map((item) => (
-              <li
-                key={item}
-                className="rounded-lg border border-zinc-800/90 bg-zinc-950/40 px-3 py-2"
-              >
-                {item}
-              </li>
-            ))}
-          </ul>
-        </OutlookSection>
+      <OutlookSection
+        title="Opportunities"
+        description="Bets and signals worth amplifying"
+        icon={TrendingUp}
+      >
+        <InsightList
+          items={outlook.topOpportunities}
+          emptyTitle="No standout opportunities"
+          emptyDescription="Stable ops — create momentum on high-progress projects."
+        />
+      </OutlookSection>
 
-        <OutlookSection
-          title="What is working"
-          description="Strengths to protect"
-          icon={CheckCircle2}
-        >
-          <ul className="space-y-2 text-sm text-zinc-300">
-            {outlook.whatIsWorking.map((item) => (
-              <li
-                key={item}
-                className="rounded-lg border border-emerald-900/30 bg-emerald-950/10 px-3 py-2"
-              >
-                {item}
-              </li>
-            ))}
-          </ul>
-        </OutlookSection>
-
-        <OutlookSection
-          title="What needs improvement"
-          description="Gaps to close next"
-          icon={Target}
-        >
-          <ul className="space-y-2 text-sm text-zinc-300">
-            {outlook.whatNeedsImprovement.map((item) => (
-              <li
-                key={item}
-                className="rounded-lg border border-amber-900/30 bg-amber-950/10 px-3 py-2"
-              >
-                {item}
-              </li>
-            ))}
-          </ul>
-        </OutlookSection>
-      </div>
+      <OutlookSection
+        title="Risks"
+        description="Issues that could derail the quarter"
+        icon={AlertTriangle}
+      >
+        <InsightList
+          items={outlook.topRisks}
+          emptyTitle="No critical risks flagged"
+          emptyDescription="Rule engine sees no high-severity portfolio risks right now."
+        />
+      </OutlookSection>
 
       <OutlookSection
         title="Recommended focus"
@@ -408,91 +408,6 @@ export default function OutlookPage() {
           ))}
         </ol>
       </OutlookSection>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <OutlookSection
-          title="Projects to double down"
-          description="High momentum, high priority"
-          icon={TrendingUp}
-        >
-          {outlook.projectsToDoubleDown.length === 0 ? (
-            <EmptyState
-              icon={CheckCircle2}
-              title="No double-down picks"
-              description="Advance active projects past 50% with no blockers to appear here."
-            />
-          ) : (
-            <ul className="space-y-2">
-              {outlook.projectsToDoubleDown.map((p) => (
-                <li
-                  key={p.projectId}
-                  className="rounded-lg border border-emerald-900/30 bg-emerald-950/10 px-3 py-2 text-sm"
-                >
-                  <Link
-                    href="/projects"
-                    className="font-medium text-zinc-100 hover:text-amber-300"
-                  >
-                    {p.projectName}
-                  </Link>
-                  <p className="mt-1 text-xs text-zinc-500">{p.reason}</p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </OutlookSection>
-
-        <OutlookSection
-          title="Projects to pause or review"
-          description="Stale, paused, or low ROI"
-          icon={PauseCircle}
-        >
-          {outlook.projectsToPauseOrReview.length === 0 ? (
-            <EmptyState
-              icon={CheckCircle2}
-              title="No review candidates"
-              description="Portfolio bets look intentionally maintained."
-            />
-          ) : (
-            <ul className="space-y-2">
-              {outlook.projectsToPauseOrReview.map((p) => (
-                <li
-                  key={p.projectId}
-                  className="rounded-lg border border-zinc-800/90 bg-zinc-950/40 px-3 py-2 text-sm"
-                >
-                  <span className="font-medium text-zinc-100">{p.projectName}</span>
-                  <p className="mt-1 text-xs text-zinc-500">{p.reason}</p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </OutlookSection>
-      </div>
-
-      <section>
-        <h2 className="mb-3 text-sm font-medium text-zinc-400">Domain outlook</h2>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <DomainCard
-            title="Revenue outlook"
-            domain={outlook.revenueOutlook}
-            icon={DollarSign}
-          />
-          <DomainCard
-            title="Execution outlook"
-            domain={outlook.executionOutlook}
-            icon={Target}
-          />
-          <DomainCard
-            title="Agent outlook"
-            domain={outlook.agentOutlook}
-            icon={Bot}
-          />
-          <DomainCard
-            title="Holdings outlook"
-            domain={outlook.holdingsOutlook}
-            icon={Landmark}
-          />
-        </div>
-      </section>
 
       <OutlookSection
         title="30 / 60 / 90 day plan"
@@ -510,25 +425,172 @@ export default function OutlookPage() {
         title="Ask Octane"
         description="Executive questions answered from your portfolio — rule-based, local-first"
         icon={MessageCircleQuestion}
+        id="ask-octane"
       >
         <AskOctanePanel />
       </OutlookSection>
 
-      <OutlookSection
-        title="Advisor summary"
-        description="Rule-based insights — not legal, tax, or investment advice"
-        icon={Sparkles}
-      >
-        <p className="mb-4 text-xs text-zinc-500">
-          No dedicated AI advisor API is configured. Use the rule-based Octane Advisor
-          below, or open{" "}
-          <Link href="/chat" className="text-amber-400/90 hover:underline">
-            Octane AI
-          </Link>{" "}
-          with your API key for narrative summaries.
-        </p>
-        <OctaneAdvisorPanel context="briefing" />
-      </OutlookSection>
+      <details className="group rounded-xl border border-zinc-800/80 bg-zinc-900/30 open:ring-1 open:ring-zinc-700/40">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-sm font-medium text-zinc-200 [&::-webkit-details-marker]:hidden">
+          <span>Detailed domain analysis</span>
+          <ChevronDown className="size-4 text-zinc-500 transition group-open:rotate-180" />
+        </summary>
+        <div className="space-y-6 border-t border-zinc-800/80 px-4 py-4">
+          <div className="grid gap-6 lg:grid-cols-3">
+            <OutlookSection
+              title="What changed"
+              description="Week-over-week signals"
+              icon={Sparkles}
+            >
+              <ul className="space-y-2 text-sm text-zinc-300">
+                {outlook.whatChanged.map((item) => (
+                  <li
+                    key={item}
+                    className="rounded-lg border border-zinc-800/90 bg-zinc-950/40 px-3 py-2"
+                  >
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </OutlookSection>
+            <OutlookSection
+              title="What is working"
+              description="Strengths to protect"
+              icon={CheckCircle2}
+            >
+              <ul className="space-y-2 text-sm text-zinc-300">
+                {outlook.whatIsWorking.map((item) => (
+                  <li
+                    key={item}
+                    className="rounded-lg border border-emerald-900/30 bg-emerald-950/10 px-3 py-2"
+                  >
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </OutlookSection>
+            <OutlookSection
+              title="Signals to improve"
+              description="Gaps surfaced in domain rules"
+              icon={Clock}
+            >
+              <ul className="space-y-2 text-sm text-zinc-300">
+                {outlook.whatNeedsImprovement.map((item) => (
+                  <li
+                    key={item}
+                    className="rounded-lg border border-amber-900/30 bg-amber-950/10 px-3 py-2"
+                  >
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </OutlookSection>
+          </div>
+
+          <section>
+            <h3 className="mb-3 text-xs font-medium uppercase tracking-wide text-zinc-500">
+              Domain outlook
+            </h3>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <DomainCard
+                title="Revenue outlook"
+                domain={outlook.revenueOutlook}
+                icon={DollarSign}
+              />
+              <DomainCard
+                title="Execution outlook"
+                domain={outlook.executionOutlook}
+                icon={Target}
+              />
+              <DomainCard
+                title="Agent outlook"
+                domain={outlook.agentOutlook}
+                icon={Bot}
+              />
+              <DomainCard
+                title="Holdings outlook"
+                domain={outlook.holdingsOutlook}
+                icon={Landmark}
+              />
+            </div>
+          </section>
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            <OutlookSection
+              title="Projects to double down"
+              description="High momentum, high priority"
+              icon={TrendingUp}
+            >
+              {outlook.projectsToDoubleDown.length === 0 ? (
+                <EmptyState
+                  icon={CheckCircle2}
+                  title="No double-down picks"
+                  description="Advance active projects past 50% with no blockers to appear here."
+                />
+              ) : (
+                <ul className="space-y-2">
+                  {outlook.projectsToDoubleDown.map((p) => (
+                    <li
+                      key={p.projectId}
+                      className="rounded-lg border border-emerald-900/30 bg-emerald-950/10 px-3 py-2 text-sm"
+                    >
+                      <Link
+                        href="/projects"
+                        className="font-medium text-zinc-100 hover:text-amber-300"
+                      >
+                        {p.projectName}
+                      </Link>
+                      <p className="mt-1 text-xs text-zinc-500">{p.reason}</p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </OutlookSection>
+
+            <OutlookSection
+              title="Projects to pause or review"
+              description="Stale, paused, or low ROI"
+              icon={PauseCircle}
+            >
+              {outlook.projectsToPauseOrReview.length === 0 ? (
+                <EmptyState
+                  icon={CheckCircle2}
+                  title="No review candidates"
+                  description="Portfolio bets look intentionally maintained."
+                />
+              ) : (
+                <ul className="space-y-2">
+                  {outlook.projectsToPauseOrReview.map((p) => (
+                    <li
+                      key={p.projectId}
+                      className="rounded-lg border border-zinc-800/90 bg-zinc-950/40 px-3 py-2 text-sm"
+                    >
+                      <span className="font-medium text-zinc-100">{p.projectName}</span>
+                      <p className="mt-1 text-xs text-zinc-500">{p.reason}</p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </OutlookSection>
+          </div>
+
+          <OutlookSection
+            title="Advisor summary"
+            description="Rule-based insights — not legal, tax, or investment advice"
+            icon={Sparkles}
+          >
+            <p className="mb-4 text-xs text-zinc-500">
+              No dedicated AI advisor API is configured. Use the rule-based Octane Advisor
+              below, or open{" "}
+              <Link href="/chat" className="text-amber-400/90 hover:underline">
+                Octane AI
+              </Link>{" "}
+              with your API key for narrative summaries.
+            </p>
+            <OctaneAdvisorPanel context="briefing" />
+          </OutlookSection>
+        </div>
+      </details>
 
       <Card className="border-zinc-800/60 bg-zinc-950/50">
         <CardContent className="py-4">
