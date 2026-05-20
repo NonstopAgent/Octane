@@ -1,6 +1,7 @@
 export type OctaneActionType =
   | "add_project"
   | "create_task"
+  | "create_coding_job"
   | "create_decision"
   | "add_entity"
   | "connect_github"

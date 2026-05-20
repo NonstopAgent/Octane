@@ -35,6 +35,8 @@ import type { AgentLog, AgentRunRecord } from "@/lib/types/agent-log";
 import type { Connection } from "@/lib/types/connection";
 import type { OctaneAction } from "@/lib/types/octane-action";
 import type { ProjectConnection } from "@/lib/types/project-connection";
+import type { CodingJob, CodingJobStatus } from "@/lib/types/coding-job";
+import type { CodingJobLog } from "@/lib/types/coding-job-log";
 
 import {
   createActivityLog,
@@ -67,6 +69,7 @@ export interface OctanePersistedState {
   connections: Connection[];
   octaneActions: OctaneAction[];
   projectConnections: ProjectConnection[];
+  codingJobs: CodingJob[];
 }
 
 type CreatableProject = Omit<Project, "id" | "createdAt" | "updatedAt">;
@@ -279,6 +282,24 @@ export interface OctaneStore extends OctanePersistedState {
   deleteProjectConnection: (id: string) => void;
   getProjectConnectionsByProject: (projectId: string) => ProjectConnection[];
   recordActivity: (input: ActivityLogInput) => void;
+
+  // Coding jobs (GitHub workbench)
+  createCodingJob: (
+    data: Omit<
+      CodingJob,
+      "id" | "createdAt" | "updatedAt" | "logs" | "changedFiles"
+    > & { logs?: CodingJobLog[]; changedFiles?: CodingJob["changedFiles"] },
+  ) => CodingJob;
+  updateCodingJob: (id: string, data: Partial<CodingJob>) => void;
+  approveCodingJob: (id: string) => void;
+  cancelCodingJob: (id: string) => void;
+  appendCodingJobLog: (
+    id: string,
+    log: Omit<CodingJobLog, "id" | "timestamp">,
+  ) => void;
+  markCodingJobFailed: (id: string, errorMessage: string) => void;
+  markCodingJobCompleted: (id: string) => void;
+  getCodingJobById: (id: string) => CodingJob | undefined;
 }
 
 const STORAGE_KEY = "octane-core-storage";
@@ -309,6 +330,7 @@ export function selectOctanePersistedState(
     connections: state.connections,
     octaneActions: state.octaneActions,
     projectConnections: state.projectConnections,
+    codingJobs: state.codingJobs,
   };
 }
 
@@ -1411,11 +1433,16 @@ export const useOctaneStore = create<OctaneStore>()(
           complianceReminders: state.complianceReminders,
           legalQuestions: state.legalQuestions,
           formationChecklistItems: state.formationChecklistItems,
+          codingJobs: state.codingJobs,
         });
       },
 
       importSnapshotData: (raw) => {
         const snapshot = parseSnapshot(raw);
+        const extra =
+          raw && typeof raw === "object"
+            ? (raw as { codingJobs?: unknown })
+            : {};
         const normalized = normalizeOctaneData({
           profile: snapshot.profile,
           projects: snapshot.projects,
@@ -1434,6 +1461,7 @@ export const useOctaneStore = create<OctaneStore>()(
           complianceReminders: snapshot.complianceReminders,
           legalQuestions: snapshot.legalQuestions,
           formationChecklistItems: snapshot.formationChecklistItems,
+          codingJobs: asArray<CodingJob>(extra.codingJobs ?? get().codingJobs),
         });
         set(normalized);
         logActivity(set, get, {
@@ -1680,6 +1708,123 @@ export const useOctaneStore = create<OctaneStore>()(
       getProjectConnectionsByProject: (projectId) =>
         get().projectConnections.filter((pc) => pc.projectId === projectId),
 
+      createCodingJob: (data) => {
+        const now = new Date().toISOString();
+        const job: CodingJob = {
+          ...data,
+          id: createId("cjob"),
+          status: data.status ?? "pending_approval",
+          logs: data.logs ?? [],
+          changedFiles: data.changedFiles ?? [],
+          createdAt: now,
+          updatedAt: now,
+        };
+        set((state) => ({ codingJobs: [...state.codingJobs, job] }));
+        logActivity(set, get, {
+          action: "created",
+          entityType: "system",
+          entityId: job.id,
+          entityName: job.title,
+          description: `Created coding job "${job.title}" for ${job.repo}`,
+        });
+        return job;
+      },
+      updateCodingJob: (id, data) => {
+        const existing = get().codingJobs.find((j) => j.id === id);
+        set((state) => ({
+          codingJobs: state.codingJobs.map((j) =>
+            j.id === id ? { ...j, ...data, updatedAt: new Date().toISOString() } : j,
+          ),
+        }));
+        if (existing && data.status && data.status !== existing.status) {
+          logActivity(set, get, {
+            action: "updated",
+            entityType: "system",
+            entityId: id,
+            entityName: existing.title,
+            description: `Coding job ${existing.title} → ${data.status}`,
+          });
+        }
+      },
+      approveCodingJob: (id) => {
+        const existing = get().codingJobs.find((j) => j.id === id);
+        if (!existing) return;
+        const approvedAt = new Date().toISOString();
+        set((state) => ({
+          codingJobs: state.codingJobs.map((j) =>
+            j.id === id
+              ? {
+                  ...j,
+                  status: "approved" as CodingJobStatus,
+                  approvedAt,
+                  updatedAt: approvedAt,
+                }
+              : j,
+          ),
+        }));
+        logActivity(set, get, {
+          action: "updated",
+          entityType: "system",
+          entityId: id,
+          entityName: existing.title,
+          description: `Approved coding job "${existing.title}"`,
+        });
+      },
+      cancelCodingJob: (id) => {
+        const existing = get().codingJobs.find((j) => j.id === id);
+        set((state) => ({
+          codingJobs: state.codingJobs.map((j) =>
+            j.id === id
+              ? {
+                  ...j,
+                  status: "cancelled" as CodingJobStatus,
+                  updatedAt: new Date().toISOString(),
+                }
+              : j,
+          ),
+        }));
+        if (existing) {
+          logActivity(set, get, {
+            action: "updated",
+            entityType: "system",
+            entityId: id,
+            entityName: existing.title,
+            description: `Cancelled coding job "${existing.title}"`,
+          });
+        }
+      },
+      appendCodingJobLog: (id, entry) => {
+        const logEntry: CodingJobLog = {
+          ...entry,
+          id: createId("cjlog"),
+          timestamp: new Date().toISOString(),
+        };
+        set((state) => ({
+          codingJobs: state.codingJobs.map((j) =>
+            j.id === id
+              ? {
+                  ...j,
+                  logs: [...j.logs, logEntry],
+                  updatedAt: new Date().toISOString(),
+                }
+              : j,
+          ),
+        }));
+      },
+      markCodingJobFailed: (id, errorMessage) => {
+        get().updateCodingJob(id, {
+          status: "failed",
+          errorMessage,
+        });
+      },
+      markCodingJobCompleted: (id) => {
+        get().updateCodingJob(id, {
+          status: "completed",
+          completedAt: new Date().toISOString(),
+        });
+      },
+      getCodingJobById: (id) => get().codingJobs.find((j) => j.id === id),
+
       recordActivity: (input) => {
         logActivity(set, get, input);
       },
@@ -1709,6 +1854,7 @@ export const useOctaneStore = create<OctaneStore>()(
         connections: state.connections,
         octaneActions: state.octaneActions,
         projectConnections: state.projectConnections,
+        codingJobs: state.codingJobs,
       }),
       merge: (persisted, current) => {
         const persistedState = normalizePersistedState(

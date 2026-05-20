@@ -4,7 +4,7 @@
 
 | Item | Value |
 |------|--------|
-| Checkpoint | **11B** — Read-only GitHub + Vercel connectors |
+| Checkpoint | **11C** — GitHub coding workbench (PR workflow) |
 | Stack | Next.js 16, React 19, Zustand persist, Tailwind 4, Supabase client |
 | Intelligence | Rule-based engines + optional Anthropic (`/chat`, cron briefing) |
 
@@ -14,11 +14,12 @@
 - **Supabase sync** — pull on app load (normalized), push from Setup (`lib/supabase/sync.ts`)
 - **Data normalizer** — `lib/data/normalize-octane-data.ts` after sync, import, onboarding
 - **Read-only GitHub connector** — `lib/integrations/github-client.ts`, `/api/integrations/github/*`, dashboard + project stats
+- **Coding workbench (11C)** — `/coding`, `codingJobs` in Zustand, `github-write-client.ts` (branch/file/PR only), `/api/coding/jobs/*`, review-mode default, autopilot disabled
 - **Read-only Vercel connector** — `lib/integrations/vercel-client.ts`, `/api/integrations/vercel/*`, deployment health on dashboard
 - **Connections hub** (`/connections`) — status, refresh, repo/project lists, project link form (validates via API)
 - **Project links** — `projectConnections` in Zustand; live stats on project detail when linked
 - **Action approvals** (`/actions`) — propose/approve/reject; chat & Ask Octane never auto-execute
-- **Command parser** — connect github/vercel, check deployment, repos connected, missing github links (`parse-octane-command.ts`)
+- **Command parser** — connect github/vercel, coding intents → `create_coding_job`, check deployment, repos connected (`parse-octane-command.ts`)
 - **Optional setup** — skip to dashboard; chat-first onboarding CTAs
 - App shell (sidebar, topbar, command palette)
 - Projects, tasks (kanban + DnD), decisions, roadmap, founder notes
@@ -38,6 +39,16 @@
 - Settings: founder profile, entities, ownership map, export/import
 - Command search across entities (includes outlook jump)
 - Empty states, error boundary, current-week seed on reset
+
+## QA checklist (11C)
+
+| Check | Result | Notes |
+|-------|--------|-------|
+| Review mode default | **Pass** | UI + API reject autopilot |
+| Approve before run | **Pass** | `/run` returns 403 unless approved |
+| No merge/deploy/delete | **Pass** | Write client: branch, upsert file, create PR only |
+| GITHUB_TOKEN server-only | **Pass** | Write client reads `process.env` only |
+| `npm run build` | **Run at commit** | Production compile |
 
 ## QA checklist (11B)
 
@@ -61,7 +72,8 @@
 
 ## Do not build yet
 
-- Mutating GitHub/Vercel APIs from Octane without explicit approval UI
+- Auto-merge PRs, deploy, rollback, or repo settings changes from Octane
+- Mutating GitHub/Vercel APIs beyond approved coding workbench flow
 - Storing integration tokens in Zustand or localStorage
 - Production secrets in the repo
 

@@ -153,6 +153,13 @@ const INTEGRATION_SHORTCUTS: {
     keywords: ["actions", "approval", "approve", "pending", "proposed"],
   },
   {
+    id: "nav-coding",
+    title: "Coding",
+    description: "GitHub coding workbench — plan, approve, open PR",
+    href: "/coding",
+    keywords: ["coding", "github", "pr", "pull request", "codex", "workbench"],
+  },
+  {
     id: "connect-github",
     title: "Connect GitHub",
     description: "Propose GitHub connection (OAuth placeholder)",

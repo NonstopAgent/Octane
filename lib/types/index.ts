@@ -78,3 +78,14 @@ export type {
   ProjectConnectionKind,
   ProjectConnectionStatus,
 } from "./project-connection";
+export type {
+  CodingJob,
+  CodingJobChangedFile,
+  CodingJobFileAction,
+  CodingJobMode,
+  CodingJobPlan,
+  CodingJobPlanStep,
+  CodingJobPlanStepStatus,
+  CodingJobStatus,
+} from "./coding-job";
+export type { CodingJobLog, CodingJobLogLevel } from "./coding-job-log";

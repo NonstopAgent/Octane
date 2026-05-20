@@ -30,10 +30,28 @@ import type {
   ProjectConnectionKind,
   ProjectConnectionStatus,
 } from "@/lib/types/project-connection";
+import type {
+  CodingJob,
+  CodingJobMode,
+  CodingJobStatus,
+} from "@/lib/types/coding-job";
 import type { RoadmapItem } from "@/lib/types/roadmap-item";
 import type { Task, TaskAssignee, TaskPriority, TaskStatus } from "@/lib/types/task";
 import type { Transaction } from "@/lib/types/transaction";
 import type { WorkSession } from "@/lib/types/work-session";
+
+const CODING_JOB_STATUSES: CodingJobStatus[] = [
+  "draft",
+  "planning",
+  "pending_approval",
+  "approved",
+  "running",
+  "pr_open",
+  "completed",
+  "failed",
+  "cancelled",
+];
+const CODING_JOB_MODES: CodingJobMode[] = ["review", "assisted", "autopilot"];
 
 export interface NormalizedOctaneState extends OctanePersistedState {
   connections: Connection[];
@@ -127,6 +145,7 @@ const CONNECTION_STATUSES: ConnectionStatus[] = [
 const ACTION_TYPES: OctaneActionType[] = [
   "add_project",
   "create_task",
+  "create_coding_job",
   "create_decision",
   "add_entity",
   "connect_github",
@@ -376,6 +395,35 @@ function normalizeOctaneAction(raw: unknown, index: number): OctaneAction | null
   };
 }
 
+function normalizeCodingJob(raw: unknown, index: number): CodingJob | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Partial<CodingJob>;
+  const now = new Date().toISOString();
+  const createdAt = safeIsoDate(r.createdAt, now);
+  const updatedAt = safeIsoDate(r.updatedAt, createdAt);
+  return {
+    id: safeString(r.id, `cjob-normalized-${index}`),
+    title: safeString(r.title, "Coding job"),
+    prompt: safeString(r.prompt, ""),
+    repo: safeString(r.repo, ""),
+    projectId: safeOptionalString(r.projectId),
+    mode: pickEnum(r.mode, CODING_JOB_MODES, "review"),
+    status: pickEnum(r.status, CODING_JOB_STATUSES, "draft"),
+    plan: r.plan && typeof r.plan === "object" ? (r.plan as CodingJob["plan"]) : undefined,
+    changedFiles: asArray(r.changedFiles) as CodingJob["changedFiles"],
+    logs: asArray(r.logs) as CodingJob["logs"],
+    branchName: safeOptionalString(r.branchName),
+    baseBranch: safeOptionalString(r.baseBranch),
+    prNumber: typeof r.prNumber === "number" ? r.prNumber : undefined,
+    prUrl: safeOptionalString(r.prUrl),
+    approvedAt: safeOptionalString(r.approvedAt),
+    completedAt: safeOptionalString(r.completedAt),
+    errorMessage: safeOptionalString(r.errorMessage),
+    createdAt,
+    updatedAt,
+  };
+}
+
 function normalizeProjectConnection(raw: unknown, index: number): ProjectConnection | null {
   if (!raw || typeof raw !== "object") return null;
   const r = raw as Partial<ProjectConnection>;
@@ -458,5 +506,6 @@ export function normalizeOctaneData(
       input?.projectConnections,
       normalizeProjectConnection,
     ).filter((pc) => pc.projectId && projectIds.has(pc.projectId)),
+    codingJobs: normalizeGenericArray(input?.codingJobs, normalizeCodingJob),
   };
 }

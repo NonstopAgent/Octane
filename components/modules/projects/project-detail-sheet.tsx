@@ -24,6 +24,7 @@ import type { Project } from "@/lib/types";
 
 import { ProjectIntegrationStats } from "@/components/modules/connections/project-integration-stats";
 import { ProjectLinkForm } from "@/components/modules/connections/project-link-form";
+import { ProjectCodingSection } from "@/components/modules/coding/project-coding-section";
 
 import { ProjectForm } from "./project-form";
 import { formatRevenueStatus, formatUpdatedAt } from "./project-utils";
@@ -127,6 +128,11 @@ export function ProjectDetailSheet({
         ? projectConnections.filter((pc) => pc.projectId === projectId)
         : [],
     [projectConnections, projectId],
+  );
+
+  const githubRepo = useMemo(
+    () => linkedConnections.find((pc) => pc.kind === "github" && pc.repo)?.repo,
+    [linkedConnections],
   );
 
   const handleCreateLinkedNote = (event: React.FormEvent) => {
@@ -354,6 +360,12 @@ export function ProjectDetailSheet({
                 <ProjectLinkForm defaultProjectId={projectId} compact />
               ) : null}
             </section>
+
+            <Separator className="bg-zinc-800/80" />
+
+            {projectId ? (
+              <ProjectCodingSection projectId={projectId} githubRepo={githubRepo} />
+            ) : null}
 
             <Separator className="bg-zinc-800/80" />
 

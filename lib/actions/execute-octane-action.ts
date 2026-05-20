@@ -1,5 +1,6 @@
 import type { OctaneStore } from "@/lib/store/octane-store";
 import type { OctaneAction } from "@/lib/types/octane-action";
+import type { CodingJobPlan } from "@/lib/types/coding-job";
 import type { EntityType } from "@/lib/types/entity";
 import type { ProjectConnectionKind } from "@/lib/types/project-connection";
 
@@ -41,6 +42,22 @@ export function executeApprovedOctaneAction(
           priority: "medium",
           status: "backlog",
           tags: ["octane-action"],
+        });
+        return { ok: true };
+      }
+      case "create_coding_job": {
+        const repo = String(payload.repo ?? "");
+        if (!repo) {
+          return { ok: false, error: "GitHub repo (owner/name) required for coding job." };
+        }
+        store.createCodingJob({
+          title: String(payload.title ?? action.title),
+          prompt: String(payload.prompt ?? action.description),
+          repo,
+          mode: "review",
+          status: "pending_approval",
+          projectId: action.projectId ?? (payload.projectId ? String(payload.projectId) : undefined),
+          plan: payload.plan as CodingJobPlan | undefined,
         });
         return { ok: true };
       }

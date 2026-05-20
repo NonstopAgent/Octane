@@ -4,6 +4,7 @@ Octane Core is a **founder operating system** for running multiple projects, bet
 
 ## Status
 
+- **Checkpoint 11C** — GitHub coding workbench (`/coding`, plan → approve → PR; review mode default)
 - **Checkpoint 11B** — Read-only GitHub + Vercel connectors (server tokens, `/connections`, project links)
 - **Checkpoint 11A** — Conversational command layer, Connections hub, action approvals, data normalizer
 - **Checkpoint 10C** — Executive Query Layer docs, hybrid auth, outlook/holdings/chat surfaces
@@ -36,7 +37,7 @@ npm start
 | Variable | Purpose |
 |----------|---------|
 | `ANTHROPIC_API_KEY` | Powers `/chat` and `/api/cron/briefing` |
-| `GITHUB_TOKEN` | Read-only GitHub integrations + cron briefing issues |
+| `GITHUB_TOKEN` | GitHub read integrations + coding workbench (branch/docs PR; server-only) |
 | `VERCEL_TOKEN` | Read-only Vercel project/deployment status |
 | `VERCEL_TEAM_ID` | Optional team scope for Vercel API |
 | `NEXT_PUBLIC_APP_URL` | Optional absolute app URL for server-generated links |
@@ -56,6 +57,16 @@ Without integration tokens, `/connections` and project link validation return **
 | `GET /api/integrations/vercel/project?name=…` | Project + latest deployment |
 
 All integration routes require the auth cookie. No deploy, delete, or settings mutations.
+
+### Coding workbench (11C)
+
+| API | Purpose |
+|-----|---------|
+| `POST /api/coding/jobs` | Generate plan (Anthropic or deterministic fallback) |
+| `POST /api/coding/jobs/[id]/approve` | Record approval (client holds job state) |
+| `POST /api/coding/jobs/[id]/run` | Approved jobs only: branch → `docs/octane-coding-jobs/<id>.md` → open PR (never merge) |
+
+Jobs live in Zustand (`codingJobs`). Default mode is **review**; **autopilot** is disabled in UI and API.
 
 Without `ANTHROPIC_API_KEY`, the app **does not crash** — `/chat` shows a setup banner; the cron route returns `503`. Core modules (Today, Outlook, Briefing, Holdings) work without any AI keys.
 
@@ -90,6 +101,7 @@ Next.js may warn about multiple `package-lock.json` files if a lockfile exists i
 | `/notes` | Founder notes |
 | `/connections` | GitHub/Vercel read-only status, refresh, project linking |
 | `/actions` | Approve/reject proposed Octane actions |
+| `/coding` | GitHub coding workbench — plan, approve, open PR (review mode) |
 | `/settings` | Profile, entities, export/import, shortcuts |
 
 ## Ask Octane — Executive Query Layer

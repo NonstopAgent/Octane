@@ -70,7 +70,29 @@ export function parseOctaneCommand(input: ParseOctaneCommandInput): ParseOctaneC
     );
   }
 
-  if (/\b(create|add)\s+(a\s+)?task\b/.test(lower) || /\btask\s*:/.test(lower)) {
+  const codingIntent =
+    /\b(fix|build|change\s+code|edit\s+repo|work\s+on|make\s+(a\s+)?pr|open\s+(a\s+)?pr)\b/.test(
+      lower,
+    ) ||
+    /\b(coding\s+job|code\s+change|pull\s+request)\b/.test(lower);
+  const repoInText = text.match(/([\w.-]+\/[\w.-]+)/);
+  if (codingIntent) {
+    const repo = repoInText?.[1];
+    actions.push(
+      propose(
+        "create_coding_job",
+        repo ? `Coding job for ${repo}` : "Create coding job",
+        "Opens the GitHub coding workbench (review mode) — plan and PR, never auto-merge.",
+        {
+          prompt: text,
+          repo,
+          projectId: input.projectId,
+        },
+        source,
+        input.projectId,
+      ),
+    );
+  } else if (/\b(create|add)\s+(a\s+)?task\b/.test(lower) || /\btask\s*:/.test(lower)) {
     const titleMatch =
       text.match(/task\s*(?::|—|-)\s*["']?([^"'\n]+)["']?/i) ??
       text.match(/(?:create|add)\s+(?:a\s+)?task\s+["']?([^"'\n.]+)["']?/i);

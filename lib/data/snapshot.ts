@@ -18,6 +18,7 @@ import type {
   Transaction,
   WorkSession,
 } from "@/lib/types";
+import type { CodingJob } from "@/lib/types/coding-job";
 
 export interface OctaneSnapshot {
   profile: Profile;
@@ -37,6 +38,8 @@ export interface OctaneSnapshot {
   complianceReminders: ComplianceReminder[];
   legalQuestions: LegalQuestion[];
   formationChecklistItems: FormationChecklistItem[];
+  /** Optional — added in checkpoint 11C */
+  codingJobs?: CodingJob[];
   generatedAt: string;
   appVersion: string;
   dataSchemaVersion: string;
@@ -133,6 +136,7 @@ export function exportSnapshotData(state: Omit<OctaneSnapshot, "generatedAt" | "
     complianceReminders: state.complianceReminders,
     legalQuestions: state.legalQuestions,
     formationChecklistItems: state.formationChecklistItems,
+    codingJobs: state.codingJobs,
     generatedAt: new Date().toISOString(),
     appVersion,
     dataSchemaVersion,

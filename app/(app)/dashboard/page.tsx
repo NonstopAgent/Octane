@@ -19,6 +19,7 @@ import {
 import { formatDistanceToNow } from "date-fns";
 import { useShallow } from "zustand/react/shallow";
 
+import { DashboardCodingCards } from "@/components/modules/coding/dashboard-coding-cards";
 import { DashboardIntegrationHealth } from "@/components/modules/connections/dashboard-integration-health";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -352,6 +353,8 @@ export default function DashboardPage() {
         </h2>
         <DashboardIntegrationHealth />
       </div>
+
+      <DashboardCodingCards />
 
       {/* Live repo status — the core of the dashboard */}
       <div>

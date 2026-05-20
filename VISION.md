@@ -7,8 +7,9 @@ Octane is a **founder operating system**: one command center for projects, bets,
 1. **Local-first, cloud-ready** — Zustand + browser persistence for speed; Supabase for identity and sync when configured.
 2. **Rule-based first, AI-assisted second** — deterministic engines answer from your portfolio data; optional Claude paths (`/chat`, cron briefing) augment, never replace, ground truth in the store.
 3. **Read-only intelligence** — advisors, outlook, briefings, and the Executive Query Layer recommend and explain. They do not mutate tasks, money, holdings, or documents. **Conversational commands** propose changes as **Octane Actions** that require explicit approval before execution.
-4. **No secrets in the client** — integration credentials stay server-side (`GITHUB_TOKEN`, `VERCEL_TOKEN`). Zustand holds connection status, project links, and display metadata only. GitHub/Vercel connectors are **read-only** in checkpoint 11B.
-5. **Planning, not professional advice** — legal, tax, investment, and compliance language triggers explicit warnings; outputs are for organizational planning only.
+4. **No secrets in the client** — integration credentials stay server-side (`GITHUB_TOKEN`, `VERCEL_TOKEN`). Zustand holds connection status, project links, coding job metadata, and display fields only — never tokens.
+5. **Coding workbench is review-first** — checkpoint 11C opens PRs (docs + plan) after explicit approval; no auto-merge, deploy, or destructive GitHub actions.
+6. **Planning, not professional advice** — legal, tax, investment, and compliance language triggers explicit warnings; outputs are for organizational planning only.
 
 ## Executive Query Layer (Ask Octane)
 
