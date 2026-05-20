@@ -1,7 +1,6 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import {
   Banknote,
   Flame,
@@ -69,7 +68,6 @@ export default function FinancePage() {
 }
 
 function FinancePageContent() {
-  const searchParams = useSearchParams();
   const transactions = useOctaneStore((state) => state.transactions);
   const projects = useOctaneStore((state) => state.projects);
   const createTransaction = useOctaneStore((state) => state.createTransaction);
@@ -77,11 +75,13 @@ function FinancePageContent() {
 
   const [dialogOpen, setDialogOpen] = useState(false);
 
+  // Read URL params once on mount — avoids loop from useSearchParams()
+  // returning new references during Next.js App Router hydration.
   useEffect(() => {
-    if (searchParams.get("new") === "1") {
+    if (new URLSearchParams(window.location.search).get("new") === "1") {
       setDialogOpen(true);
     }
-  }, [searchParams]);
+  }, []);
 
   const [form, setForm] = useState({
     type: "expense" as TransactionType,

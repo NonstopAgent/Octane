@@ -1,7 +1,7 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Bot } from "lucide-react";
 
 import { PageHeader } from "@/components/layout/page-header";
@@ -23,7 +23,6 @@ export default function AgentsPage() {
 }
 
 function AgentsPageContent() {
-  const searchParams = useSearchParams();
   const router = useRouter();
 
   const agents = useOctaneStore((state) => state.agents);
@@ -46,17 +45,23 @@ function AgentsPageContent() {
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
 
-  // Sync ?detail= query param
+  // Capture agents ref so mount effect can see current value without adding
+  // it as a dep (which would re-run and reopen panels on store updates).
+  const agentsRef = useRef(agents);
+  agentsRef.current = agents;
+
+  // Read ?detail= once on mount — avoids infinite loop from useSearchParams()
+  // returning new references during Next.js App Router hydration.
   useEffect(() => {
-    const detail = searchParams.get("detail");
+    const detail = new URLSearchParams(window.location.search).get("detail");
     if (detail) {
-      const agent = agents.find((a) => a.id === detail);
+      const agent = agentsRef.current.find((a) => a.id === detail);
       if (agent) {
         setSelectedAgent(agent);
         setDetailOpen(true);
       }
     }
-  }, [searchParams, agents]);
+  }, []);
 
   // Keep selectedAgent in sync when store changes (e.g. status update)
   useEffect(() => {
@@ -75,7 +80,7 @@ function AgentsPageContent() {
     setDetailOpen(open);
     if (!open) {
       // Remove ?detail= from URL without a full navigation
-      const params = new URLSearchParams(searchParams.toString());
+      const params = new URLSearchParams(window.location.search);
       params.delete("detail");
       const qs = params.toString();
       router.replace(qs ? `?${qs}` : "/agents", { scroll: false });

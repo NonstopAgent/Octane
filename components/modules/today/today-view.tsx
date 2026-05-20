@@ -16,7 +16,6 @@ import {
   Timer,
 } from "lucide-react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 
@@ -29,24 +28,55 @@ import { WorkSessionPanel } from "@/components/modules/today/work-session-panel"
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  selectOctanePersistedState,
   useOctaneStore,
+  type OctaneStore,
 } from "@/lib/store/octane-store";
 import { generateTodayView } from "@/lib/today/generate-today-view";
 
+// Targeted selector — only subscribe to fields generateTodayView needs.
+// Avoids re-renders from unrelated state changes (e.g. signals updates).
+function selectTodayState(s: OctaneStore) {
+  return {
+    profile: s.profile,
+    projects: s.projects,
+    tasks: s.tasks,
+    decisions: s.decisions,
+    roadmapItems: s.roadmapItems,
+    transactions: s.transactions,
+    documents: s.documents,
+    ipAssets: s.ipAssets,
+    entities: s.entities,
+    agents: s.agents,
+    activityLogs: s.activityLogs,
+    workSessions: s.workSessions,
+    inboxItems: s.inboxItems,
+    founderNotes: s.founderNotes,
+    complianceReminders: s.complianceReminders,
+    legalQuestions: s.legalQuestions,
+    formationChecklistItems: s.formationChecklistItems,
+    agentLogs: s.agentLogs,
+    agentRuns: s.agentRuns,
+    connections: s.connections,
+    octaneActions: s.octaneActions,
+    projectConnections: s.projectConnections,
+    codingJobs: s.codingJobs,
+    signals: s.signals,
+  };
+}
+
 export function TodayView() {
-  const searchParams = useSearchParams();
-  const state = useOctaneStore(useShallow(selectOctanePersistedState));
+  const state = useOctaneStore(useShallow(selectTodayState));
   const [showStartSession, setShowStartSession] = useState(false);
   const [noteOpen, setNoteOpen] = useState(false);
 
   const today = useMemo(() => generateTodayView(state), [state]);
 
+  // Read URL params once on mount — avoids infinite loop from useSearchParams()
+  // returning new references during Next.js App Router hydration.
   useEffect(() => {
-    if (searchParams.get("session") === "1") {
-      setShowStartSession(true);
-    }
-  }, [searchParams]);
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("session") === "1") setShowStartSession(true);
+  }, []);
 
   if (state.projects.length === 0 && state.tasks.length === 0) {
     return (

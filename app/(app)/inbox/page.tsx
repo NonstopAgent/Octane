@@ -1,7 +1,6 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import { format } from "date-fns";
 import {
   Archive,
@@ -50,7 +49,6 @@ const emptyCapture = {
 };
 
 function InboxPageContent() {
-  const searchParams = useSearchParams();
   const titleRef = useRef<HTMLInputElement>(null);
 
   const inboxItems = useOctaneStore((s) => s.inboxItems);
@@ -70,11 +68,13 @@ function InboxPageContent() {
   const [capture, setCapture] = useState(emptyCapture);
   const [deleteTarget, setDeleteTarget] = useState<InboxItem | null>(null);
 
+  // Read URL params once on mount — avoids loop from useSearchParams()
+  // returning new references during Next.js App Router hydration.
   useEffect(() => {
-    if (searchParams.get("new") === "1") {
+    if (new URLSearchParams(window.location.search).get("new") === "1") {
       titleRef.current?.focus();
     }
-  }, [searchParams]);
+  }, []);
 
   const grouped = useMemo(() => {
     const buckets: Record<InboxItemStatus, InboxItem[]> = {

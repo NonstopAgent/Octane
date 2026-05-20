@@ -1,9 +1,8 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { format, parseISO } from "date-fns";
 import { Map as MapIcon, Pencil, Plus, Trash2 } from "lucide-react";
-import { useSearchParams } from "next/navigation";
 
 import { PageHeader } from "@/components/layout/page-header";
 import {
@@ -41,28 +40,35 @@ function RoadmapPageContent() {
   const roadmapItems = useOctaneStore((state) => state.roadmapItems);
   const getProjectById = useOctaneStore((state) => state.getProjectById);
   const deleteRoadmapItem = useOctaneStore((state) => state.deleteRoadmapItem);
-  const searchParams = useSearchParams();
 
   const [view, setView] = useState<"board" | "timeline">("board");
   const [formOpen, setFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<RoadmapItem | undefined>();
   const [deleteTarget, setDeleteTarget] = useState<RoadmapItem | null>(null);
 
+  // Capture roadmapItems ref so the mount effect can see current value
+  // without adding it as a dep (which would re-run and reopen dialogs).
+  const roadmapItemsRef = useRef(roadmapItems);
+  roadmapItemsRef.current = roadmapItems;
+
+  // Read URL params once on mount — avoids infinite loop from useSearchParams()
+  // returning new references during Next.js App Router hydration.
   useEffect(() => {
-    if (searchParams.get("new") === "1") {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("new") === "1") {
       setEditingItem(undefined);
       setFormOpen(true);
       return;
     }
-    const detail = searchParams.get("detail");
+    const detail = params.get("detail");
     if (detail) {
-      const item = roadmapItems.find((r) => r.id === detail);
+      const item = roadmapItemsRef.current.find((r) => r.id === detail);
       if (item) {
         setEditingItem(item);
         setFormOpen(true);
       }
     }
-  }, [searchParams, roadmapItems]);
+  }, []);
 
   const itemsByTimeframe = useMemo(() => {
     const grouped: Record<RoadmapTimeframe, RoadmapItem[]> = {

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import {
   DndContext,
   DragOverlay,
@@ -28,7 +27,6 @@ import { TaskFormDialog } from "./task-form-dialog";
 import { isTaskStatus, KANBAN_COLUMNS } from "./task-utils";
 
 export function TasksView() {
-  const searchParams = useSearchParams();
   const tasks = useOctaneStore((s) => s.tasks);
   const projects = useOctaneStore((s) => s.projects);
   const [filters, setFilters] = useState<TaskFiltersState>({
@@ -43,16 +41,14 @@ export function TasksView() {
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [dndEnabled, setDndEnabled] = useState(true);
 
+  // Read URL params once on mount — avoids infinite loop from useSearchParams()
+  // returning new references during Next.js App Router hydration.
   useEffect(() => {
-    if (searchParams.get("new") === "1") {
-      setCreateOpen(true);
-    }
-    const detail = searchParams.get("detail");
-    if (detail) {
-      setDetailId(detail);
-      setDetailOpen(true);
-    }
-  }, [searchParams]);
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("new") === "1") setCreateOpen(true);
+    const detail = params.get("detail");
+    if (detail) { setDetailId(detail); setDetailOpen(true); }
+  }, []);
 
   const projectNames = useMemo(
     () => Object.fromEntries(projects.map((p) => [p.id, p.name])),

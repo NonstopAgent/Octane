@@ -21,8 +21,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { generateSignals } from "@/lib/signals/generate-signals";
 import {
-  selectOctanePersistedState,
   useOctaneStore,
+  type OctaneStore,
 } from "@/lib/store/octane-store";
 import type { Signal, SignalSeverity, SignalStatus, SignalType } from "@/lib/types/signal";
 import { cn } from "@/lib/utils";
@@ -288,36 +288,66 @@ function SeverityFilter({
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+// Selector that returns workspace data WITHOUT signals — used as the
+// useEffect dependency so that calling upsertSignals() doesn't trigger
+// the effect again (breaking the infinite-loop).
+function selectWorkspaceForSignals(s: OctaneStore) {
+  return {
+    profile: s.profile,
+    projects: s.projects,
+    tasks: s.tasks,
+    decisions: s.decisions,
+    roadmapItems: s.roadmapItems,
+    transactions: s.transactions,
+    documents: s.documents,
+    ipAssets: s.ipAssets,
+    entities: s.entities,
+    agents: s.agents,
+    activityLogs: s.activityLogs,
+    workSessions: s.workSessions,
+    inboxItems: s.inboxItems,
+    founderNotes: s.founderNotes,
+    complianceReminders: s.complianceReminders,
+    legalQuestions: s.legalQuestions,
+    formationChecklistItems: s.formationChecklistItems,
+    agentLogs: s.agentLogs,
+    agentRuns: s.agentRuns,
+    connections: s.connections,
+    octaneActions: s.octaneActions,
+    projectConnections: s.projectConnections,
+    codingJobs: s.codingJobs,
+    // NOTE: signals intentionally excluded — selecting it here would cause
+    // upsertSignals() → workspace change → effect re-fires → infinite loop
+  };
+}
+
 export default function SignalsPage() {
-  const workspace = useOctaneStore(useShallow(selectOctanePersistedState));
-  const { upsertSignals, updateSignalStatus, signals } = useOctaneStore(
-    useShallow((s) => ({
-      upsertSignals: s.upsertSignals,
-      updateSignalStatus: s.updateSignalStatus,
-      signals: s.signals,
-    })),
-  );
+  // workspace = all persisted state EXCEPT signals (avoids the update loop)
+  const workspace = useOctaneStore(useShallow(selectWorkspaceForSignals));
+
+  const signals = useOctaneStore((s) => s.signals);
+  const upsertSignals = useOctaneStore((s) => s.upsertSignals);
+  const updateSignalStatus = useOctaneStore((s) => s.updateSignalStatus);
 
   const [activeTab, setActiveTab] = useState<TabKey>("all");
   const [severityFilter, setSeverityFilter] = useState<SignalSeverity | "all">("all");
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
 
-  // Run generator on mount and when workspace changes
+  // Run generator on mount and when workspace data (not signals) changes
   useEffect(() => {
-    const derived = generateSignals(workspace);
-    // Only upsert NEW signals — preserve existing status for signals already in store
-    const existingIds = new Set(signals.map((s) => s.id));
-    const toUpsert = derived.map((s) =>
-      existingIds.has(s.id)
-        ? { ...s, status: signals.find((x) => x.id === s.id)!.status }
-        : s,
-    );
+    const derived = generateSignals({ ...workspace, signals });
+    // Preserve existing status for signals already in store
+    const existingMap = new Map(signals.map((s) => [s.id, s]));
+    const toUpsert = derived.map((s) => {
+      const existing = existingMap.get(s.id);
+      return existing ? { ...s, status: existing.status } : s;
+    });
     upsertSignals(toUpsert);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [workspace]);
+  }, [workspace]); // workspace excludes signals — no loop
 
   function handleRefresh() {
-    const derived = generateSignals(workspace);
+    const derived = generateSignals({ ...workspace, signals });
     upsertSignals(derived);
     setLastRefresh(new Date());
   }

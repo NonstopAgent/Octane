@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { FolderKanban, LayoutGrid, List, Plus } from "lucide-react";
 
 import { EmptyState } from "@/components/modules";
@@ -18,7 +17,6 @@ import { ProjectFilters, type ProjectFiltersState } from "./project-filters";
 import { ProjectFormDialog } from "./project-form-dialog";
 
 export function ProjectsView() {
-  const searchParams = useSearchParams();
   const projects = useOctaneStore((s) => s.projects);
   const [filters, setFilters] = useState<ProjectFiltersState>({
     search: "",
@@ -31,16 +29,18 @@ export function ProjectsView() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
 
+  // Read URL params ONCE on mount — avoids infinite re-render caused by
+  // useSearchParams() returning a new reference on every hydration cycle
+  // in Next.js App Router (React error #185).
   useEffect(() => {
-    if (searchParams.get("new") === "1") {
-      setCreateOpen(true);
-    }
-    const detail = searchParams.get("detail");
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("new") === "1") setCreateOpen(true);
+    const detail = params.get("detail");
     if (detail) {
       setSelectedId(detail);
       setSheetOpen(true);
     }
-  }, [searchParams]);
+  }, []); // Run once on mount only
 
   const filtered = useMemo(() => {
     const q = filters.search.trim().toLowerCase();

@@ -2,7 +2,6 @@
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { Building2, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -69,7 +68,6 @@ export default function SettingsPage() {
 }
 
 function SettingsPageContent() {
-  const searchParams = useSearchParams();
   const profile = useOctaneStore((state) => state.profile);
   const updateProfile = useOctaneStore((state) => state.updateProfile);
   const entities = useOctaneStore((state) => state.entities);
@@ -127,13 +125,15 @@ function SettingsPageContent() {
     setEntityDialogOpen(true);
   };
 
+  // Read URL params once on mount — avoids loop from useSearchParams()
+  // returning new references during Next.js App Router hydration.
   useEffect(() => {
-    if (searchParams.get("new") === "entity") {
+    if (new URLSearchParams(window.location.search).get("new") === "entity") {
       setEditingEntity(null);
       setEntityForm(emptyEntityForm);
       setEntityDialogOpen(true);
     }
-  }, [searchParams]);
+  }, []);
 
   const openEditEntity = (entity: Entity) => {
     setEditingEntity(entity);

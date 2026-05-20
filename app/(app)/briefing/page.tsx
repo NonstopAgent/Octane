@@ -1,23 +1,23 @@
 "use client";
 
-import { format, parseISO } from "date-fns";
+import { differenceInCalendarDays, format, parseISO, startOfDay } from "date-fns";
 import {
   AlertCircle,
   Bot,
   CalendarClock,
   CheckCircle2,
+  Clock,
   DollarSign,
   FolderKanban,
-  ListTodo,
   Sparkles,
-  Target,
+  TrendingUp,
 } from "lucide-react";
 import { useMemo, type ComponentType } from "react";
 import { useShallow } from "zustand/react/shallow";
 
 import { PageHeader } from "@/components/layout/page-header";
 import { OctaneAdvisorPanel } from "@/components/modules/advisor";
-import { EmptyState, PriorityBadge, StatusBadge } from "@/components/modules";
+import { EmptyState, StatusBadge } from "@/components/modules";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -31,28 +31,20 @@ import {
   selectOctanePersistedState,
   useOctaneStore,
 } from "@/lib/store/octane-store";
-import { cn } from "@/lib/utils";
 
 function BriefingSection({
   title,
   description,
   icon: Icon,
   children,
-  className,
 }: {
   title: string;
   description?: string;
   icon: ComponentType<{ className?: string }>;
   children: React.ReactNode;
-  className?: string;
 }) {
   return (
-    <Card
-      className={cn(
-        "border-zinc-800/80 bg-zinc-900/40 ring-zinc-800/60",
-        className,
-      )}
-    >
+    <Card className="border-zinc-800/80 bg-zinc-900/40">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-zinc-100">
           <Icon className="size-4 text-amber-400/90" aria-hidden />
@@ -67,93 +59,189 @@ function BriefingSection({
   );
 }
 
+function StatPill({
+  label,
+  value,
+  sub,
+  tone,
+}: {
+  label: string;
+  value: string | number;
+  sub?: string;
+  tone?: "neutral" | "amber" | "red" | "green";
+}) {
+  const bg =
+    tone === "red"
+      ? "border-red-900/40 bg-red-950/20"
+      : tone === "amber"
+        ? "border-amber-900/40 bg-amber-950/20"
+        : tone === "green"
+          ? "border-emerald-900/30 bg-emerald-950/15"
+          : "border-zinc-800/80 bg-zinc-900/40";
+  const val =
+    tone === "red"
+      ? "text-red-200"
+      : tone === "amber"
+        ? "text-amber-200"
+        : tone === "green"
+          ? "text-emerald-200"
+          : "text-zinc-100";
+
+  return (
+    <div className={`rounded-xl border px-4 py-3 ${bg}`}>
+      <p className="text-[11px] uppercase tracking-wide text-zinc-500">{label}</p>
+      <p className={`mt-1 text-2xl font-semibold tabular-nums ${val}`}>{value}</p>
+      {sub ? <p className="mt-0.5 text-xs text-zinc-600">{sub}</p> : null}
+    </div>
+  );
+}
+
 export default function BriefingPage() {
   const state = useOctaneStore(useShallow(selectOctanePersistedState));
 
   const briefing = useMemo(() => generateMorningBriefing(state), [state]);
+
+  // Portfolio-level stats for the health strip
+  const stats = useMemo(() => {
+    const openProjects = state.projects.filter(
+      (p) => p.status !== "complete" && p.status !== "archived",
+    ).length;
+    const openTasks = state.tasks.filter(
+      (t) => t.status !== "done",
+    ).length;
+    const overdueCount = briefing.overdueTasks.length;
+    const blockedCount = briefing.blockedWork.length;
+    return { openProjects, openTasks, overdueCount, blockedCount };
+  }, [state, briefing]);
 
   if (state.projects.length === 0) {
     return (
       <div className="space-y-8">
         <PageHeader
           title="Morning Briefing"
-          description="Rule-based ops snapshot for your portfolio."
+          description="Strategic digest for your portfolio — read once, then execute."
         />
         <EmptyState
           icon={Sparkles}
           title="Nothing to brief yet"
-          description="The briefing synthesizes projects, tasks, and finance into a morning plan. Add a project in /projects or ask Octane AI to get started."
+          description="The briefing synthesizes projects, tasks, and finance into a strategic morning read. Add a project in /projects to get started."
         />
       </div>
     );
   }
 
+  const today = startOfDay(new Date());
+
   return (
     <div className="space-y-8">
       <PageHeader
         title="Morning Briefing"
-        description={`Rule-based ops snapshot for ${state.profile.name} · generated ${format(new Date(briefing.generatedAt), "MMM d, yyyy 'at' h:mm a")}`}
+        description={`Strategic digest for ${state.profile.name} · ${format(new Date(briefing.generatedAt), "EEEE, MMM d")}`}
       />
 
+      {/* Portfolio health strip */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <StatPill label="Open projects" value={stats.openProjects} />
+        <StatPill label="Open tasks" value={stats.openTasks} />
+        <StatPill
+          label="Overdue"
+          value={stats.overdueCount}
+          tone={stats.overdueCount > 0 ? "red" : "neutral"}
+          sub={stats.overdueCount > 0 ? "need attention" : "clear"}
+        />
+        <StatPill
+          label="Blocked"
+          value={stats.blockedCount}
+          tone={stats.blockedCount > 0 ? "amber" : "neutral"}
+          sub={stats.blockedCount > 0 ? "holding progress" : "clear"}
+        />
+      </div>
+
+      {/* Operating plan — unique to briefing; Today shows tasks, briefing shows flow */}
       <BriefingSection
         title="Today's operating plan"
-        description="Suggested flow through your day"
-        icon={Target}
+        description="Recommended sequence for your day based on current portfolio state"
+        icon={Clock}
       >
-        <ul className="space-y-2">
-          {briefing.operatingPlan.map((item) => (
-            <li
-              key={item}
-              className="rounded-lg border border-zinc-800/90 bg-zinc-950/40 px-3 py-2 text-sm text-zinc-300"
-            >
-              {item}
-            </li>
-          ))}
-        </ul>
+        {briefing.operatingPlan.length === 0 ? (
+          <p className="text-sm text-zinc-400">
+            Portfolio looks healthy — execute highest-impact in-progress work.
+          </p>
+        ) : (
+          <ol className="space-y-3">
+            {briefing.operatingPlan.map((step, i) => (
+              <li key={step} className="flex gap-3 text-sm">
+                <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-zinc-800 text-xs font-semibold text-zinc-400">
+                  {i + 1}
+                </span>
+                <span className="text-zinc-200">{step}</span>
+              </li>
+            ))}
+          </ol>
+        )}
       </BriefingSection>
 
+      {/* Upcoming deadlines — forward-looking calendar view; Today shows only today */}
       <BriefingSection
-        title="Top 3 moves"
-        description="Highest-leverage actions right now"
-        icon={Sparkles}
+        title="Upcoming deadlines"
+        description="Tasks and decision reviews due in the next 14 days"
+        icon={CalendarClock}
       >
-        <ol className="list-decimal space-y-2 pl-5 text-sm text-zinc-200">
-          {briefing.topThreeMoves.map((move) => (
-            <li key={move}>{move}</li>
-          ))}
-        </ol>
+        {briefing.upcomingDeadlines.length === 0 ? (
+          <EmptyState
+            icon={CalendarClock}
+            title="Clear horizon"
+            description="Nothing due in the next two weeks."
+          />
+        ) : (
+          <ul className="space-y-2">
+            {briefing.upcomingDeadlines.map((deadline) => {
+              const daysAway = differenceInCalendarDays(
+                startOfDay(parseISO(deadline.date)),
+                today,
+              );
+              const urgency =
+                daysAway <= 2
+                  ? "border-red-900/40 bg-red-950/20"
+                  : daysAway <= 5
+                    ? "border-amber-900/40 bg-amber-950/15"
+                    : "border-zinc-800/90 bg-zinc-950/40";
+
+              return (
+                <li
+                  key={`${deadline.kind}-${deadline.id}`}
+                  className={`flex items-start justify-between gap-3 rounded-lg border px-3 py-2.5 ${urgency}`}
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-zinc-100 truncate">{deadline.label}</p>
+                    {deadline.detail ? (
+                      <p className="mt-0.5 text-xs text-zinc-500">{deadline.detail}</p>
+                    ) : null}
+                  </div>
+                  <div className="flex shrink-0 flex-col items-end gap-1">
+                    <p className="text-xs font-semibold text-amber-300/90">
+                      {format(parseISO(deadline.date), "MMM d")}
+                    </p>
+                    <p className="text-[11px] text-zinc-500">
+                      {daysAway === 0
+                        ? "today"
+                        : daysAway === 1
+                          ? "tomorrow"
+                          : `${daysAway}d away`}
+                    </p>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </BriefingSection>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <BriefingSection
-          title="Blocked work"
-          description="Tasks stopping progress"
-          icon={ListTodo}
-        >
-          {briefing.blockedWork.length === 0 ? (
-            <EmptyState
-              icon={CheckCircle2}
-              title="Nothing blocked"
-              description="No tasks are in blocked status."
-            />
-          ) : (
-            <ul className="space-y-2">
-              {briefing.blockedWork.map(({ task, projectName }) => (
-                <li
-                  key={task.id}
-                  className="rounded-lg border border-amber-900/40 bg-amber-950/20 px-3 py-2 text-sm"
-                >
-                  <span className="font-medium text-zinc-100">{task.title}</span>
-                  <span className="text-zinc-500"> · {projectName}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </BriefingSection>
-
+        {/* Money watch — full financial snapshot (Today shows alerts only) */}
         <BriefingSection
           title="Money watch"
-          description="Burn, revenue, and project spend"
+          description="Burn vs revenue across the portfolio"
           icon={DollarSign}
         >
           <ul className="space-y-2">
@@ -167,198 +255,26 @@ export default function BriefingPage() {
             ))}
           </ul>
         </BriefingSection>
-      </div>
 
-      <BriefingSection
-        title="Suggested focus order"
-        description="Deterministic priority stack for today"
-        icon={Target}
-      >
-        <ol className="space-y-1 text-sm text-zinc-300">
-          {briefing.suggestedFocusOrder.map((item, i) => (
-            <li key={item}>
-              {i + 1}. {item}
-            </li>
-          ))}
-        </ol>
-      </BriefingSection>
-
-      <BriefingSection
-        title="Top priorities"
-        description="Highest-signal items for today"
-        icon={Target}
-      >
-        <ul className="space-y-2">
-          {briefing.topPriorities.map((item) => (
-            <li
-              key={item}
-              className="flex gap-2 rounded-lg border border-zinc-800/90 bg-zinc-950/40 px-3 py-2 text-sm text-zinc-200"
-            >
-              <Sparkles
-                className="mt-0.5 size-4 shrink-0 text-amber-400"
-                aria-hidden
-              />
-              {item}
-            </li>
-          ))}
-        </ul>
-      </BriefingSection>
-
-      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Agent health — operational system status */}
         <BriefingSection
-          title="Overdue"
-          description="Tasks past due date"
-          icon={ListTodo}
-        >
-          {briefing.overdueTasks.length === 0 ? (
-            <EmptyState
-              icon={CheckCircle2}
-              title="Nothing overdue"
-              description="All tasks are on schedule or have no due date."
-            />
-          ) : (
-            <ul className="space-y-3">
-              {briefing.overdueTasks.map(({ task, projectName, daysOverdue }) => (
-                <li
-                  key={task.id}
-                  className="rounded-lg border border-red-900/40 bg-red-950/20 p-3"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="font-medium text-zinc-100">{task.title}</p>
-                    <Badge
-                      variant="outline"
-                      className="border-red-800/80 text-red-300"
-                    >
-                      {daysOverdue}d overdue
-                    </Badge>
-                  </div>
-                  <p className="mt-1 text-xs text-zinc-500">{projectName}</p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    <StatusBadge domain="task" status={task.status} />
-                    <PriorityBadge priority={task.priority} />
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </BriefingSection>
-
-        <BriefingSection
-          title="Upcoming deadlines"
-          description="Tasks and decision reviews in the next 14 days"
-          icon={CalendarClock}
-        >
-          {briefing.upcomingDeadlines.length === 0 ? (
-            <EmptyState
-              icon={CalendarClock}
-              title="No upcoming deadlines"
-              description="Nothing due in the next two weeks."
-            />
-          ) : (
-            <ul className="space-y-3">
-              {briefing.upcomingDeadlines.map((deadline) => (
-                <li
-                  key={`${deadline.kind}-${deadline.id}`}
-                  className="flex items-start justify-between gap-3 rounded-lg border border-zinc-800/90 bg-zinc-950/40 p-3"
-                >
-                  <div>
-                    <p className="font-medium text-zinc-100">{deadline.label}</p>
-                    {deadline.detail ? (
-                      <p className="mt-1 text-xs text-zinc-500">{deadline.detail}</p>
-                    ) : null}
-                  </div>
-                  <p className="shrink-0 text-xs font-medium text-amber-300/90">
-                    {format(parseISO(deadline.date), "MMM d")}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </BriefingSection>
-
-        <BriefingSection
-          title="Project watchlist"
-          description="Stale projects and decision queue"
-          icon={FolderKanban}
-        >
-          {briefing.projectWatchlist.length === 0 &&
-          briefing.decisionQueue.length === 0 ? (
-            <EmptyState
-              icon={CheckCircle2}
-              title="Watchlist clear"
-              description="No stale projects or decisions due for review."
-            />
-          ) : (
-            <ul className="space-y-3">
-              {briefing.projectWatchlist.map(({ project, daysSinceUpdate }) => (
-                <li
-                  key={project.id}
-                  className="rounded-lg border border-zinc-800/90 bg-zinc-950/40 p-3"
-                >
-                  <p className="font-medium text-zinc-100">{project.name}</p>
-                  <p className="text-xs text-zinc-500">
-                    {daysSinceUpdate}d without update
-                  </p>
-                </li>
-              ))}
-              {briefing.decisionQueue.slice(0, 3).map(({ decision }) => (
-                <li
-                  key={decision.id}
-                  className="rounded-lg border border-zinc-800/90 bg-zinc-950/40 p-3"
-                >
-                  <p className="font-medium text-zinc-100">{decision.title}</p>
-                  <p className="text-xs text-zinc-500">Decision due for review</p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </BriefingSection>
-
-        <BriefingSection
-          title="Projects needing attention"
-          description="No updates in 7+ days"
-          icon={FolderKanban}
-        >
-          {briefing.staleProjects.length === 0 ? (
-            <EmptyState
-              icon={CheckCircle2}
-              title="Projects are current"
-              description="Every project was updated within the last week."
-            />
-          ) : (
-            <ul className="space-y-3">
-              {briefing.staleProjects.map(({ project, daysSinceUpdate }) => (
-                <li
-                  key={project.id}
-                  className="rounded-lg border border-zinc-800/90 bg-zinc-950/40 p-3"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="font-medium text-zinc-100">{project.name}</p>
-                    <Badge variant="outline" className="border-amber-800/80 text-amber-200">
-                      {daysSinceUpdate}d stale
-                    </Badge>
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    <StatusBadge domain="project" status={project.status} />
-                    <PriorityBadge priority={project.priority} />
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </BriefingSection>
-
-        <BriefingSection
-          title="Agent issues"
-          description="Agents in error state"
+          title="Agent health"
+          description="AI operators and their current status"
           icon={Bot}
         >
-          {briefing.agentIssues.length === 0 ? (
+          {state.agents.length === 0 ? (
             <EmptyState
-              icon={CheckCircle2}
-              title="Agents healthy"
-              description="No agents are reporting errors."
+              icon={Bot}
+              title="No agents configured"
+              description="Add agents in Settings to monitor AI operator health."
             />
+          ) : briefing.agentIssues.length === 0 ? (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 rounded-lg border border-emerald-900/30 bg-emerald-950/15 px-3 py-2 text-sm text-emerald-300">
+                <CheckCircle2 className="size-4 shrink-0" />
+                All {state.agents.length} agent{state.agents.length === 1 ? "" : "s"} healthy
+              </div>
+            </div>
           ) : (
             <ul className="space-y-3">
               {briefing.agentIssues.map((agent) => (
@@ -370,10 +286,55 @@ export default function BriefingPage() {
                     <p className="font-medium text-zinc-100">{agent.name}</p>
                     <StatusBadge domain="agent" status={agent.status} />
                   </div>
-                  <p className="mt-2 text-xs text-zinc-500">{agent.purpose}</p>
-                  {agent.currentTask ? (
+                  <p className="mt-1 text-xs text-zinc-500">{agent.purpose}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </BriefingSection>
+
+        {/* Decision queue — decisions coming up (Today shows ones due now) */}
+        <BriefingSection
+          title="Decision queue"
+          description="Active decisions pending review"
+          icon={TrendingUp}
+        >
+          {briefing.decisionsDue.length === 0 ? (
+            <EmptyState
+              icon={CheckCircle2}
+              title="No decisions due"
+              description="All active decisions are on schedule."
+            />
+          ) : (
+            <ul className="space-y-3">
+              {briefing.decisionsDue.map(({ decision, projectName, daysUntilReview }) => (
+                <li
+                  key={decision.id}
+                  className="rounded-lg border border-zinc-800/90 bg-zinc-950/40 p-3"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <p className="font-medium text-zinc-100">{decision.title}</p>
+                    <Badge
+                      variant="outline"
+                      className={
+                        daysUntilReview < 0
+                          ? "border-red-800/80 text-red-300"
+                          : "border-amber-800/80 text-amber-200"
+                      }
+                    >
+                      {daysUntilReview < 0
+                        ? `${Math.abs(daysUntilReview)}d overdue`
+                        : daysUntilReview === 0
+                          ? "Due today"
+                          : `In ${daysUntilReview}d`}
+                    </Badge>
+                  </div>
+                  {projectName ? (
+                    <p className="mt-1 text-xs text-zinc-500">{projectName}</p>
+                  ) : null}
+                  {decision.reviewDate ? (
                     <p className="mt-1 text-xs text-zinc-600">
-                      Task ref: {agent.currentTask}
+                      Review date: {format(parseISO(decision.reviewDate), "MMM d, yyyy")}
                     </p>
                   ) : null}
                 </li>
@@ -382,99 +343,91 @@ export default function BriefingPage() {
           )}
         </BriefingSection>
 
+        {/* Project watchlist — stale bets needing a check-in */}
         <BriefingSection
-          title="Financial alerts"
-          description="Burn vs revenue this month"
-          icon={DollarSign}
+          title="Project watchlist"
+          description="Bets with no updates in 7+ days"
+          icon={FolderKanban}
         >
-          {briefing.financialAlerts.length === 0 ? (
+          {briefing.projectWatchlist.length === 0 ? (
             <EmptyState
               icon={CheckCircle2}
-              title="Finances look OK"
-              description="Monthly expenses are not exceeding revenue."
-            />
-          ) : (
-            <ul className="space-y-2">
-              {briefing.financialAlerts.map((alert) => (
-                <li
-                  key={alert}
-                  className="flex gap-2 rounded-lg border border-amber-900/40 bg-amber-950/20 px-3 py-2 text-sm text-amber-100"
-                >
-                  <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden />
-                  {alert}
-                </li>
-              ))}
-            </ul>
-          )}
-          {briefing.blockedTasksCount > 0 ? (
-            <p className="mt-4 text-xs text-zinc-600">
-              Also tracking {briefing.blockedTasksCount} blocked task
-              {briefing.blockedTasksCount === 1 ? "" : "s"} across projects.
-            </p>
-          ) : null}
-        </BriefingSection>
-
-        <BriefingSection
-          title="Decisions due"
-          description="Active decisions at or past review date"
-          icon={AlertCircle}
-        >
-          {briefing.decisionsDue.length === 0 ? (
-            <EmptyState
-              icon={CheckCircle2}
-              title="No decisions due"
-              description="No active decisions need review today."
+              title="All projects current"
+              description="Every project was updated within the last week."
             />
           ) : (
             <ul className="space-y-3">
-              {briefing.decisionsDue.map(
-                ({ decision, projectName, daysUntilReview }) => (
-                  <li
-                    key={decision.id}
-                    className="rounded-lg border border-zinc-800/90 bg-zinc-950/40 p-3"
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <p className="font-medium text-zinc-100">{decision.title}</p>
-                      <StatusBadge domain="decision" status={decision.status} />
-                    </div>
-                    {projectName ? (
-                      <p className="mt-1 text-xs text-zinc-500">{projectName}</p>
-                    ) : null}
-                    <p className="mt-2 text-xs text-zinc-600">
-                      {daysUntilReview < 0
-                        ? `${Math.abs(daysUntilReview)} days overdue`
-                        : daysUntilReview === 0
-                          ? "Due today"
-                          : `Due in ${daysUntilReview} days`}
-                      {decision.reviewDate
-                        ? ` · ${format(parseISO(decision.reviewDate), "MMM d, yyyy")}`
-                        : null}
-                    </p>
-                  </li>
-                ),
-              )}
+              {briefing.projectWatchlist.map(({ project, daysSinceUpdate }) => (
+                <li
+                  key={project.id}
+                  className="rounded-lg border border-zinc-800/90 bg-zinc-950/40 p-3"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="font-medium text-zinc-100">{project.name}</p>
+                    <Badge
+                      variant="outline"
+                      className="border-amber-800/80 text-amber-200"
+                    >
+                      {daysSinceUpdate}d stale
+                    </Badge>
+                  </div>
+                  <p className="mt-1 text-xs text-zinc-500">
+                    {project.priority} priority · {project.status}
+                  </p>
+                </li>
+              ))}
             </ul>
           )}
         </BriefingSection>
       </div>
 
+      {/* Suggested actions — concrete next steps */}
       <BriefingSection
-        title="Suggested actions"
-        description="Deduped recommendations from briefing rules"
+        title="Recommended actions"
+        description="Specific moves based on your current portfolio state"
         icon={Sparkles}
       >
-        <ul className="space-y-2">
-          {briefing.suggestedActions.map((action) => (
-            <li
-              key={action}
-              className="rounded-lg border border-zinc-800/90 bg-zinc-950/40 px-3 py-2 text-sm text-zinc-300"
-            >
-              {action}
-            </li>
-          ))}
-        </ul>
+        {briefing.suggestedActions.length === 0 ? (
+          <p className="text-sm text-zinc-400">No urgent actions — stay in execution mode.</p>
+        ) : (
+          <ul className="space-y-2">
+            {briefing.suggestedActions.map((action, i) => (
+              <li
+                key={action}
+                className="flex gap-3 rounded-lg border border-zinc-800/90 bg-zinc-950/40 px-3 py-2 text-sm"
+              >
+                <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-amber-500/20 text-[11px] font-semibold text-amber-300">
+                  {i + 1}
+                </span>
+                <span className="text-zinc-200">{action}</span>
+              </li>
+            ))}
+          </ul>
+        )}
       </BriefingSection>
 
+      {/* Financial alerts as a distinct warning section */}
+      {briefing.financialAlerts.length > 0 ? (
+        <BriefingSection
+          title="Financial alerts"
+          description="Burn vs revenue flags requiring attention"
+          icon={AlertCircle}
+        >
+          <ul className="space-y-2">
+            {briefing.financialAlerts.map((alert) => (
+              <li
+                key={alert}
+                className="flex gap-2 rounded-lg border border-amber-900/40 bg-amber-950/20 px-3 py-2 text-sm text-amber-100"
+              >
+                <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden />
+                {alert}
+              </li>
+            ))}
+          </ul>
+        </BriefingSection>
+      ) : null}
+
+      {/* Octane Advisor — AI strategic analysis panel */}
       <BriefingSection
         title="Octane Advisor"
         description="Rule-based strategic insights from your current operating state"

@@ -6,14 +6,20 @@ import { useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 
 import { detectWorkspaceDataMode } from "@/lib/data/workspace-mode";
-import {
-  selectOctanePersistedState,
-  useOctaneStore,
-} from "@/lib/store/octane-store";
+import { useOctaneStore } from "@/lib/store/octane-store";
 import { cn } from "@/lib/utils";
 
 export function WorkspaceModeBanner() {
-  const state = useOctaneStore(useShallow(selectOctanePersistedState));
+  // Only subscribe to the 3 fields detectWorkspaceDataMode actually needs.
+  // Subscribing to the full persisted state (incl. signals) caused
+  // unnecessary re-renders every time signals were upserted.
+  const state = useOctaneStore(
+    useShallow((s) => ({
+      profile: s.profile,
+      projects: s.projects,
+      projectConnections: s.projectConnections,
+    })),
+  );
   const [dismissed, setDismissed] = useState(false);
 
   const info = useMemo(() => detectWorkspaceDataMode(state), [state]);
