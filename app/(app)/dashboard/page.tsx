@@ -348,7 +348,7 @@ export default function DashboardPage() {
           <Activity className="size-3.5 text-emerald-400" />
           Live Repo Status
         </h2>
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-3">
           <RepoStatusCard
             repo="NonstopAgent/Octane-Ajax"
             label="Octane Ajax"
@@ -358,6 +358,11 @@ export default function DashboardPage() {
             repo="NonstopAgent/Octane-Nexus"
             label="Octane Nexus"
             emoji="🔭"
+          />
+          <RepoStatusCard
+            repo="NonstopAgent/Octane"
+            label="Octane Core"
+            emoji="⚡"
           />
         </div>
       </div>
@@ -480,7 +485,7 @@ export default function DashboardPage() {
         <div>
           <h2 className="mb-3 text-sm font-medium text-zinc-400 flex items-center gap-2">
             <Bot className="size-3.5 text-purple-400" />
-            Demo agents (portfolio seed)
+            Agents
           </h2>
           {state.agents.length === 0 ? (
             <div className="rounded-xl border border-dashed border-zinc-800 p-6 text-center">

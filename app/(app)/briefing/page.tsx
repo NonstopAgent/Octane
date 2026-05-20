@@ -82,7 +82,7 @@ export default function BriefingPage() {
         <EmptyState
           icon={Sparkles}
           title="Nothing to brief yet"
-          description="The briefing synthesizes projects, tasks, and finance into a morning plan. Add a project or reset demo data in Settings to get started."
+          description="The briefing synthesizes projects, tasks, and finance into a morning plan. Add a project in /projects or ask Octane AI to get started."
         />
       </div>
     );

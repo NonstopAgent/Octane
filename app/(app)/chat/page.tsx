@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  type ReactNode,
   Suspense,
   useCallback,
   useEffect,
@@ -33,6 +34,132 @@ const SUGGESTED_PROMPTS = [
   "Summarize everything happening this week in one briefing.",
 ];
 
+/** Render a single line of text — handles inline bold (**text**) and inline code (`code`) */
+function renderInline(text: string): ReactNode[] {
+  const parts: ReactNode[] = [];
+  // Split on **bold** and `code` patterns
+  const regex = /(\*\*[^*]+\*\*|`[^`]+`)/g;
+  let lastIndex = 0;
+  let match;
+  let key = 0;
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index));
+    }
+    const token = match[0];
+    if (token.startsWith("**")) {
+      parts.push(
+        <strong key={key++} className="font-semibold text-zinc-100">
+          {token.slice(2, -2)}
+        </strong>,
+      );
+    } else {
+      parts.push(
+        <code
+          key={key++}
+          className="rounded bg-zinc-800/80 px-1 py-0.5 font-mono text-[11px] text-amber-300/90"
+        >
+          {token.slice(1, -1)}
+        </code>,
+      );
+    }
+    lastIndex = match.index + token.length;
+  }
+  if (lastIndex < text.length) parts.push(text.slice(lastIndex));
+  return parts;
+}
+
+/** Render assistant Markdown content into structured React nodes */
+function MarkdownContent({ text }: { text: string }) {
+  const lines = text.split("\n");
+  const nodes: ReactNode[] = [];
+  let i = 0;
+  let listItems: string[] = [];
+
+  function flushList() {
+    if (listItems.length === 0) return;
+    nodes.push(
+      <ul key={`ul-${i}`} className="my-1.5 space-y-1 pl-4">
+        {listItems.map((item, j) => (
+          <li key={j} className="flex gap-2 text-zinc-300">
+            <span className="mt-[5px] size-1 shrink-0 rounded-full bg-amber-400/70" />
+            <span>{renderInline(item)}</span>
+          </li>
+        ))}
+      </ul>,
+    );
+    listItems = [];
+  }
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    // Blank line
+    if (line.trim() === "") {
+      flushList();
+      nodes.push(<br key={`br-${i}`} />);
+      i++;
+      continue;
+    }
+
+    // H2/H3 heading
+    if (line.startsWith("## ")) {
+      flushList();
+      nodes.push(
+        <p key={`h2-${i}`} className="mt-3 mb-1 text-xs font-semibold uppercase tracking-wider text-zinc-400">
+          {line.slice(3)}
+        </p>,
+      );
+      i++;
+      continue;
+    }
+    if (line.startsWith("### ")) {
+      flushList();
+      nodes.push(
+        <p key={`h3-${i}`} className="mt-2 mb-0.5 text-sm font-semibold text-zinc-200">
+          {line.slice(4)}
+        </p>,
+      );
+      i++;
+      continue;
+    }
+
+    // Numbered list item (1. text)
+    const numberedMatch = line.match(/^(\d+)\.\s+(.*)/);
+    if (numberedMatch) {
+      flushList();
+      nodes.push(
+        <div key={`ol-${i}`} className="flex gap-2 text-zinc-300">
+          <span className="shrink-0 font-mono text-[11px] text-amber-400/70">{numberedMatch[1]}.</span>
+          <span>{renderInline(numberedMatch[2])}</span>
+        </div>,
+      );
+      i++;
+      continue;
+    }
+
+    // Bullet list item
+    if (line.match(/^[-*]\s+/)) {
+      listItems.push(line.replace(/^[-*]\s+/, ""));
+      i++;
+      continue;
+    }
+
+    // Regular paragraph line
+    flushList();
+    nodes.push(
+      <span key={`p-${i}`}>
+        {renderInline(line)}
+        {i < lines.length - 1 && lines[i + 1]?.trim() !== "" && <br />}
+      </span>,
+    );
+    i++;
+  }
+
+  flushList();
+  return <>{nodes}</>;
+}
+
 function ChatMessageBubble({
   message,
   isStreaming,
@@ -56,7 +183,7 @@ function ChatMessageBubble({
             : "bg-amber-950/60 text-amber-400 border border-amber-800/40",
         )}
       >
-        {isUser ? "Y" : <Sparkles className="size-3.5" />}
+        {isUser ? "L" : <Sparkles className="size-3.5" />}
       </div>
       <div
         className={cn(
@@ -66,14 +193,11 @@ function ChatMessageBubble({
             : "rounded-tl-sm bg-zinc-900/80 border border-zinc-800/80 text-zinc-200",
         )}
       >
-        {message.content
-          .split("\n")
-          .map((line, i) => (
-            <span key={i}>
-              {line}
-              {i < message.content.split("\n").length - 1 && <br />}
-            </span>
-          ))}
+        {isUser ? (
+          message.content
+        ) : (
+          <MarkdownContent text={message.content} />
+        )}
         {isStreaming && (
           <span className="ml-0.5 inline-block h-3.5 w-0.5 animate-pulse bg-amber-400" />
         )}

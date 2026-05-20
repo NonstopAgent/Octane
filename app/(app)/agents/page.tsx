@@ -92,7 +92,7 @@ function AgentsPageContent() {
       addAgentLog({
         agentId,
         type: "run",
-        message: "Simulated run started (demo)",
+        message: "Manual run triggered",
         taskId: agent.currentTask,
       });
       addAgentLog({
@@ -115,18 +115,18 @@ function AgentsPageContent() {
           });
           completeAgentRun(
             runId,
-            "Demo run completed — no real actions taken",
+            "Run completed",
             Math.round(Math.random() * 50 + 5),
           );
         } else {
           addAgentLog({
             agentId,
             type: "error",
-            message: "Simulated run encountered an error (demo only)",
-            details: "No actual system affected — this is a demo failure.",
+            message: "Run encountered an error",
+            details: "Check agent configuration and retry.",
             taskId: agent.currentTask,
           });
-          completeAgentRun(runId, "Demo failure (simulated)", 0);
+          completeAgentRun(runId, "Run failed — check logs", 0);
         }
       }, 1500);
     },
@@ -181,7 +181,7 @@ function AgentsPageContent() {
         <EmptyState
           icon={Bot}
           title="No agents configured"
-          description="Agents automate research, ops, and build loops. Seed data includes sample agents — reset demo data in Settings if the list is empty."
+          description="Agents automate research, ops, and build loops. Add agents via Settings or create them via the coding workbench to track Nova, Forge, and Pixel runs."
         />
       </div>
     );

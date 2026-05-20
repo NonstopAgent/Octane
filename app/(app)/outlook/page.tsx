@@ -283,7 +283,7 @@ export default function OutlookPage() {
         <EmptyState
           icon={Telescope}
           title="No portfolio data yet"
-          description="Outlook synthesizes projects, finance, agents, and holdings into a strategic view. Add projects or reset demo data in Settings."
+          description="Outlook synthesizes projects, finance, agents, and holdings into a strategic view. Add projects in /projects or chat with Octane AI to get started."
         />
       </div>
     );
