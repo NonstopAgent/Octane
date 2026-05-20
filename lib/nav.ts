@@ -20,36 +20,47 @@ import {
   FolderKanban,
   Landmark,
   Telescope,
+  Zap,
 } from "lucide-react";
 
 export type NavItem = {
   title: string;
   href: string;
   icon: LucideIcon;
+  badge?: string;
 };
 
-/** Final sidebar order. */
+/** Sidebar order — company hub first, tools and experimental last. */
 export const mainNavItems: NavItem[] = [
+  // ── Command center ─────────────────────────────────────
   { title: "Today", href: "/today", icon: CalendarDays },
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { title: "Outlook", href: "/outlook", icon: Telescope },
-  { title: "Morning Briefing", href: "/briefing", icon: Radio },
-  { title: "Inbox", href: "/inbox", icon: Inbox },
-  { title: "Projects", href: "/projects", icon: FolderKanban },
-  { title: "Tasks", href: "/tasks", icon: CheckSquare },
-  { title: "Activity", href: "/activity", icon: Activity },
-  { title: "Actions", href: "/actions", icon: ClipboardList },
-  { title: "Coding", href: "/coding", icon: Code2 },
-  { title: "Review", href: "/review", icon: ClipboardCheck },
-  { title: "Agents", href: "/agents", icon: Bot },
-  { title: "Finance", href: "/finance", icon: Wallet },
+  { title: "Signals", href: "/signals", icon: Zap },
+  // ── Holdings & Portfolio ────────────────────────────────
   { title: "Holdings", href: "/holdings", icon: Landmark },
+  { title: "Projects", href: "/projects", icon: FolderKanban },
+  { title: "Agents", href: "/agents", icon: Bot },
+  // ── Operations ─────────────────────────────────────────
+  { title: "Actions", href: "/actions", icon: ClipboardList },
+  { title: "Tasks", href: "/tasks", icon: CheckSquare },
+  { title: "Inbox", href: "/inbox", icon: Inbox },
+  { title: "Connections", href: "/connections", icon: Plug },
+  // ── Finance & Legal ─────────────────────────────────────
+  { title: "Finance", href: "/finance", icon: Wallet },
   { title: "Documents", href: "/documents", icon: FileText },
   { title: "Decisions", href: "/decisions", icon: Scale },
+  // ── Strategy & Intelligence ─────────────────────────────
+  { title: "Outlook", href: "/outlook", icon: Telescope },
+  { title: "Morning Briefing", href: "/briefing", icon: Radio },
   { title: "Roadmap", href: "/roadmap", icon: Map },
+  { title: "Review", href: "/review", icon: ClipboardCheck },
+  // ── History & Notes ─────────────────────────────────────
+  { title: "Activity", href: "/activity", icon: Activity },
   { title: "Notes", href: "/notes", icon: NotebookPen },
-  { title: "Connections", href: "/connections", icon: Plug },
+  // ── Settings ────────────────────────────────────────────
   { title: "Settings", href: "/settings", icon: Settings },
+  // ── Experimental ───────────────────────────────────────
+  { title: "Octane Engineer", href: "/coding", icon: Code2, badge: "exp" },
 ];
 
 export const appRoutePrefixes = mainNavItems.map((item) => item.href);

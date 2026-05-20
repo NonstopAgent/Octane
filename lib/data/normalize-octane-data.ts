@@ -40,6 +40,7 @@ import type {
   CodingJobStatus,
 } from "@/lib/types/coding-job";
 import type { RoadmapItem } from "@/lib/types/roadmap-item";
+import type { Signal } from "@/lib/types/signal";
 import type { Task, TaskAssignee, TaskPriority, TaskStatus } from "@/lib/types/task";
 import type { Transaction } from "@/lib/types/transaction";
 import type { WorkSession } from "@/lib/types/work-session";
@@ -88,6 +89,7 @@ export interface NormalizedOctaneState extends OctanePersistedState {
   connections: Connection[];
   octaneActions: OctaneAction[];
   projectConnections: ProjectConnection[];
+  signals: Signal[];
 }
 
 const PROJECT_STATUSES: ProjectStatus[] = [
@@ -552,5 +554,6 @@ export function normalizeOctaneData(
       normalizeProjectConnection,
     ).filter((pc) => pc.projectId && projectIds.has(pc.projectId)),
     codingJobs: normalizeGenericArray(input?.codingJobs, normalizeCodingJob),
+    signals: asArray(input?.signals) as Signal[],
   };
 }

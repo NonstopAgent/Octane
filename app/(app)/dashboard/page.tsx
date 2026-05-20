@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   Activity,
   AlertCircle,
+  AlertTriangle,
   Bot,
   CheckSquare,
   ChevronRight,
@@ -24,10 +25,12 @@ import { DashboardIntegrationHealth } from "@/components/modules/connections/das
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { generateSignals } from "@/lib/signals/generate-signals";
 import {
   selectOctanePersistedState,
   useOctaneStore,
 } from "@/lib/store/octane-store";
+import type { Signal } from "@/lib/types/signal";
 import { cn } from "@/lib/utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -229,6 +232,16 @@ export default function DashboardPage() {
     [state.projects],
   );
 
+  // Top signals for dashboard preview
+  const topSignals = useMemo<Signal[]>(() => {
+    const all = generateSignals(state);
+    const ORDER = ["critical", "high", "medium", "low"] as const;
+    return all
+      .filter((s) => s.severity === "critical" || s.severity === "high")
+      .sort((a, b) => ORDER.indexOf(a.severity) - ORDER.indexOf(b.severity))
+      .slice(0, 4);
+  }, [state]);
+
   const profileName = state.profile?.name ?? "Logan";
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
@@ -255,6 +268,50 @@ export default function DashboardPage() {
         </div>
         <ChevronRight className="size-4 shrink-0 text-amber-500/60" aria-hidden />
       </Link>
+
+      {/* Signal preview — top critical/high signals */}
+      {topSignals.length > 0 && (
+        <div>
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="flex items-center gap-2 text-sm font-medium text-zinc-400">
+              <Zap className="size-3.5 text-amber-400" />
+              Signals
+            </h2>
+            <Link href="/signals" className="flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-300">
+              View all <ChevronRight className="size-3" />
+            </Link>
+          </div>
+          <div className="space-y-1.5">
+            {topSignals.map((signal) => {
+              const isCritical = signal.severity === "critical";
+              return (
+                <Link
+                  key={signal.id}
+                  href="/signals"
+                  className={cn(
+                    "flex items-start gap-3 rounded-lg border px-3 py-2.5 transition-colors",
+                    isCritical
+                      ? "border-red-900/50 bg-red-950/20 hover:bg-red-950/30"
+                      : "border-orange-900/40 bg-orange-950/10 hover:bg-orange-950/20",
+                  )}
+                >
+                  {isCritical ? (
+                    <AlertCircle className="mt-0.5 size-3.5 shrink-0 text-red-400" />
+                  ) : (
+                    <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-orange-400" />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className={cn("text-xs font-medium truncate", isCritical ? "text-red-200" : "text-orange-200")}>
+                      {signal.title}
+                    </p>
+                    <p className="truncate text-[11px] text-zinc-500">{signal.summary}</p>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-3 sm:grid-cols-3">
         <Link

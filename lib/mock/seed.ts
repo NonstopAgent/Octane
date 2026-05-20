@@ -1422,6 +1422,7 @@ export const seedAgentRuns: AgentRunRecord[] = [
 ];
 
 import type { CodingJob } from "@/lib/types/coding-job";
+import type { Signal } from "@/lib/types/signal";
 
 export interface SeedData {
   profile: Profile;
@@ -1447,6 +1448,7 @@ export interface SeedData {
   octaneActions: OctaneAction[];
   projectConnections: ProjectConnection[];
   codingJobs: CodingJob[];
+  signals: Signal[];
 }
 
 export function createSeedData(referenceDate = new Date()): SeedData {
@@ -1474,6 +1476,7 @@ export function createSeedData(referenceDate = new Date()): SeedData {
     octaneActions: [],
     projectConnections: [],
     codingJobs: [],
+    signals: [],
   };
 }
 
@@ -1506,5 +1509,6 @@ export function createBlankState(): SeedData {
     octaneActions: [],
     projectConnections: [],
     codingJobs: [],
+    signals: [],
   };
 }

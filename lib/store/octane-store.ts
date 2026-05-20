@@ -37,6 +37,7 @@ import type { OctaneAction } from "@/lib/types/octane-action";
 import type { ProjectConnection } from "@/lib/types/project-connection";
 import type { CodingJob, CodingJobStatus } from "@/lib/types/coding-job";
 import type { CodingJobLog } from "@/lib/types/coding-job-log";
+import type { Signal, SignalStatus } from "@/lib/types/signal";
 
 import {
   createActivityLog,
@@ -70,6 +71,7 @@ export interface OctanePersistedState {
   octaneActions: OctaneAction[];
   projectConnections: ProjectConnection[];
   codingJobs: CodingJob[];
+  signals: Signal[];
 }
 
 type CreatableProject = Omit<Project, "id" | "createdAt" | "updatedAt">;
@@ -300,6 +302,11 @@ export interface OctaneStore extends OctanePersistedState {
   markCodingJobFailed: (id: string, errorMessage: string) => void;
   markCodingJobCompleted: (id: string) => void;
   getCodingJobById: (id: string) => CodingJob | undefined;
+
+  // Signals
+  upsertSignals: (signals: Signal[]) => void;
+  updateSignalStatus: (id: string, status: SignalStatus) => void;
+  clearResolvedSignals: () => void;
 }
 
 // Bumped to v2 — clears cached seed/demo data from all existing sessions
@@ -332,6 +339,7 @@ export function selectOctanePersistedState(
     octaneActions: state.octaneActions,
     projectConnections: state.projectConnections,
     codingJobs: state.codingJobs,
+    signals: state.signals,
   };
 }
 
@@ -1826,6 +1834,42 @@ export const useOctaneStore = create<OctaneStore>()(
       },
       getCodingJobById: (id) => get().codingJobs.find((j) => j.id === id),
 
+      // Signals
+      upsertSignals: (signals) => {
+        set((state) => {
+          const merged = [...state.signals];
+          for (const sig of signals) {
+            const idx = merged.findIndex((s) => s.id === sig.id);
+            if (idx >= 0) merged[idx] = sig;
+            else merged.push(sig);
+          }
+          return { signals: merged };
+        });
+      },
+      updateSignalStatus: (id, status) => {
+        const now = new Date().toISOString();
+        set((state) => ({
+          signals: state.signals.map((s) =>
+            s.id === id
+              ? {
+                  ...s,
+                  status,
+                  updatedAt: now,
+                  resolvedAt:
+                    status === "resolved" ? now : s.resolvedAt,
+                }
+              : s,
+          ),
+        }));
+      },
+      clearResolvedSignals: () => {
+        set((state) => ({
+          signals: state.signals.filter(
+            (s) => s.status !== "resolved" && s.status !== "dismissed",
+          ),
+        }));
+      },
+
       recordActivity: (input) => {
         logActivity(set, get, input);
       },
@@ -1856,6 +1900,7 @@ export const useOctaneStore = create<OctaneStore>()(
         octaneActions: state.octaneActions,
         projectConnections: state.projectConnections,
         codingJobs: state.codingJobs,
+        signals: state.signals,
       }),
       merge: (persisted, current) => {
         const persistedState = normalizePersistedState(
