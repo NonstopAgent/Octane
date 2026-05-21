@@ -1,4 +1,5 @@
 import { createDefaultConnections } from "@/lib/mock/connection-seed";
+import { createCorePortfolioBaseline } from "@/lib/mock/seed";
 import { normalizeActivityLogs } from "@/lib/store/activity";
 import type { OctanePersistedState } from "@/lib/store/octane-store";
 import type { Agent } from "@/lib/types/agent";
@@ -304,9 +305,28 @@ function normalizeProject(raw: unknown, index: number): Project | null {
     risks: safeStringArray(r.risks),
     nextActions: safeStringArray(r.nextActions),
     revenueNotes: safeOptionalString(r.revenueNotes),
+    isCore: r.isCore === true,
     createdAt,
     updatedAt,
   };
+}
+
+function ensureCorePortfolio(
+  projects: Project[],
+  projectConnections: ProjectConnection[],
+): { projects: Project[]; projectConnections: ProjectConnection[] } {
+  const core = createCorePortfolioBaseline();
+  const projectIds = new Set(projects.map((p) => p.id));
+  const mergedProjects = [...projects];
+  for (const p of core.projects) {
+    if (!projectIds.has(p.id)) mergedProjects.push(p);
+  }
+  const connIds = new Set(projectConnections.map((c) => c.id));
+  const mergedConnections = [...projectConnections];
+  for (const c of core.projectConnections) {
+    if (!connIds.has(c.id)) mergedConnections.push(c);
+  }
+  return { projects: mergedProjects, projectConnections: mergedConnections };
 }
 
 function normalizeTask(raw: unknown, index: number, projectIds: Set<string>): Task | null {
@@ -514,7 +534,15 @@ export function normalizeOctaneData(
     };
 
   const profile = normalizeProfile(input?.profile, baseProfile);
-  const projects = normalizeGenericArray(input?.projects, normalizeProject);
+  const rawProjects = normalizeGenericArray(input?.projects, normalizeProject);
+  const rawConnections = normalizeGenericArray(
+    input?.projectConnections,
+    normalizeProjectConnection,
+  );
+  const { projects, projectConnections: coreConnections } = ensureCorePortfolio(
+    rawProjects,
+    rawConnections,
+  );
   const projectIds = new Set(projects.map((p) => p.id));
 
   const connectionsRaw = asArray<unknown>(input?.connections);
@@ -549,10 +577,9 @@ export function normalizeOctaneData(
     agentRuns: asArray(input?.agentRuns),
     connections,
     octaneActions: normalizeGenericArray(input?.octaneActions, normalizeOctaneAction),
-    projectConnections: normalizeGenericArray(
-      input?.projectConnections,
-      normalizeProjectConnection,
-    ).filter((pc) => pc.projectId && projectIds.has(pc.projectId)),
+    projectConnections: coreConnections.filter(
+      (pc) => pc.projectId && projectIds.has(pc.projectId),
+    ),
     codingJobs: normalizeGenericArray(input?.codingJobs, normalizeCodingJob),
     signals: asArray(input?.signals) as Signal[],
   };

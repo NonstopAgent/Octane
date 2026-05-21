@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useMemo, useRef, useState } from "react";
 import { format } from "date-fns";
 import {
   Archive,
@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useOpenFromSearchParam } from "@/lib/hooks/use-open-from-search-param";
 import { useOctaneStore } from "@/lib/store/octane-store";
 import type { InboxItem, InboxItemStatus, InboxItemType } from "@/lib/types";
 
@@ -68,13 +69,10 @@ function InboxPageContent() {
   const [capture, setCapture] = useState(emptyCapture);
   const [deleteTarget, setDeleteTarget] = useState<InboxItem | null>(null);
 
-  // Read URL params once on mount — avoids loop from useSearchParams()
-  // returning new references during Next.js App Router hydration.
-  useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("new") === "1") {
-      titleRef.current?.focus();
-    }
+  const focusCapture = useCallback(() => {
+    titleRef.current?.focus();
   }, []);
+  useOpenFromSearchParam("new", "1", focusCapture);
 
   const grouped = useMemo(() => {
     const buckets: Record<InboxItemStatus, InboxItem[]> = {

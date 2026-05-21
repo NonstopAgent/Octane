@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useShallow } from "zustand/react/shallow";
 
 import { PageHeader } from "@/components/layout/page-header";
@@ -34,18 +35,17 @@ function HoldingsPageContent() {
   const [checklistOpen, setChecklistOpen] = useState(false);
   const [ipOpen, setIpOpen] = useState(false);
 
-  // Read URL params once on mount — avoids infinite loop from useSearchParams()
-  // returning new references on each hydration cycle (React error #185).
+  const searchParams = useSearchParams();
+
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const newParam = params.get("new");
-    const detail = params.get("detail");
+    const newParam = searchParams.get("new");
     if (newParam === "compliance") setComplianceOpen(true);
     if (newParam === "legal-question") setLegalOpen(true);
     if (newParam === "checklist") setChecklistOpen(true);
     if (newParam === "ip-asset") setIpOpen(true);
+    const detail = searchParams.get("detail");
     if (detail) setDetailId(detail);
-  }, []); // Run once on mount only
+  }, [searchParams]);
 
   const detailSection = useMemo(() => {
     if (!detailId) return null;

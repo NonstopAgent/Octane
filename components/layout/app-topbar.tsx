@@ -168,7 +168,7 @@ export function AppTopbar() {
                 return (
                   <DropdownMenuItem
                     key={item.href}
-                    render={<Link href={item.href} />}
+                    onClick={() => router.push(item.href)}
                   >
                     <Icon className="size-4" />
                     {item.label}

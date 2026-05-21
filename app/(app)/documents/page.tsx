@@ -1,6 +1,7 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { format } from "date-fns";
 import { FileUp, Upload } from "lucide-react";
@@ -31,6 +32,7 @@ import {
 } from "@/components/ui/sheet";
 import { useOctaneStore } from "@/lib/store/octane-store";
 import type { Document, DocumentCategory } from "@/lib/types";
+import { useOpenFromSearchParam } from "@/lib/hooks/use-open-from-search-param";
 import { cn } from "@/lib/utils";
 
 const CATEGORIES: Array<DocumentCategory | "all"> = [
@@ -73,20 +75,17 @@ function DocumentsPageContent() {
   const [metadataOpen, setMetadataOpen] = useState(false);
   const [metadataName, setMetadataName] = useState("");
 
-  // Read URL params once on mount — avoids infinite loop from useSearchParams()
-  // returning new references on each hydration cycle (React error #185).
+  const searchParams = useSearchParams();
+  const openMetadata = useCallback(() => setMetadataOpen(true), []);
+  useOpenFromSearchParam("new", "1", openMetadata);
+
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("new") === "1") {
-      setMetadataOpen(true);
-    }
-    const detail = params.get("detail");
+    const detail = searchParams.get("detail");
     if (detail) {
       const doc = documents.find((d) => d.id === detail);
       if (doc) setSelectedDocument(doc);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Run once on mount only
+  }, [searchParams, documents]);
 
   const filteredDocuments = useMemo(() => {
     const sorted = [...documents].sort(

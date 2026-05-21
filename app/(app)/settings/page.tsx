@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Building2, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useOpenFromSearchParam } from "@/lib/hooks/use-open-from-search-param";
 import { useOctaneStore } from "@/lib/store/octane-store";
 import type { Entity, EntityStatus, EntityType } from "@/lib/types";
 
@@ -125,15 +126,12 @@ function SettingsPageContent() {
     setEntityDialogOpen(true);
   };
 
-  // Read URL params once on mount — avoids loop from useSearchParams()
-  // returning new references during Next.js App Router hydration.
-  useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("new") === "entity") {
-      setEditingEntity(null);
-      setEntityForm(emptyEntityForm);
-      setEntityDialogOpen(true);
-    }
+  const openEntityFromUrl = useCallback(() => {
+    setEditingEntity(null);
+    setEntityForm(emptyEntityForm);
+    setEntityDialogOpen(true);
   }, []);
+  useOpenFromSearchParam("new", "entity", openEntityFromUrl);
 
   const openEditEntity = (entity: Entity) => {
     setEditingEntity(entity);

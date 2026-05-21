@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useMemo, useState } from "react";
 import {
   Banknote,
   Flame,
@@ -42,6 +42,7 @@ import {
   sortTransactionsByDate,
   totalRevenue,
 } from "@/lib/finance/metrics";
+import { useOpenFromSearchParam } from "@/lib/hooks/use-open-from-search-param";
 import { useOctaneStore } from "@/lib/store/octane-store";
 import type { TransactionType } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -74,14 +75,8 @@ function FinancePageContent() {
   const getProjectById = useOctaneStore((state) => state.getProjectById);
 
   const [dialogOpen, setDialogOpen] = useState(false);
-
-  // Read URL params once on mount — avoids loop from useSearchParams()
-  // returning new references during Next.js App Router hydration.
-  useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("new") === "1") {
-      setDialogOpen(true);
-    }
-  }, []);
+  const openDialog = useCallback(() => setDialogOpen(true), []);
+  useOpenFromSearchParam("new", "1", openDialog);
 
   const [form, setForm] = useState({
     type: "expense" as TransactionType,

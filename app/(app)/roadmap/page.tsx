@@ -1,6 +1,7 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { format, parseISO } from "date-fns";
 import { Map as MapIcon, Pencil, Plus, Trash2 } from "lucide-react";
 
@@ -16,6 +17,7 @@ import { formatStatusLabel } from "@/components/modules/badge-tones";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useOpenFromSearchParam } from "@/lib/hooks/use-open-from-search-param";
 import { useOctaneStore } from "@/lib/store/octane-store";
 import type { RoadmapItem, RoadmapTimeframe } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -51,16 +53,15 @@ function RoadmapPageContent() {
   const roadmapItemsRef = useRef(roadmapItems);
   roadmapItemsRef.current = roadmapItems;
 
-  // Read URL params once on mount — avoids infinite loop from useSearchParams()
-  // returning new references during Next.js App Router hydration.
+  const searchParams = useSearchParams();
+  const openNewItem = useCallback(() => {
+    setEditingItem(undefined);
+    setFormOpen(true);
+  }, []);
+  useOpenFromSearchParam("new", "1", openNewItem);
+
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("new") === "1") {
-      setEditingItem(undefined);
-      setFormOpen(true);
-      return;
-    }
-    const detail = params.get("detail");
+    const detail = searchParams.get("detail");
     if (detail) {
       const item = roadmapItemsRef.current.find((r) => r.id === detail);
       if (item) {
@@ -68,7 +69,7 @@ function RoadmapPageContent() {
         setFormOpen(true);
       }
     }
-  }, []);
+  }, [searchParams]);
 
   const itemsByTimeframe = useMemo(() => {
     const grouped: Record<RoadmapTimeframe, RoadmapItem[]> = {

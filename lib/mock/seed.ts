@@ -54,10 +54,71 @@ export const seedProfile: Profile = {
   timezone: "America/Chicago",
 };
 
+/** Permanent portfolio baseline — always present in blank workspace. */
+export function createCorePortfolioBaseline(
+  now = new Date().toISOString(),
+): Pick<SeedData, "projects" | "projectConnections"> {
+  return {
+    projects: [
+      {
+        id: PROJECT_IDS.ajax,
+        name: "Octane Ajax",
+        description:
+          "AI-assisted operations and outreach platform for portfolio companies.",
+        status: "building",
+        priority: "critical",
+        owner: "Founder",
+        progress: 0,
+        revenueStatus: "pre_revenue",
+        isCore: true,
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: PROJECT_IDS.nexus,
+        name: "Octane Nexus",
+        description:
+          "Research and intelligence layer connecting market signals to Octane bets.",
+        status: "building",
+        priority: "high",
+        owner: "Founder",
+        progress: 0,
+        revenueStatus: "none",
+        isCore: true,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ],
+    projectConnections: [
+      {
+        id: "pconn-core-ajax-github",
+        projectId: PROJECT_IDS.ajax,
+        kind: "github",
+        label: "GitHub",
+        repo: "NonstopAgent/Octane-Ajax",
+        status: "linked",
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: "pconn-core-nexus-github",
+        projectId: PROJECT_IDS.nexus,
+        kind: "github",
+        label: "GitHub",
+        repo: "NonstopAgent/Octane-Nexus",
+        status: "linked",
+        createdAt: now,
+        updatedAt: now,
+      },
+    ],
+  };
+}
+
 export const seedProjects: Project[] = [
   {
     id: PROJECT_IDS.ajax,
     name: "Octane Ajax",
+    isCore: true,
     description:
       "AI-assisted operations and outreach platform for portfolio companies.",
     status: "building",
@@ -76,6 +137,7 @@ export const seedProjects: Project[] = [
   {
     id: PROJECT_IDS.nexus,
     name: "Octane Nexus",
+    isCore: true,
     description:
       "Research and intelligence layer connecting market signals to Octane bets.",
     status: "testing",
@@ -1483,11 +1545,13 @@ export function createSeedData(referenceDate = new Date()): SeedData {
 /** Default seed snapshot (current week transactions computed at module load). */
 export const seedData: SeedData = createSeedData();
 
-/** Truly empty workspace — used for new users going through onboarding. */
+/** Minimal workspace — always includes core Ajax & Nexus portfolio projects. */
 export function createBlankState(): SeedData {
+  const now = new Date().toISOString();
+  const core = createCorePortfolioBaseline(now);
   return {
     profile: { id: "profile-new", name: "", role: "Founder", email: "", timezone: "UTC" },
-    projects: [],
+    projects: core.projects,
     tasks: [],
     decisions: [],
     roadmapItems: [],
@@ -1507,7 +1571,7 @@ export function createBlankState(): SeedData {
     agentRuns: [],
     connections: createDefaultConnections(),
     octaneActions: [],
-    projectConnections: [],
+    projectConnections: core.projectConnections,
     codingJobs: [],
     signals: [],
   };

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   DndContext,
   DragOverlay,
@@ -25,6 +26,7 @@ import { TaskFilters, type TaskFiltersState } from "./task-filters";
 import { TaskDetailSheet } from "./task-detail-sheet";
 import { TaskFormDialog } from "./task-form-dialog";
 import { isTaskStatus, KANBAN_COLUMNS } from "./task-utils";
+import { useOpenFromSearchParam } from "@/lib/hooks/use-open-from-search-param";
 
 export function TasksView() {
   const tasks = useOctaneStore((s) => s.tasks);
@@ -41,14 +43,17 @@ export function TasksView() {
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [dndEnabled, setDndEnabled] = useState(true);
 
-  // Read URL params once on mount — avoids infinite loop from useSearchParams()
-  // returning new references during Next.js App Router hydration.
+  const searchParams = useSearchParams();
+  const openCreate = useCallback(() => setCreateOpen(true), []);
+  useOpenFromSearchParam("new", "1", openCreate);
+
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("new") === "1") setCreateOpen(true);
-    const detail = params.get("detail");
-    if (detail) { setDetailId(detail); setDetailOpen(true); }
-  }, []);
+    const detail = searchParams.get("detail");
+    if (detail) {
+      setDetailId(detail);
+      setDetailOpen(true);
+    }
+  }, [searchParams]);
 
   const projectNames = useMemo(
     () => Object.fromEntries(projects.map((p) => [p.id, p.name])),

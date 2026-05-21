@@ -421,6 +421,7 @@ export const useOctaneStore = create<OctaneStore>()(
       },
       deleteProject: (id) => {
         const existing = get().projects.find((p) => p.id === id);
+        if (existing?.isCore) return;
         set((state) => ({
           projects: state.projects.filter((p) => p.id !== id),
         }));

@@ -1,5 +1,4 @@
 import {
-  differenceInCalendarDays,
   isSameDay,
   parseISO,
   startOfDay,
@@ -18,17 +17,11 @@ export type TodayTaskRef = {
 
 export type TodayViewData = {
   generatedAt: string;
-  topThreeMoves: string[];
   dueToday: TodayTaskRef[];
   overdue: BriefingTaskRef[];
   blocked: TodayTaskRef[];
   highPriorityOpen: TodayTaskRef[];
   decisionsNeedingReview: BriefingDecisionRef[];
-  projectsNeedingAttention: ReturnType<
-    typeof generateMorningBriefing
-  >["staleProjects"];
-  moneyAlerts: string[];
-  suggestedFocusOrder: string[];
 };
 
 const PRIORITY_WEIGHT: Record<TaskPriority, number> = {
@@ -105,53 +98,6 @@ function selectHighPriorityOpen(
     });
 }
 
-function scoreTaskForFocus(
-  task: Task,
-  today: Date,
-  overdueIds: Set<string>,
-): number {
-  let score = PRIORITY_WEIGHT[task.priority];
-  if (task.status === "blocked") score += 80;
-  if (task.status === "in_progress") score += 20;
-  if (task.dueDate) {
-    const due = startOfDay(parseISO(task.dueDate));
-    if (isSameDay(due, today)) score += 60;
-    if (overdueIds.has(task.id)) {
-      score +=
-        100 +
-        differenceInCalendarDays(today, due);
-    }
-  }
-  return score;
-}
-
-function buildSuggestedFocusOrder(
-  tasks: Task[],
-  projects: Project[],
-  today: Date,
-  overdue: BriefingTaskRef[],
-): string[] {
-  const overdueIds = new Set(overdue.map((o) => o.task.id));
-  const ranked = tasks
-    .filter((t) => isOpenTaskStatus(t.status))
-    .map((task) => ({
-      task,
-      score: scoreTaskForFocus(task, today, overdueIds),
-      projectName: projectNameById(projects, task.projectId),
-    }))
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 8);
-
-  if (ranked.length === 0) {
-    return ["No open tasks — capture the next move in a work session."];
-  }
-
-  return ranked.map(
-    ({ task, projectName }, index) =>
-      `${index + 1}. ${task.title} (${projectName}) · ${task.priority} · ${task.status.replace("_", " ")}`,
-  );
-}
-
 export function generateTodayView(
   state: OctanePersistedState,
   referenceDate: Date = new Date(),
@@ -159,34 +105,12 @@ export function generateTodayView(
   const today = startOfDay(referenceDate);
   const briefing = generateMorningBriefing(state, referenceDate);
 
-  const dueToday = selectDueTodayTasks(state.tasks, state.projects, today);
-  const blocked = selectBlockedTasks(state.tasks, state.projects);
-  const highPriorityOpen = selectHighPriorityOpen(state.tasks, state.projects);
-
-  const topThreeMoves = briefing.topPriorities.slice(0, 3);
-  if (topThreeMoves.length === 0) {
-    topThreeMoves.push(
-      "Operations look stable — pick one high-impact task and start a work session.",
-    );
-  }
-
-  const suggestedFocusOrder = buildSuggestedFocusOrder(
-    state.tasks,
-    state.projects,
-    today,
-    briefing.overdueTasks,
-  );
-
   return {
     generatedAt: briefing.generatedAt,
-    topThreeMoves,
-    dueToday,
+    dueToday: selectDueTodayTasks(state.tasks, state.projects, today),
     overdue: briefing.overdueTasks,
-    blocked,
-    highPriorityOpen,
+    blocked: selectBlockedTasks(state.tasks, state.projects),
+    highPriorityOpen: selectHighPriorityOpen(state.tasks, state.projects),
     decisionsNeedingReview: briefing.decisionsDue,
-    projectsNeedingAttention: briefing.staleProjects,
-    moneyAlerts: briefing.financialAlerts,
-    suggestedFocusOrder,
   };
 }

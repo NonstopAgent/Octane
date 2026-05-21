@@ -29,6 +29,8 @@ export interface Project {
   risks?: string[];
   nextActions?: string[];
   revenueNotes?: string;
+  /** Permanent portfolio project (Ajax, Nexus) — cannot be deleted. */
+  isCore?: boolean;
   createdAt: string;
   updatedAt: string;
 }

@@ -5,16 +5,29 @@ import {
   isWithinInterval,
   parseISO,
   startOfDay,
+  subHours,
 } from "date-fns";
 
 import {
   getMonthlyExpenses,
   getMonthlyRevenue,
+  getRunwayMonths,
   isPendingDecisionStatus,
   isProjectStale,
 } from "@/lib/dashboard/metrics";
+import {
+  cashAvailable,
+  monthlyBurn,
+} from "@/lib/finance/metrics";
 import type { OctanePersistedState } from "@/lib/store/octane-store";
-import type { Agent, Decision, Project, Task } from "@/lib/types";
+import type {
+  ActivityLog,
+  Agent,
+  ComplianceReminder,
+  Decision,
+  Project,
+  Task,
+} from "@/lib/types";
 
 export type BriefingTaskRef = {
   task: Task;
@@ -41,8 +54,22 @@ export type BriefingDeadline = {
   detail?: string;
 };
 
+export type BriefingComplianceRef = {
+  reminder: ComplianceReminder;
+  daysUntilDue: number;
+};
+
+export type BriefingCashSnapshot = {
+  monthlyRevenue: number;
+  monthlyExpenses: number;
+  runwayMonths: number | null;
+};
+
 export type MorningBriefing = {
   generatedAt: string;
+  recentActivity24h: ActivityLog[];
+  upcomingCompliance: BriefingComplianceRef[];
+  cashSnapshot: BriefingCashSnapshot;
   topPriorities: string[];
   overdueTasks: BriefingTaskRef[];
   blockedTasksCount: number;
@@ -447,11 +474,68 @@ function buildMoneyWatch(
   return watch;
 }
 
+function selectRecentActivity(
+  logs: ActivityLog[],
+  referenceDate: Date,
+): ActivityLog[] {
+  const cutoff = subHours(referenceDate, 24).getTime();
+  return logs
+    .filter((log) => Date.parse(log.createdAt) >= cutoff)
+    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+    .slice(0, 12);
+}
+
+function selectUpcomingCompliance(
+  reminders: ComplianceReminder[],
+  today: Date,
+): BriefingComplianceRef[] {
+  const horizon = addDays(today, 30);
+  return reminders
+    .filter(
+      (r) =>
+        r.status !== "completed" &&
+        r.status !== "cancelled" &&
+        r.dueDate,
+    )
+    .map((reminder) => ({
+      reminder,
+      daysUntilDue: differenceInCalendarDays(
+        startOfDay(parseISO(reminder.dueDate!)),
+        today,
+      ),
+    }))
+    .filter(({ reminder, daysUntilDue }) => {
+      if (!reminder.dueDate) return false;
+      const due = startOfDay(parseISO(reminder.dueDate));
+      return (
+        daysUntilDue >= 0 &&
+        isWithinInterval(due, { start: today, end: horizon })
+      );
+    })
+    .sort((a, b) => a.daysUntilDue - b.daysUntilDue)
+    .slice(0, 8);
+}
+
 export function generateMorningBriefing(
   state: OctanePersistedState,
   referenceDate: Date = new Date(),
 ): MorningBriefing {
   const today = startOfDay(referenceDate);
+  const recentActivity24h = selectRecentActivity(
+    state.activityLogs,
+    referenceDate,
+  );
+  const upcomingCompliance = selectUpcomingCompliance(
+    state.complianceReminders,
+    today,
+  );
+  const monthlyRevenue = getMonthlyRevenue(state.transactions, referenceDate);
+  const monthlyExpenses = getMonthlyExpenses(state.transactions, referenceDate);
+  const cashSnapshot: BriefingCashSnapshot = {
+    monthlyRevenue,
+    monthlyExpenses,
+    runwayMonths: getRunwayMonths(cashAvailable(state.transactions), monthlyBurn(state.transactions)),
+  };
 
   const overdueTasks = selectOverdueTasks(state.tasks, state.projects, today);
   const blockedWork = selectBlockedTasks(state.tasks, state.projects);
@@ -469,8 +553,6 @@ export function generateMorningBriefing(
     today,
   );
 
-  const monthlyRevenue = getMonthlyRevenue(state.transactions, referenceDate);
-  const monthlyExpenses = getMonthlyExpenses(state.transactions, referenceDate);
   const financialAlerts: string[] = [];
   if (monthlyExpenses > monthlyRevenue) {
     financialAlerts.push(
@@ -552,6 +634,9 @@ export function generateMorningBriefing(
 
   return {
     generatedAt: referenceDate.toISOString(),
+    recentActivity24h,
+    upcomingCompliance,
+    cashSnapshot,
     topPriorities,
     overdueTasks,
     blockedTasksCount,

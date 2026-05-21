@@ -1,6 +1,7 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { format } from "date-fns";
 import { Plus, Scale, Search } from "lucide-react";
 import { toast } from "sonner";
@@ -27,6 +28,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { useOpenFromSearchParam } from "@/lib/hooks/use-open-from-search-param";
 import { useOctaneStore } from "@/lib/store/octane-store";
 import type { Decision, DecisionCategory, DecisionStatus } from "@/lib/types";
 
@@ -83,20 +85,17 @@ function DecisionsPageContent() {
   const [selected, setSelected] = useState<Decision | null>(null);
   const [form, setForm] = useState(emptyForm);
 
-  // Read URL params once on mount — avoids infinite loop from useSearchParams()
-  // returning new references on each hydration cycle (React error #185).
+  const searchParams = useSearchParams();
+  const openCreate = useCallback(() => setDialogOpen(true), []);
+  useOpenFromSearchParam("new", "1", openCreate);
+
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("new") === "1") {
-      setDialogOpen(true);
-    }
-    const detail = params.get("detail");
+    const detail = searchParams.get("detail");
     if (detail) {
       const decision = decisions.find((d) => d.id === detail);
       if (decision) setSelected(decision);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Run once on mount only
+  }, [searchParams, decisions]);
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
