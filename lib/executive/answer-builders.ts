@@ -48,6 +48,8 @@ function outlookInputFromState(state: ExecutiveAnswerInput): OctaneOutlookInput 
     complianceReminders: state.complianceReminders,
     legalQuestions: state.legalQuestions,
     formationChecklistItems: state.formationChecklistItems,
+    octaneActions: state.octaneActions,
+    signals: state.signals,
   };
 }
 

@@ -15,6 +15,8 @@ const BREAKDOWN_LABELS: Record<string, string> = {
   calendarCompliance: "Compliance calendar",
   legalQuestions: "Legal questions",
   formationProgress: "Formation progress",
+  baseScore: "Base score",
+  operationalPenalty: "Ops penalty",
 };
 
 export function HoldingsHealthPanel({

@@ -33,6 +33,7 @@ import {
   selectActiveSignals,
   selectWorkspaceForSignals,
 } from "@/lib/signals/workspace-signals";
+import { computeOctaneScore } from "@/lib/scoring/octane-score";
 import {
   selectOctanePersistedState,
   useOctaneStore,
@@ -259,6 +260,8 @@ export default function DashboardPage() {
       .slice(0, 4);
   }, [workspace, storedSignals]);
 
+  const octaneScore = useMemo(() => computeOctaneScore(state), [state]);
+
   const profileName = state.profile?.name ?? "Logan";
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
@@ -333,7 +336,42 @@ export default function DashboardPage() {
         </div>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      {octaneScore.operationalPenaltyReasons.length > 0 && (
+        <div className="rounded-lg border border-orange-900/40 bg-orange-950/10 px-4 py-2.5">
+          <p className="text-xs text-orange-200/90 font-medium mb-1">
+            Score adjusted (−{octaneScore.breakdown.operationalPenalty} operational)
+          </p>
+          <p className="text-[11px] text-zinc-500 truncate">
+            {octaneScore.operationalPenaltyReasons[0]}
+          </p>
+        </div>
+      )}
+
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Link
+          href="/briefing"
+          className={cn(
+            "rounded-xl border px-4 py-3 hover:border-amber-800/40",
+            octaneScore.breakdown.operationalPenalty > 0
+              ? "border-orange-900/40 bg-orange-950/15"
+              : "border-zinc-800/80 bg-zinc-900/30",
+          )}
+        >
+          <p
+            className={cn(
+              "text-lg font-bold",
+              octaneScore.score < 60 ? "text-orange-400" : "text-zinc-100",
+            )}
+          >
+            {octaneScore.score}
+          </p>
+          <p className="mt-0.5 text-[11px] text-zinc-500">
+            Octane score
+            {octaneScore.breakdown.operationalPenalty > 0
+              ? ` (−${octaneScore.breakdown.operationalPenalty})`
+              : ""}
+          </p>
+        </Link>
         <Link
           href="/actions"
           className="rounded-xl border border-zinc-800/80 bg-zinc-900/30 px-4 py-3 hover:border-amber-800/40"

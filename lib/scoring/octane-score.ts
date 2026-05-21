@@ -9,6 +9,8 @@ import {
 } from "@/lib/dashboard/metrics";
 import type { OctanePersistedState } from "@/lib/store/octane-store";
 
+import { computeOperationalPenalties } from "@/lib/scoring/operational-penalties";
+
 export interface OctaneScoreBreakdown {
   taskCompletion: number;
   blockedTasks: number;
@@ -17,12 +19,17 @@ export interface OctaneScoreBreakdown {
   agentErrors: number;
   decisionsDue: number;
   documentsReview: number;
+  /** Raw composite before operational penalties (0–100). */
+  baseScore: number;
+  /** Points subtracted for pending risk actions, Vercel failures, untriaged signals. */
+  operationalPenalty: number;
 }
 
 export interface OctaneScore {
   score: number;
   breakdown: OctaneScoreBreakdown;
   suggestions: string[];
+  operationalPenaltyReasons: string[];
 }
 
 function clampScore(value: number): number {
@@ -94,7 +101,7 @@ export function computeOctaneScore(
           100 - (docsNeedReview.length / state.documents.length) * 100,
         );
 
-  const breakdown: OctaneScoreBreakdown = {
+  const breakdown = {
     taskCompletion,
     blockedTasks: blockedComponent,
     staleProjects: staleComponent,
@@ -114,7 +121,7 @@ export function computeOctaneScore(
     documentsReview: 0.1,
   };
 
-  const score = clampScore(
+  const baseScore = clampScore(
     breakdown.taskCompletion * weights.taskCompletion +
       breakdown.blockedTasks * weights.blockedTasks +
       breakdown.staleProjects * weights.staleProjects +
@@ -124,7 +131,19 @@ export function computeOctaneScore(
       breakdown.documentsReview * weights.documentsReview,
   );
 
+  const penalties = computeOperationalPenalties(state);
+  const score = clampScore(baseScore - penalties.total);
+
+  const breakdownWithPenalty: OctaneScoreBreakdown = {
+    ...breakdown,
+    baseScore,
+    operationalPenalty: penalties.total,
+  };
+
   const suggestions: string[] = [];
+  for (const reason of penalties.reasons) {
+    suggestions.push(reason);
+  }
   if (blockedTasks.length > 0) {
     suggestions.push(
       `Clear ${blockedTasks.length} blocked task${blockedTasks.length === 1 ? "" : "s"} to restore flow.`,
@@ -158,5 +177,10 @@ export function computeOctaneScore(
     suggestions.push("Operations are healthy — focus on the next milestone.");
   }
 
-  return { score, breakdown, suggestions };
+  return {
+    score,
+    breakdown: breakdownWithPenalty,
+    suggestions,
+    operationalPenaltyReasons: penalties.reasons,
+  };
 }

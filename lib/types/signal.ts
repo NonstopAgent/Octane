@@ -40,6 +40,16 @@ export type SignalStatus =
   | "resolved"
   | "dismissed";
 
+/** Deep-triage output attached after cluster analysis (server-generated). */
+export type SignalTriageAnalysis = {
+  rootCauseEstimate: string;
+  operationalImpact: string;
+  structuredMitigationStep: string;
+  analyzedAt: string;
+  source: "anthropic" | "rule-based";
+  signalIds: string[];
+};
+
 export interface Signal {
   id: string;
   source: SignalSource;
@@ -60,4 +70,5 @@ export interface Signal {
   createdAt: string;
   updatedAt: string;
   resolvedAt?: string;
+  triageAnalysis?: SignalTriageAnalysis;
 }

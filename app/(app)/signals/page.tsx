@@ -9,7 +9,9 @@ import {
   ChevronRight,
   CircleDot,
   Info,
+  Loader2,
   RefreshCw,
+  Sparkles,
   Zap,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
@@ -28,7 +30,13 @@ import {
   selectWorkspaceForSignals,
 } from "@/lib/signals/workspace-signals";
 import { useOctaneStore } from "@/lib/store/octane-store";
-import type { Signal, SignalSeverity, SignalStatus, SignalType } from "@/lib/types/signal";
+import type {
+  Signal,
+  SignalSeverity,
+  SignalStatus,
+  SignalTriageAnalysis,
+  SignalType,
+} from "@/lib/types/signal";
 import { cn } from "@/lib/utils";
 
 // ─── Severity config ─────────────────────────────────────────────────────────
@@ -182,6 +190,21 @@ function SignalCard({
                 → {signal.recommendedAction}
               </p>
             )}
+            {signal.triageAnalysis && (
+              <div className="mt-2 rounded-md border border-zinc-800/80 bg-zinc-950/50 px-2.5 py-2 space-y-1.5 text-[11px]">
+                <p className="text-zinc-500">
+                  <span className="text-zinc-400">Root cause:</span>{" "}
+                  {signal.triageAnalysis.rootCauseEstimate}
+                </p>
+                <p className="text-zinc-500">
+                  <span className="text-zinc-400">Impact:</span>{" "}
+                  {signal.triageAnalysis.operationalImpact}
+                </p>
+                <p className="text-zinc-400">
+                  {signal.triageAnalysis.structuredMitigationStep}
+                </p>
+              </div>
+            )}
             <div className="flex items-center gap-3 flex-wrap">
               <span className="text-[10px] text-zinc-600">
                 {formatDistanceToNow(new Date(signal.createdAt), { addSuffix: true })}
@@ -297,6 +320,9 @@ export default function SignalsPage() {
   const storedSignals = useOctaneStore((s) => s.signals);
   const upsertSignals = useOctaneStore((s) => s.upsertSignals);
   const updateSignalStatus = useOctaneStore((s) => s.updateSignalStatus);
+  const attachSignalTriageAnalysis = useOctaneStore(
+    (s) => s.attachSignalTriageAnalysis,
+  );
   const { refreshGmailSignals, loading: gmailLoading, lastProvenance } =
     useGmailSignals();
   const { refreshVercelSignals, loading: vercelLoading } = useVercelSignals();
@@ -304,6 +330,10 @@ export default function SignalsPage() {
   const [activeTab, setActiveTab] = useState<TabKey>("all");
   const [severityFilter, setSeverityFilter] = useState<SignalSeverity | "all">("all");
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+  const [analyzing, setAnalyzing] = useState(false);
+  const [lastAnalysis, setLastAnalysis] = useState<SignalTriageAnalysis | null>(
+    null,
+  );
 
   const signals = useMemo(
     () => buildDisplaySignals(workspace, storedSignals),
@@ -383,6 +413,55 @@ export default function SignalsPage() {
 
   const newCount = signals.filter((s) => s.status === "new").length;
 
+  const clusterCandidates = useMemo(
+    () =>
+      signals
+        .filter(
+          (s) =>
+            (s.severity === "critical" || s.severity === "high") &&
+            s.status === "new",
+        )
+        .slice(0, 8),
+    [signals],
+  );
+
+  async function handleAnalyzeCluster() {
+    if (clusterCandidates.length === 0) return;
+    setAnalyzing(true);
+    try {
+      for (const sig of clusterCandidates) {
+        if (!storedSignals.some((s) => s.id === sig.id)) {
+          upsertSignals([sig]);
+        }
+      }
+      const res = await fetch("/api/signals/triage-analysis", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          signals: clusterCandidates.map((s) => ({
+            id: s.id,
+            title: s.title,
+            source: s.source,
+            summary: s.summary,
+            description: s.summary,
+            projectId: s.projectId,
+          })),
+        }),
+      });
+      if (!res.ok) throw new Error("analysis failed");
+      const data = (await res.json()) as { analysis: SignalTriageAnalysis };
+      attachSignalTriageAnalysis(
+        data.analysis.signalIds,
+        data.analysis,
+      );
+      setLastAnalysis(data.analysis);
+    } catch {
+      setLastAnalysis(null);
+    } finally {
+      setAnalyzing(false);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
@@ -393,21 +472,39 @@ export default function SignalsPage() {
             : "Your workspace intelligence feed"
         }
         actions={
-          <Button
-            variant="outline"
-            size="sm"
-            className="border-zinc-700 bg-zinc-900 text-zinc-300 hover:bg-zinc-800"
-            onClick={() => void handleRefresh()}
-            disabled={gmailLoading || vercelLoading}
-          >
-            <RefreshCw
-              className={cn(
-                "mr-1.5 size-3.5",
-                (gmailLoading || vercelLoading) && "animate-spin",
-              )}
-            />
-            Refresh
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {clusterCandidates.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-amber-800/50 bg-amber-950/20 text-amber-200 hover:bg-amber-950/40"
+                onClick={() => void handleAnalyzeCluster()}
+                disabled={analyzing}
+              >
+                {analyzing ? (
+                  <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+                ) : (
+                  <Sparkles className="mr-1.5 size-3.5" />
+                )}
+                Analyze cluster ({clusterCandidates.length})
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-zinc-700 bg-zinc-900 text-zinc-300 hover:bg-zinc-800"
+              onClick={() => void handleRefresh()}
+              disabled={gmailLoading || vercelLoading}
+            >
+              <RefreshCw
+                className={cn(
+                  "mr-1.5 size-3.5",
+                  (gmailLoading || vercelLoading) && "animate-spin",
+                )}
+              />
+              Refresh
+            </Button>
+          </div>
         }
       />
 
@@ -421,6 +518,14 @@ export default function SignalsPage() {
       )}
 
       {/* Summary strip */}
+      {lastAnalysis && (
+        <div className="rounded-lg border border-amber-900/40 bg-amber-950/15 px-4 py-3 text-xs text-zinc-400 space-y-1">
+          <p className="font-medium text-amber-200/90">Cluster triage ({lastAnalysis.source})</p>
+          <p>{lastAnalysis.rootCauseEstimate}</p>
+          <p className="text-zinc-500">{lastAnalysis.structuredMitigationStep}</p>
+        </div>
+      )}
+
       {criticalCount > 0 && (
         <div className="rounded-lg border border-red-900/50 bg-red-950/20 px-4 py-3">
           <div className="flex items-center gap-2">

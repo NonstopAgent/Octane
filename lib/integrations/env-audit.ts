@@ -17,7 +17,7 @@ const SERVER_KEYS: { key: string; purpose: string }[] = [
   { key: "GITHUB_TOKEN", purpose: "GitHub read/write for connectors and coding PRs" },
   { key: "VERCEL_TOKEN", purpose: "Vercel project and deployment status" },
   { key: "VERCEL_TEAM_ID", purpose: "Optional Vercel team scope" },
-  { key: "ANTHROPIC_API_KEY", purpose: "Octane AI chat, coding edits, cron briefing" },
+  { key: "ANTHROPIC_API_KEY", purpose: "Octane AI chat, coding edits, cron briefing, signal triage" },
   { key: "NEXT_PUBLIC_APP_URL", purpose: "Absolute links in PR bodies and job docs" },
 ];
 

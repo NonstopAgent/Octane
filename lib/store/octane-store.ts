@@ -38,7 +38,11 @@ import type { OctaneAction } from "@/lib/types/octane-action";
 import type { ProjectConnection } from "@/lib/types/project-connection";
 import type { CodingJob, CodingJobStatus } from "@/lib/types/coding-job";
 import type { CodingJobLog } from "@/lib/types/coding-job-log";
-import type { Signal, SignalStatus } from "@/lib/types/signal";
+import type {
+  Signal,
+  SignalStatus,
+  SignalTriageAnalysis,
+} from "@/lib/types/signal";
 
 import {
   createActivityLog,
@@ -318,6 +322,10 @@ export interface OctaneStore extends OctanePersistedState {
   // Signals
   upsertSignals: (signals: Signal[]) => void;
   updateSignalStatus: (id: string, status: SignalStatus) => void;
+  attachSignalTriageAnalysis: (
+    signalIds: string[],
+    analysis: SignalTriageAnalysis,
+  ) => void;
   clearResolvedSignals: () => void;
 }
 
@@ -1835,8 +1843,12 @@ export const useOctaneStore = create<OctaneStore>()(
                     status: existing.status,
                     resolvedAt: existing.resolvedAt,
                     updatedAt: existing.updatedAt,
+                    triageAnalysis: existing.triageAnalysis ?? sig.triageAnalysis,
                   }
-                : sig;
+                : {
+                    ...sig,
+                    triageAnalysis: existing.triageAnalysis ?? sig.triageAnalysis,
+                  };
             } else {
               merged.push(sig);
             }
@@ -1865,6 +1877,14 @@ export const useOctaneStore = create<OctaneStore>()(
             ),
           };
         });
+      },
+      attachSignalTriageAnalysis: (signalIds, analysis) => {
+        const idSet = new Set(signalIds);
+        set((state) => ({
+          signals: state.signals.map((s) =>
+            idSet.has(s.id) ? { ...s, triageAnalysis: analysis } : s,
+          ),
+        }));
       },
       clearResolvedSignals: () => {
         set((state) => ({

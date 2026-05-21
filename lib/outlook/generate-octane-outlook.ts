@@ -98,6 +98,8 @@ export type OctaneOutlookInput = Pick<
   | "complianceReminders"
   | "legalQuestions"
   | "formationChecklistItems"
+  | "octaneActions"
+  | "signals"
 >;
 
 function clampScore(value: number): number {

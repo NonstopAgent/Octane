@@ -68,7 +68,30 @@ export default function BriefingPage() {
         description={`Read-only daily digest · ${format(new Date(briefing.generatedAt), "EEEE, MMM d")}`}
       />
 
+      {briefing.operationalRiskAlerts.length > 0 && (
+        <div className="rounded-lg border border-orange-900/40 bg-orange-950/15 px-4 py-3">
+          <p className="text-sm font-medium text-orange-200 mb-1">
+            Operational score penalties
+          </p>
+          <ul className="list-disc list-inside text-xs text-zinc-400 space-y-0.5">
+            {briefing.operationalRiskAlerts.map((a) => (
+              <li key={a}>{a}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <MetricCard
+          title="Octane score"
+          value={briefing.octaneScore}
+          subtitle={
+            briefing.octaneScorePenalty > 0
+              ? `−${briefing.octaneScorePenalty} ops penalty`
+              : "0–100 composite"
+          }
+          icon={AlertCircle}
+        />
         <MetricCard
           title="Monthly revenue"
           value={formatCurrency(briefing.cashSnapshot.monthlyRevenue)}

@@ -14,6 +14,7 @@ import {
   Zap,
 } from "lucide-react";
 
+import { PortfolioPulseTimeline } from "@/components/modules/universe/portfolio-pulse-timeline";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -266,6 +267,11 @@ function UniversePageContent() {
             <p className="text-[10px] text-zinc-500">{label}</p>
           </div>
         ))}
+      </div>
+
+      {/* Cross-repo GitHub pulse */}
+      <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/20 px-5 py-5">
+        <PortfolioPulseTimeline />
       </div>
 
       {/* Entity grid */}

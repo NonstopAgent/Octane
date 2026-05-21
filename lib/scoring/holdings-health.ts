@@ -8,6 +8,8 @@ import {
 } from "@/lib/holdings/metrics";
 import type { OctanePersistedState } from "@/lib/store/octane-store";
 
+import { computeOperationalPenalties } from "@/lib/scoring/operational-penalties";
+
 export type HoldingsHealthBreakdown = {
   entityStructure: number;
   ipOwnership: number;
@@ -15,12 +17,15 @@ export type HoldingsHealthBreakdown = {
   calendarCompliance: number;
   legalQuestions: number;
   formationProgress: number;
+  baseScore: number;
+  operationalPenalty: number;
 };
 
 export type HoldingsHealthResult = {
   score: number;
   breakdown: HoldingsHealthBreakdown;
   suggestions: string[];
+  operationalPenaltyReasons: string[];
 };
 
 function clampScore(value: number): number {
@@ -36,6 +41,8 @@ export function computeHoldingsHealth(
     | "complianceReminders"
     | "legalQuestions"
     | "formationChecklistItems"
+    | "octaneActions"
+    | "signals"
   >,
   referenceDate: Date = new Date(),
 ): HoldingsHealthResult {
@@ -93,7 +100,7 @@ export function computeHoldingsHealth(
   const formationProgress =
     total === 0 ? 70 : clampScore((done / total) * 100);
 
-  const breakdown: HoldingsHealthBreakdown = {
+  const breakdown = {
     entityStructure,
     ipOwnership,
     documentCompliance,
@@ -111,7 +118,7 @@ export function computeHoldingsHealth(
     formationProgress: 0.1,
   };
 
-  const score = clampScore(
+  const baseScore = clampScore(
     breakdown.entityStructure * weights.entityStructure +
       breakdown.ipOwnership * weights.ipOwnership +
       breakdown.documentCompliance * weights.documentCompliance +
@@ -120,7 +127,23 @@ export function computeHoldingsHealth(
       breakdown.formationProgress * weights.formationProgress,
   );
 
+  /** Holdings inherits a lighter operational penalty (max 15) — legal structure still primary. */
+  const penalties = computeOperationalPenalties(state);
+  const holdingsPenalty = Math.min(15, Math.round(penalties.total * 0.45));
+  const score = clampScore(baseScore - holdingsPenalty);
+
+  const breakdownWithPenalty: HoldingsHealthBreakdown = {
+    ...breakdown,
+    baseScore,
+    operationalPenalty: holdingsPenalty,
+  };
+
   const suggestions: string[] = [];
+  if (holdingsPenalty > 0) {
+    for (const reason of penalties.reasons) {
+      suggestions.push(`Portfolio ops: ${reason}`);
+    }
+  }
   if (formingCount > 0) {
     suggestions.push("Complete formation for entities still in forming status.");
   }
@@ -148,5 +171,10 @@ export function computeHoldingsHealth(
     suggestions.push("Holdings structure looks healthy — keep calendar dates current.");
   }
 
-  return { score, breakdown, suggestions: suggestions.slice(0, 6) };
+  return {
+    score,
+    breakdown: breakdownWithPenalty,
+    suggestions: suggestions.slice(0, 6),
+    operationalPenaltyReasons: penalties.reasons,
+  };
 }

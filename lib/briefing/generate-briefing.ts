@@ -21,6 +21,8 @@ import {
   monthlyBurn,
 } from "@/lib/finance/metrics";
 import type { OctanePersistedState } from "@/lib/store/octane-store";
+import { computeOctaneScore } from "@/lib/scoring/octane-score";
+import { computeOperationalPenalties } from "@/lib/scoring/operational-penalties";
 import type {
   ActivityLog,
   Agent,
@@ -68,6 +70,9 @@ export type BriefingCashSnapshot = {
 
 export type MorningBriefing = {
   generatedAt: string;
+  octaneScore: number;
+  octaneScorePenalty: number;
+  operationalRiskAlerts: string[];
   recentActivity24h: ActivityLog[];
   upcomingCompliance: BriefingComplianceRef[];
   cashSnapshot: BriefingCashSnapshot;
@@ -648,8 +653,19 @@ export function generateMorningBriefing(
     upcomingDeadlines,
   });
 
+  const octaneScoreResult = computeOctaneScore(state, referenceDate);
+  const operationalPenalties = computeOperationalPenalties(state);
+  const operationalRiskAlerts = operationalPenalties.reasons;
+  const suggestedActionsWithOps =
+    operationalRiskAlerts.length > 0
+      ? [...operationalRiskAlerts.slice(0, 2), ...suggestedActions]
+      : suggestedActions;
+
   return {
     generatedAt: referenceDate.toISOString(),
+    octaneScore: octaneScoreResult.score,
+    octaneScorePenalty: octaneScoreResult.breakdown.operationalPenalty,
+    operationalRiskAlerts,
     recentActivity24h,
     upcomingCompliance,
     cashSnapshot,
@@ -661,7 +677,7 @@ export function generateMorningBriefing(
     agentIssues,
     financialAlerts,
     decisionsDue,
-    suggestedActions,
+    suggestedActions: suggestedActionsWithOps,
     operatingPlan,
     topThreeMoves,
     blockedWork,
