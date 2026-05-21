@@ -17,7 +17,7 @@ import {
   detectSensitiveExecutiveTopic,
   EXECUTIVE_SENSITIVE_TOPIC_WARNING,
 } from "./sensitive-topics";
-import { resolveReferenceDate } from "./shared";
+import { enrichExecutiveAnswerWithLiveSignals, resolveReferenceDate } from "./shared";
 import type {
   ExecutiveAnswer,
   ExecutiveAnswerInput,
@@ -91,7 +91,10 @@ export function generateExecutiveAnswer(
 ): ExecutiveAnswer {
   const ref = resolveReferenceDate(referenceDate);
   const { category } = classifyExecutiveQuestion(question);
-  const answer = buildAnswerForCategory(category, state, ref);
+  const answer = enrichExecutiveAnswerWithLiveSignals(
+    buildAnswerForCategory(category, state, ref),
+    state,
+  );
 
   if (detectSensitiveExecutiveTopic(question)) {
     return {

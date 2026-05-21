@@ -37,6 +37,13 @@ interface OctaneContext {
   entities?: { name: string; type: string; status: string; tagline?: string }[];
   transactions?: { type: string; amount: number; description: string; date: string }[];
   decisions?: { title: string; status: string; category: string; summary: string }[];
+  signals?: {
+    title: string;
+    summary: string;
+    severity: string;
+    source: string;
+    type: string;
+  }[];
   profile?: { name: string; role: string };
   activeEntityFilter?: string;
 }
@@ -262,20 +269,21 @@ function buildSystemPrompt(ctx: OctaneContext): string {
     "Logan runs two main products under Octane Holdings Trust:",
     "",
     "**Octane Ajax** (repo: `NonstopAgent/Octane-Ajax`, live: octane-ajax-lzu6au72b-nonstopagents-projects.vercel.app)",
-    "An autonomous digital product factory. Three AI agents run a full pipeline:",
-    "- Nova (Research Agent): mines demand signals, generates product ideas from market data and competitor research",
-    "- Forge (Creation Agent): manufactures the actual digital products — currently PDFs/guides/kits",
-    "- Pixel (Marketing Agent): generates TikTok/Pinterest/Instagram promo copy for each product",
+    "Autonomous product engine: research → compilation → asset placement. Three AI agents run the pipeline:",
+    "- Nova (Research): mines demand signals, competitor intel, and product ideas from market data",
+    "- Forge (Creation): compiles digital products (PDFs, guides, kits) from approved concepts",
+    "- Pixel (Marketing): generates promo copy and placement assets for distribution channels",
     "Pipeline: Research Lab → Design Press → Review Gate (Logan approves/rejects) → Media Studio → Storefront",
     "Sales channels: Etsy (OAuth not yet connected), Lemon Squeezy (API key not set), Gumroad",
-    "Current status: pipeline operational, agents idle, Etsy shop being set up, first product 'First-Time Dog Owner Care Kit' at $9.99 in review",
-    "Key gaps: Etsy not connected, no revenue flowing yet, product model (PDF sales) needs evaluation",
-    "Logan's direction: Nova should actively research competitors and generate better product ideas than them. The system should run autonomously end-to-end.",
+    "Current status: pipeline operational, agents idle, Etsy shop being set up, first product at $9.99 in review",
+    "Key gaps: Etsy not connected, no revenue flowing yet, product model needs evaluation vs. higher-LTV formats",
+    "Logan's direction: Nova should out-research competitors; Forge/Pixel should run autonomously after review gate.",
     "",
     "**Octane Nexus** (repo: `NonstopAgent/Octane-Nexus`)",
-    "A complementary product in the Octane ecosystem. Status: active development.",
+    "External data and media indexing layer — ingests, normalizes, and surfaces third-party signals (research briefs, media feeds, partner content) for the portfolio. Complements Ajax's product factory with outward-facing intelligence.",
+    "Status: active development; prioritize indexing quality and signal freshness over feature breadth.",
     "",
-    "**Octane Core** (this app, repo: `NonstopAgent/Octane`) — the founder OS. Tracks tasks, projects, finances, decisions, agents. You run inside it. Logan uses it to manage and monitor both Ajax and Nexus.",
+    "**Octane Core** (this app, repo: `NonstopAgent/Octane`) — the founder OS. Tracks tasks, projects, finances, decisions, agents, and the Universal Signal ledger. You run inside it. Logan uses it to manage and monitor Ajax, Nexus, and live integrations.",
     "",
     "## WHAT YOU CAN DO",
     "You have real tools — use them without being asked:",
@@ -285,6 +293,13 @@ function buildSystemPrompt(ctx: OctaneContext): string {
     "- `get_repo_status` — snapshot of a repo right now",
     "",
     "When Logan asks about a repo or mentions a problem with Ajax/Nexus, use these tools immediately. Don't wait for permission. Report what you found and what you did.",
+    "",
+    "## SIGNAL LEDGER (cross-reference when advising)",
+    "When answering strategy, risk, or 'what should I do' questions, cross-reference the live Signal ledger in context:",
+    "- Prioritize **active developer blockers** (blocked tasks, Vercel deployment failures, Gmail security/build alerts) over stale or static backlog items",
+    "- Treat critical/high Gmail and `[Vercel] Deployment Failure` signals as immediate portfolio risks",
+    "- Finance-class Gmail signals (invoice, payment) tie to runway decisions; opportunity-class signals tie to Nexus/Ajax GTM",
+    "- If signals conflict with task lists, trust fresher connector signals (Gmail/Vercel) for operational urgency",
     "",
     "## LOGAN'S DIRECTION",
     "1. Ajax and Nexus should run themselves with minimal manual work from Logan",
@@ -375,6 +390,25 @@ function buildSystemPrompt(ctx: OctaneContext): string {
       lines.push(`## PENDING DECISIONS (${pending.length})`);
       pending.slice(0, 6).forEach((d) => {
         lines.push(`- [${d.category}] **${d.title}**: ${d.summary}`);
+      });
+      lines.push("");
+    }
+  }
+
+  if (ctx.signals?.length) {
+    const ORDER = ["critical", "high", "medium", "low"];
+    const active = ctx.signals
+      .filter((s) => ORDER.includes(s.severity))
+      .sort(
+        (a, b) => ORDER.indexOf(a.severity) - ORDER.indexOf(b.severity),
+      )
+      .slice(0, 10);
+    if (active.length > 0) {
+      lines.push("## LIVE SIGNAL LEDGER (top priority)");
+      active.forEach((s) => {
+        lines.push(
+          `- [${s.severity.toUpperCase()}] [${s.source}/${s.type}] ${s.title}: ${s.summary}`,
+        );
       });
       lines.push("");
     }

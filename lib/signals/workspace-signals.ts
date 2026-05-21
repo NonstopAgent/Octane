@@ -29,18 +29,22 @@ function isTriaged(status: Signal["status"]): boolean {
   return TRIAGED_STATUSES.has(status);
 }
 
+const LIVE_INGEST_SOURCES: Signal["source"][] = ["gmail", "vercel"];
+
 /**
- * Merge freshly derived signals with Gmail-only rows and persisted triage status.
+ * Merge freshly derived signals with live-ingest rows (Gmail, Vercel) and persisted triage status.
  */
 export function buildDisplaySignals(
   workspace: Omit<OctanePersistedState, "signals">,
   storedSignals: Signal[],
 ): Signal[] {
   const derived = generateSignals(workspace as OctanePersistedState);
-  const gmailOnly = storedSignals.filter((s) => s.source === "gmail");
+  const liveIngest = storedSignals.filter((s) =>
+    LIVE_INGEST_SOURCES.includes(s.source),
+  );
   const byId = new Map<string, Signal>();
   for (const s of derived) byId.set(s.id, s);
-  for (const s of gmailOnly) byId.set(s.id, s);
+  for (const s of liveIngest) byId.set(s.id, s);
 
   const statusMap = new Map(storedSignals.map((s) => [s.id, s]));
   return [...byId.values()].map((signal) => {

@@ -17,6 +17,11 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { parseOctaneCommand } from "@/lib/actions/parse-octane-command";
 import {
+  buildDisplaySignals,
+  selectActiveSignals,
+  selectWorkspaceForSignals,
+} from "@/lib/signals/workspace-signals";
+import {
   selectOctanePersistedState,
   useOctaneStore,
 } from "@/lib/store/octane-store";
@@ -237,6 +242,8 @@ export default function ChatPage() {
 
 function ChatPageContent() {
   const state = useOctaneStore(useShallow(selectOctanePersistedState));
+  const workspace = useOctaneStore(useShallow(selectWorkspaceForSignals));
+  const storedSignals = useOctaneStore((s) => s.signals);
   const proposeOctaneActions = useOctaneStore((s) => s.proposeOctaneActions);
   const pendingCount = useOctaneStore(
     (s) => s.octaneActions.filter((a) => a.status === "proposed").length,
@@ -299,6 +306,19 @@ function ChatPageContent() {
       summary: d.summary,
     }));
 
+    const signals = selectActiveSignals(
+      buildDisplaySignals(workspace, storedSignals),
+    )
+      .filter((s) => s.severity === "critical" || s.severity === "high")
+      .slice(0, 12)
+      .map((s) => ({
+        title: s.title,
+        summary: s.summary,
+        severity: s.severity,
+        source: s.source,
+        type: s.type,
+      }));
+
     return {
       projects,
       tasks,
@@ -306,12 +326,13 @@ function ChatPageContent() {
       entities,
       transactions,
       decisions,
+      signals,
       profile: state.profile
         ? { name: state.profile.name, role: state.profile.role }
         : undefined,
       activeEntityFilter: entityFilter !== "all" ? entityFilter : undefined,
     };
-  }, [state, entityFilter]);
+  }, [state, entityFilter, workspace, storedSignals]);
 
   // Entity options for filter
   const entityOptions = useMemo(() => {

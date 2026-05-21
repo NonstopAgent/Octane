@@ -19,7 +19,9 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { SandboxCommsBadge } from "@/components/modules/signals/sandbox-comms-badge";
 import { useGmailSignals } from "@/lib/hooks/use-gmail-signals";
+import { useVercelSignals } from "@/lib/hooks/use-vercel-signals";
 import {
   buildDisplaySignals,
   mergeSignalsForUpsert,
@@ -297,6 +299,7 @@ export default function SignalsPage() {
   const updateSignalStatus = useOctaneStore((s) => s.updateSignalStatus);
   const { refreshGmailSignals, loading: gmailLoading, lastProvenance } =
     useGmailSignals();
+  const { refreshVercelSignals, loading: vercelLoading } = useVercelSignals();
 
   const [activeTab, setActiveTab] = useState<TabKey>("all");
   const [severityFilter, setSeverityFilter] = useState<SignalSeverity | "all">("all");
@@ -314,13 +317,14 @@ export default function SignalsPage() {
     const derived = buildDisplaySignals(workspace, storedSignals);
     upsertSignals(mergeSignalsForUpsert(derived, storedSignals));
     void refreshGmailSignals();
+    void refreshVercelSignals();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function handleRefresh() {
     const derived = buildDisplaySignals(workspace, storedSignals);
     upsertSignals(mergeSignalsForUpsert(derived, storedSignals));
-    await refreshGmailSignals();
+    await Promise.all([refreshGmailSignals(), refreshVercelSignals()]);
     setLastRefresh(new Date());
   }
 
@@ -394,15 +398,27 @@ export default function SignalsPage() {
             size="sm"
             className="border-zinc-700 bg-zinc-900 text-zinc-300 hover:bg-zinc-800"
             onClick={() => void handleRefresh()}
-            disabled={gmailLoading}
+            disabled={gmailLoading || vercelLoading}
           >
             <RefreshCw
-              className={cn("mr-1.5 size-3.5", gmailLoading && "animate-spin")}
+              className={cn(
+                "mr-1.5 size-3.5",
+                (gmailLoading || vercelLoading) && "animate-spin",
+              )}
             />
             Refresh
           </Button>
         }
       />
+
+      {lastProvenance === "mock" && (
+        <div className="flex items-center gap-2">
+          <SandboxCommsBadge />
+          <p className="text-xs text-zinc-500">
+            Gmail signals are simulated until GMAIL_ACCESS_TOKEN is configured on the server.
+          </p>
+        </div>
+      )}
 
       {/* Summary strip */}
       {criticalCount > 0 && (

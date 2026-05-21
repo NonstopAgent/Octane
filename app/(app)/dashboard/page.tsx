@@ -25,7 +25,9 @@ import { DashboardIntegrationHealth } from "@/components/modules/connections/das
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { SandboxCommsBadge } from "@/components/modules/signals/sandbox-comms-badge";
 import { useGmailSignals } from "@/lib/hooks/use-gmail-signals";
+import { useVercelSignals } from "@/lib/hooks/use-vercel-signals";
 import {
   buildDisplaySignals,
   selectActiveSignals,
@@ -219,11 +221,13 @@ export default function DashboardPage() {
   const state = useOctaneStore(useShallow(selectOctanePersistedState));
   const workspace = useOctaneStore(useShallow(selectWorkspaceForSignals));
   const storedSignals = useOctaneStore((s) => s.signals);
-  const { refreshGmailSignals } = useGmailSignals();
+  const { refreshGmailSignals, lastProvenance } = useGmailSignals();
+  const { refreshVercelSignals } = useVercelSignals();
 
   useEffect(() => {
     void refreshGmailSignals();
-  }, [refreshGmailSignals]);
+    void refreshVercelSignals();
+  }, [refreshGmailSignals, refreshVercelSignals]);
 
   const openTasks = useMemo(
     () => state.tasks.filter((t) => t.status !== "done"),
@@ -283,12 +287,15 @@ export default function DashboardPage() {
       </Link>
 
       {/* Signal preview — top critical/high signals */}
-      {topSignals.length > 0 && (
+      {(topSignals.length > 0 || lastProvenance === "mock") && (
         <div>
           <div className="mb-2 flex items-center justify-between">
             <h2 className="flex items-center gap-2 text-sm font-medium text-zinc-400">
               <Zap className="size-3.5 text-amber-400" />
               Signals
+              {lastProvenance === "mock" && (
+                <SandboxCommsBadge />
+              )}
             </h2>
             <Link href="/signals" className="flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-300">
               View all <ChevronRight className="size-3" />

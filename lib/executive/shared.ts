@@ -32,13 +32,94 @@ import { computeOctaneScore } from "@/lib/scoring/octane-score";
 import type { OctanePersistedState } from "@/lib/store/octane-store";
 import type { Project, Task } from "@/lib/types";
 
+import { rankSignalSeverity } from "@/lib/signals/vercel-deployment-signals";
+import type { Signal, SignalSeverity } from "@/lib/types/signal";
+
 import type {
   ExecutiveAnswer,
   ExecutiveAnswerInput,
   ExecutiveConfidence,
   ExecutiveQuestionCategory,
   ExecutiveSupportingSignal,
+  ExecutiveSignalSeverity,
 } from "./types";
+
+function executiveSeverityFromSignal(
+  severity: SignalSeverity,
+): ExecutiveSignalSeverity {
+  if (severity === "critical") return "critical";
+  if (severity === "high") return "warning";
+  return "info";
+}
+
+/** Top critical/high live signals (Vercel failures, Gmail risk/finance) for executive answers. */
+export function selectTopUniversalSignals(
+  state: ExecutiveAnswerInput,
+  limit = 6,
+): Signal[] {
+  const active = state.signals.filter(
+    (s) => s.status !== "resolved" && s.status !== "dismissed",
+  );
+  const prioritized = active.filter(
+    (s) =>
+      (s.severity === "critical" || s.severity === "high") &&
+      (s.source === "vercel" || s.source === "gmail"),
+  );
+  return [...prioritized].sort(
+    (a, b) => rankSignalSeverity(a.severity) - rankSignalSeverity(b.severity),
+  ).slice(0, limit);
+}
+
+export function universalSignalsToSupporting(
+  signals: Signal[],
+): ExecutiveSupportingSignal[] {
+  return signals.map((s) => ({
+    label:
+      s.source === "vercel"
+        ? "Vercel deployment"
+        : s.source === "gmail"
+          ? "Gmail"
+          : "Live signal",
+    detail: `${s.title} — ${s.summary}`,
+    severity: executiveSeverityFromSignal(s.severity),
+  }));
+}
+
+export function enrichExecutiveAnswerWithLiveSignals(
+  answer: ExecutiveAnswer,
+  state: ExecutiveAnswerInput,
+): ExecutiveAnswer {
+  const top = selectTopUniversalSignals(state);
+  if (top.length === 0) return answer;
+
+  const liveSupporting = universalSignalsToSupporting(top);
+  const existingLabels = new Set(
+    answer.supportingSignals.map((s) => `${s.label}:${s.detail}`),
+  );
+  const mergedSupporting = [
+    ...liveSupporting.filter((s) => !existingLabels.has(`${s.label}:${s.detail}`)),
+    ...answer.supportingSignals,
+  ].slice(0, 12);
+
+  const vercelProjectIds = top
+    .filter((s) => s.source === "vercel" && s.projectId)
+    .map((s) => s.projectId as string);
+
+  return {
+    ...answer,
+    supportingSignals: mergedSupporting,
+    relatedProjects: [
+      ...new Set([...vercelProjectIds, ...answer.relatedProjects]),
+    ].slice(0, 10),
+    recommendedActions: [
+      ...top
+        .map((s) => s.recommendedAction)
+        .filter((v): v is string => Boolean(v))
+        .slice(0, 2),
+      ...answer.recommendedActions,
+    ].filter((v, i, arr) => arr.indexOf(v) === i).slice(0, 8),
+  };
+}
 
 const REVENUE_STATUS_RANK: Record<Project["revenueStatus"], number> = {
   profitable: 5,
