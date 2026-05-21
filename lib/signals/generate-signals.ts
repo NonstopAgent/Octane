@@ -72,7 +72,7 @@ function taskSignals(state: OctanePersistedState): Signal[] {
   const signals: Signal[] = [];
   const today = new Date().toISOString().split("T")[0];
 
-  for (const task of state.tasks) {
+  for (const task of state.tasks ?? []) {
     if (task.status === "done") continue;
 
     // Blocked tasks
@@ -147,11 +147,11 @@ function taskSignals(state: OctanePersistedState): Signal[] {
 function projectSignals(state: OctanePersistedState): Signal[] {
   const signals: Signal[] = [];
 
-  for (const project of state.projects) {
+  for (const project of state.projects ?? []) {
     if (project.status === "killed" || project.status === "paused") continue;
 
     // Projects with no tasks
-    const projectTasks = state.tasks.filter((t) => t.projectId === project.id);
+    const projectTasks = (state.tasks ?? []).filter((t) => t.projectId === project.id);
     if (projectTasks.length === 0) {
       signals.push(
         makeSignal({
@@ -208,7 +208,7 @@ function projectSignals(state: OctanePersistedState): Signal[] {
     }
 
     // Projects with no GitHub/Vercel connection
-    const hasConn = state.projectConnections.some(
+    const hasConn = (state.projectConnections ?? []).some(
       (pc) =>
         pc.projectId === project.id &&
         (pc.kind === "github" || pc.kind === "vercel") &&
@@ -239,7 +239,7 @@ function decisionSignals(state: OctanePersistedState): Signal[] {
   const signals: Signal[] = [];
   const today = new Date().toISOString().split("T")[0];
 
-  for (const decision of state.decisions) {
+  for (const decision of state.decisions ?? []) {
     if (decision.status === "reversed" || decision.status === "completed") continue;
 
     // Overdue review
@@ -286,7 +286,7 @@ function decisionSignals(state: OctanePersistedState): Signal[] {
 function agentSignals(state: OctanePersistedState): Signal[] {
   const signals: Signal[] = [];
 
-  for (const agent of state.agents) {
+  for (const agent of state.agents ?? []) {
     if (agent.status === "error") {
       signals.push(
         makeSignal({
@@ -327,7 +327,7 @@ function agentSignals(state: OctanePersistedState): Signal[] {
 function actionSignals(state: OctanePersistedState): Signal[] {
   const signals: Signal[] = [];
 
-  const pendingApprovals = state.octaneActions.filter((a) => a.status === "pending");
+  const pendingApprovals = (state.octaneActions ?? []).filter((a) => a.status === "pending");
   if (pendingApprovals.length > 0) {
     signals.push(
       makeSignal({
@@ -351,7 +351,7 @@ function connectionSignals(state: OctanePersistedState): Signal[] {
   const critical = ["github", "vercel"] as const;
 
   for (const provider of critical) {
-    const conn = state.connections.find((c) => c.provider === provider);
+    const conn = (state.connections ?? []).find((c) => c.provider === provider);
     if (!conn || conn.status === "not_connected") {
       signals.push(
         makeSignal({
@@ -390,7 +390,7 @@ function financeSignals(state: OctanePersistedState): Signal[] {
   recentCutoff.setDate(recentCutoff.getDate() - 30);
   const cutoffIso = recentCutoff.toISOString().split("T")[0];
 
-  const recent = state.transactions.filter((t) => t.transactionDate >= cutoffIso);
+  const recent = (state.transactions ?? []).filter((t) => t.transactionDate >= cutoffIso);
   const income = recent
     .filter((t) => t.type === "revenue" || t.type === "investment")
     .reduce((sum, t) => sum + (t.amount ?? 0), 0);
