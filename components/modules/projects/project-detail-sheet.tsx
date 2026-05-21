@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 import Link from "next/link";
 import { Landmark, Link2, NotebookPen, Pencil, Plus } from "lucide-react";
 import { toast } from "sonner";
@@ -67,8 +68,10 @@ export function ProjectDetailSheet({
   const project = useOctaneStore((s) =>
     projectId ? s.projects.find((p) => p.id === projectId) : undefined,
   );
-  const tasks = useOctaneStore((s) =>
-    projectId ? s.tasks.filter((t) => t.projectId === projectId) : [],
+  const tasks = useOctaneStore(
+    useShallow((s) =>
+      projectId ? s.tasks.filter((t) => t.projectId === projectId) : [],
+    ),
   );
   const founderNotes = useOctaneStore((s) => s.founderNotes);
   const ipAssets = useOctaneStore((s) => s.ipAssets);

@@ -2,7 +2,6 @@
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { Code2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -29,7 +28,6 @@ export default function CodingPage() {
 }
 
 function CodingPageContent() {
-  const searchParams = useSearchParams();
   const projects = useOctaneStore((s) => s.projects);
   const projectConnections = useOctaneStore((s) => s.projectConnections);
   const codingJobs = useOctaneStore((s) => s.codingJobs);
@@ -67,11 +65,14 @@ function CodingPageContent() {
     [codingJobs],
   );
 
+  // Read URL params once on mount — avoids infinite loop from useSearchParams()
+  // returning new references on each hydration cycle (React error #185).
   useEffect(() => {
-    const paramProject = searchParams.get("project") ?? "";
-    const paramRepo = searchParams.get("repo") ?? "";
-    const paramDetail = searchParams.get("detail");
-    const paramPrompt = searchParams.get("prompt") ?? "";
+    const params = new URLSearchParams(window.location.search);
+    const paramProject = params.get("project") ?? "";
+    const paramRepo = params.get("repo") ?? "";
+    const paramDetail = params.get("detail");
+    const paramPrompt = params.get("prompt") ?? "";
 
     if (paramProject) {
       setProjectId(paramProject);
@@ -84,7 +85,8 @@ function CodingPageContent() {
     }
     if (paramPrompt) setPrompt(paramPrompt);
     if (paramDetail) setHighlightId(paramDetail);
-  }, [searchParams, projectConnections, singleLinkedRepo]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run once on mount only
 
   const hasRepo = Boolean(repo.trim());
   const repoReady = /^[\w.-]+\/[\w.-]+$/.test(repo.trim());

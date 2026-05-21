@@ -2,7 +2,6 @@
 
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { format } from "date-fns";
 import { FileUp, Upload } from "lucide-react";
 import { toast } from "sonner";
@@ -59,7 +58,6 @@ export default function DocumentsPage() {
 }
 
 function DocumentsPageContent() {
-  const searchParams = useSearchParams();
   const documents = useOctaneStore((state) => state.documents);
   const ipAssets = useOctaneStore((state) => state.ipAssets);
   const entities = useOctaneStore((state) => state.entities);
@@ -75,16 +73,20 @@ function DocumentsPageContent() {
   const [metadataOpen, setMetadataOpen] = useState(false);
   const [metadataName, setMetadataName] = useState("");
 
+  // Read URL params once on mount — avoids infinite loop from useSearchParams()
+  // returning new references on each hydration cycle (React error #185).
   useEffect(() => {
-    if (searchParams.get("new") === "1") {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("new") === "1") {
       setMetadataOpen(true);
     }
-    const detail = searchParams.get("detail");
+    const detail = params.get("detail");
     if (detail) {
       const doc = documents.find((d) => d.id === detail);
       if (doc) setSelectedDocument(doc);
     }
-  }, [searchParams, documents]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run once on mount only
 
   const filteredDocuments = useMemo(() => {
     const sorted = [...documents].sort(

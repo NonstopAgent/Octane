@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Code2, Sparkles } from "lucide-react";
+import { useShallow } from "zustand/react/shallow";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,8 +17,10 @@ export function ProjectCodingSection({
   projectId,
   githubRepo,
 }: ProjectCodingSectionProps) {
-  const codingJobs = useOctaneStore((s) =>
-    s.codingJobs.filter((j) => j.projectId === projectId),
+  const codingJobs = useOctaneStore(
+    useShallow((s) =>
+      s.codingJobs.filter((j) => j.projectId === projectId),
+    ),
   );
 
   const open = codingJobs.filter((j) =>

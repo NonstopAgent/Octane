@@ -1,7 +1,6 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import { format } from "date-fns";
 import { NotebookPen, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -39,7 +38,6 @@ const emptyForm = {
 };
 
 function NotesPageContent() {
-  const searchParams = useSearchParams();
   const titleRef = useRef<HTMLInputElement>(null);
 
   const founderNotes = useOctaneStore((s) => s.founderNotes);
@@ -59,19 +57,23 @@ function NotesPageContent() {
   const [deleteTarget, setDeleteTarget] = useState<FounderNote | null>(null);
   const [form, setForm] = useState(emptyForm);
 
+  // Read URL params once on mount — avoids infinite loop from useSearchParams()
+  // returning new references on each hydration cycle (React error #185).
   useEffect(() => {
-    if (searchParams.get("new") === "1") {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("new") === "1") {
       setDialogOpen(true);
       setEditingNote(null);
       setForm(emptyForm);
       return;
     }
-    const detail = searchParams.get("detail");
+    const detail = params.get("detail");
     if (detail) {
       const note = founderNotes.find((n) => n.id === detail);
       if (note) setSelected(note);
     }
-  }, [searchParams, founderNotes]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run once on mount only
 
   useEffect(() => {
     if (dialogOpen) {
