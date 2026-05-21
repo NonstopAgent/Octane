@@ -22,7 +22,8 @@ export type OctaneActionSource =
   | "gmail"
   | "vercel"
   | "github"
-  | "manual";
+  | "manual"
+  | "system";
 
 export type OctaneActionRiskLevel = "critical" | "high" | "medium" | "low";
 
@@ -53,6 +54,8 @@ const LEGACY_SOURCE_MAP: Record<string, OctaneActionSource> = {
   command_palette: "advisor",
   cron: "manual",
   setup: "manual",
+  triage: "system",
+  signal: "system",
 };
 
 export function normalizeOctaneActionStatus(
@@ -81,7 +84,8 @@ export function normalizeOctaneActionSource(
     raw === "gmail" ||
     raw === "vercel" ||
     raw === "github" ||
-    raw === "manual"
+    raw === "manual" ||
+    raw === "system"
   ) {
     return raw;
   }

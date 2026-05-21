@@ -32,6 +32,7 @@ import { computeOctaneScore } from "@/lib/scoring/octane-score";
 import type { OctanePersistedState } from "@/lib/store/octane-store";
 import type { Project, Task } from "@/lib/types";
 
+import { computeSignalOutlookAdjustment } from "@/lib/outlook/signal-outlook-adjustments";
 import { rankSignalSeverity } from "@/lib/signals/vercel-deployment-signals";
 import type { Signal, SignalSeverity } from "@/lib/types/signal";
 
@@ -85,18 +86,33 @@ export function universalSignalsToSupporting(
   }));
 }
 
+export function signalOutlookHints(
+  state: ExecutiveAnswerInput,
+): string[] {
+  const adjustment = computeSignalOutlookAdjustment(state);
+  if (adjustment.penalty === 0) return [];
+  return adjustment.highlights;
+}
+
 export function enrichExecutiveAnswerWithLiveSignals(
   answer: ExecutiveAnswer,
   state: ExecutiveAnswerInput,
 ): ExecutiveAnswer {
+  const outlookHints = signalOutlookHints(state);
   const top = selectTopUniversalSignals(state);
-  if (top.length === 0) return answer;
+  if (top.length === 0 && outlookHints.length === 0) return answer;
 
   const liveSupporting = universalSignalsToSupporting(top);
+  const hintSupporting = outlookHints.map((hint) => ({
+    label: "Outlook signal risk",
+    detail: hint,
+    severity: "warning" as const,
+  }));
   const existingLabels = new Set(
     answer.supportingSignals.map((s) => `${s.label}:${s.detail}`),
   );
   const mergedSupporting = [
+    ...hintSupporting.filter((s) => !existingLabels.has(`${s.label}:${s.detail}`)),
     ...liveSupporting.filter((s) => !existingLabels.has(`${s.label}:${s.detail}`)),
     ...answer.supportingSignals,
   ].slice(0, 12);
@@ -112,6 +128,9 @@ export function enrichExecutiveAnswerWithLiveSignals(
       ...new Set([...vercelProjectIds, ...answer.relatedProjects]),
     ].slice(0, 10),
     recommendedActions: [
+      ...(outlookHints.length > 0
+        ? ["Review /signals and resolve critical items before new bets."]
+        : []),
       ...top
         .map((s) => s.recommendedAction)
         .filter((v): v is string => Boolean(v))

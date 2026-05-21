@@ -20,6 +20,7 @@ const SOURCE_LABELS: Record<OctaneAction["source"], string> = {
   vercel: "Vercel",
   github: "GitHub",
   manual: "Manual",
+  system: "System",
 };
 
 export function ActionProposalCard({

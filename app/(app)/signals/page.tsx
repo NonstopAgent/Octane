@@ -24,6 +24,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { SandboxCommsBadge } from "@/components/modules/signals/sandbox-comms-badge";
 import { useGmailSignals } from "@/lib/hooks/use-gmail-signals";
 import { useVercelSignals } from "@/lib/hooks/use-vercel-signals";
+import { proposeTriageMitigationIfNew } from "@/lib/signals/propose-triage-mitigation";
 import {
   buildDisplaySignals,
   mergeSignalsForUpsert,
@@ -323,6 +324,8 @@ export default function SignalsPage() {
   const attachSignalTriageAnalysis = useOctaneStore(
     (s) => s.attachSignalTriageAnalysis,
   );
+  const proposeAction = useOctaneStore((s) => s.proposeAction);
+  const octaneActions = useOctaneStore((s) => s.octaneActions);
   const { refreshGmailSignals, loading: gmailLoading, lastProvenance } =
     useGmailSignals();
   const { refreshVercelSignals, loading: vercelLoading } = useVercelSignals();
@@ -445,16 +448,37 @@ export default function SignalsPage() {
             summary: s.summary,
             description: s.summary,
             projectId: s.projectId,
+            severity: s.severity,
           })),
         }),
       });
       if (!res.ok) throw new Error("analysis failed");
-      const data = (await res.json()) as { analysis: SignalTriageAnalysis };
+      const data = (await res.json()) as {
+        analysis: SignalTriageAnalysis;
+        proposedAction?: Parameters<typeof proposeAction>[0];
+      };
       attachSignalTriageAnalysis(
         data.analysis.signalIds,
         data.analysis,
       );
       setLastAnalysis(data.analysis);
+      if (data.proposedAction) {
+        proposeTriageMitigationIfNew(
+          proposeAction,
+          octaneActions,
+          {
+            signals: clusterCandidates.map((s) => ({
+              id: s.id,
+              title: s.title,
+              source: s.source,
+              summary: s.summary,
+              projectId: s.projectId,
+              severity: s.severity,
+            })),
+          },
+          data.analysis,
+        );
+      }
     } catch {
       setLastAnalysis(null);
     } finally {

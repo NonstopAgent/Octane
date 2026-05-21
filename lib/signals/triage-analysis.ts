@@ -1,7 +1,10 @@
 import Anthropic from "@anthropic-ai/sdk";
 
-import type { SignalSource } from "@/lib/types/signal";
-import type { SignalTriageAnalysis } from "@/lib/types/signal";
+import type {
+  SignalSeverity,
+  SignalSource,
+  SignalTriageAnalysis,
+} from "@/lib/types/signal";
 
 export type TriageClusterSignalInput = {
   id: string;
@@ -10,6 +13,7 @@ export type TriageClusterSignalInput = {
   summary: string;
   description?: string;
   projectId?: string;
+  severity?: SignalSeverity;
 };
 
 export type TriageClusterRequest = {

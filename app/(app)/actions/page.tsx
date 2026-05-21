@@ -17,6 +17,7 @@ import type {
 const SOURCE_ORDER: OctaneActionSource[] = [
   "vercel",
   "gmail",
+  "system",
   "github",
   "advisor",
   "manual",
@@ -70,6 +71,7 @@ function groupPendingActions(actions: OctaneAction[]) {
 const SOURCE_HEADINGS: Record<OctaneActionSource, string> = {
   vercel: "Vercel deployments",
   gmail: "Gmail risk",
+  system: "Triage synthesis",
   github: "GitHub",
   advisor: "Ask Octane / Chat",
   manual: "Manual & ops",

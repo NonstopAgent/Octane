@@ -16,10 +16,16 @@ import {
   isPendingDecisionStatus,
   isProjectStale,
 } from "@/lib/dashboard/metrics";
+import {
+  buildSignalOutlookPlanNotes,
+  computeSignalOutlookAdjustment,
+  type SignalOutlookAdjustment,
+} from "@/lib/outlook/signal-outlook-adjustments";
 import { computeHoldingsHealth } from "@/lib/scoring/holdings-health";
 import { computeOctaneScore } from "@/lib/scoring/octane-score";
 import type { OctanePersistedState } from "@/lib/store/octane-store";
 import type { ActivityLog, Project, Task } from "@/lib/types";
+import type { Signal } from "@/lib/types/signal";
 
 export type OutlookSeverity = "low" | "medium" | "high" | "critical";
 
@@ -78,6 +84,7 @@ export type OctaneOutlook = {
   "30DayPlan": OutlookPlanPhase;
   "60DayPlan": OutlookPlanPhase;
   "90DayPlan": OutlookPlanPhase;
+  signalRiskAdjustment?: SignalOutlookAdjustment;
 };
 
 export type OctaneOutlookInput = Pick<
@@ -557,17 +564,25 @@ export function generateOctaneOutlook(
   );
   const holdings = computeHoldingsHealth(state, referenceDate);
 
+  const signalAdjustment = computeSignalOutlookAdjustment(state);
+
   const execution = computeExecutionScore(state, today);
   const revenue = computeRevenueScore(state, referenceDate);
   const projectQuality = computeProjectQualityScore(state, today);
   const agentHealth = computeAgentHealthScore(state);
   const strategic = computeStrategicClarityScore(state, today);
 
+  const executionScore = clampScore(
+    execution.score - signalAdjustment.executionPenalty,
+  );
+  const revenueScore = clampScore(revenue.score - signalAdjustment.revenuePenalty);
+  const agentScore = clampScore(agentHealth.score - signalAdjustment.agentPenalty);
+
   const dimensionScores = {
-    execution: execution.score,
-    revenue: revenue.score,
+    execution: executionScore,
+    revenue: revenueScore,
     projectQuality: projectQuality.score,
-    agentHealth: agentHealth.score,
+    agentHealth: agentScore,
     ownershipLegal: holdings.score,
     strategicClarity: strategic.score,
   };
@@ -578,7 +593,8 @@ export function generateOctaneOutlook(
       dimensionScores.projectQuality * 0.2 +
       dimensionScores.agentHealth * 0.15 +
       dimensionScores.ownershipLegal * 0.1 +
-      dimensionScores.strategicClarity * 0.1,
+      dimensionScores.strategicClarity * 0.1 -
+      signalAdjustment.penalty * 0.35,
   );
 
   const overallOutlook = overallFromScore(outlookScore);
@@ -651,6 +667,31 @@ export function generateOctaneOutlook(
     });
   }
 
+  for (const signal of (state.signals ?? []).filter(
+    (s: Signal) =>
+      s.severity === "critical" &&
+      s.status !== "resolved" &&
+      s.status !== "dismissed",
+  ).slice(0, 3)) {
+    topRisks.push({
+      id: `risk-signal-${signal.id}`,
+      title: signal.title,
+      description: signal.summary,
+      severity: "critical",
+      category: "signals",
+    });
+  }
+
+  for (const hint of signalAdjustment.highlights) {
+    topRisks.push({
+      id: `risk-signal-adj-${topRisks.length}`,
+      title: "Signal-driven operational drag",
+      description: hint,
+      severity: "high",
+      category: "signals",
+    });
+  }
+
   for (const { task, projectName, daysOverdue } of briefing.overdueTasks.slice(
     0,
     3,
@@ -716,10 +757,15 @@ export function generateOctaneOutlook(
   }
 
   const whatNeedsImprovement: string[] = [];
-  if (execution.score < 65) {
+  if (signalAdjustment.penalty > 0) {
+    whatNeedsImprovement.push(
+      ...signalAdjustment.highlights.slice(0, 2),
+    );
+  }
+  if (executionScore < 65) {
     whatNeedsImprovement.push("Execution velocity — unblock tasks and refresh stale projects.");
   }
-  if (revenue.score < 65) {
+  if (revenueScore < 65) {
     whatNeedsImprovement.push("Revenue efficiency — align spend to bets with monetization paths.");
   }
   if (strategic.score < 65) {
@@ -759,12 +805,23 @@ export function generateOctaneOutlook(
     summaryParts.push(`Top opportunity: ${topOpportunities[0].title}.`);
   }
 
+  const signalPlanNotes = buildSignalOutlookPlanNotes(signalAdjustment);
   const plans = buildPlanPhases({
     recommendedFocus,
     projectsToDoubleDown,
     topRisks,
     roadmapCount: state.roadmapItems.length,
   });
+  if (signalPlanNotes.length > 0) {
+    plans.day30.milestones = [
+      ...signalPlanNotes.slice(0, 2),
+      ...plans.day30.milestones,
+    ].slice(0, 5);
+    plans.day60.focusAreas = [
+      ...signalPlanNotes.slice(0, 1),
+      ...plans.day60.focusAreas,
+    ].slice(0, 4);
+  }
 
   return {
     generatedAt: referenceDate.toISOString(),
@@ -781,24 +838,24 @@ export function generateOctaneOutlook(
     projectsToDoubleDown,
     projectsToPauseOrReview,
     revenueOutlook: buildDomainOutlook(
-      revenue.score,
-      revenue.score >= 70
+      revenueScore,
+      revenueScore >= 70
         ? "Revenue outlook is stable or positive for the current month."
         : "Revenue outlook needs attention — burn or project spend without returns.",
       revenue.highlights,
     ),
     executionOutlook: buildDomainOutlook(
-      execution.score,
-      execution.score >= 70
+      executionScore,
+      executionScore >= 70
         ? "Execution is healthy — keep clearing blockers proactively."
         : "Execution is strained — overdue, blocked, or stale work is accumulating.",
       execution.highlights,
     ),
     agentOutlook: buildDomainOutlook(
-      agentHealth.score,
+      agentScore,
       state.agents.length === 0
         ? "No agents configured — automation is an untapped lever."
-        : agentHealth.score >= 70
+        : agentScore >= 70
           ? "Agent fleet is mostly healthy."
           : "Agent errors or idle capacity need a pass.",
       agentHealth.highlights,
@@ -813,5 +870,7 @@ export function generateOctaneOutlook(
     "30DayPlan": plans.day30,
     "60DayPlan": plans.day60,
     "90DayPlan": plans.day90,
+    signalRiskAdjustment:
+      signalAdjustment.penalty > 0 ? signalAdjustment : undefined,
   };
 }

@@ -294,7 +294,28 @@ export default function OutlookPage() {
       <PageHeader
         title="Octane Outlook"
         description={`Strategic intelligence for ${state.profile.name} · generated ${format(new Date(outlook.generatedAt), "MMM d, yyyy 'at' h:mm a")}`}
+        actions={
+          outlook.signalRiskAdjustment ? (
+            <Badge
+              variant="outline"
+              className="border-amber-800/60 bg-amber-950/30 text-amber-200"
+            >
+              Signal risk −{outlook.signalRiskAdjustment.penalty} pts
+            </Badge>
+          ) : undefined
+        }
       />
+
+      {outlook.signalRiskAdjustment && (
+        <div className="rounded-lg border border-amber-900/40 bg-amber-950/15 px-4 py-3 text-xs text-zinc-400">
+          <p className="font-medium text-amber-200/90">Signal-driven outlook adjustment</p>
+          <ul className="mt-1 space-y-0.5">
+            {outlook.signalRiskAdjustment.highlights.map((h) => (
+              <li key={h}>· {h}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <OutlookSection
         title="Executive snapshot"

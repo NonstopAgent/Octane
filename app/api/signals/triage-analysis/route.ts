@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { requireApiAuth } from "@/lib/auth/require-api-auth";
+import { buildTriageMitigationProposal } from "@/lib/signals/propose-triage-mitigation";
 import {
   analyzeSignalCluster,
   type TriageClusterRequest,
@@ -42,6 +43,13 @@ export async function POST(request: NextRequest) {
       summary: String(s.summary ?? s.description ?? ""),
       description: s.description ? String(s.description) : undefined,
       projectId: s.projectId ? String(s.projectId) : undefined,
+      severity:
+        s.severity === "critical" ||
+        s.severity === "high" ||
+        s.severity === "medium" ||
+        s.severity === "low"
+          ? s.severity
+          : undefined,
     })),
   };
 
@@ -54,10 +62,12 @@ export async function POST(request: NextRequest) {
   }
 
   const { analysis, source } = await analyzeSignalCluster(cluster);
+  const proposedAction = buildTriageMitigationProposal(cluster, analysis);
 
   return NextResponse.json({
     analysis,
     source,
     configured: Boolean(process.env.ANTHROPIC_API_KEY?.trim()),
+    proposedAction,
   });
 }

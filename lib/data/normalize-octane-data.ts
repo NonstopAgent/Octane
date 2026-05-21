@@ -206,6 +206,7 @@ const ACTION_SOURCES: OctaneActionSource[] = [
   "vercel",
   "github",
   "manual",
+  "system",
 ];
 const PROJECT_CONN_KINDS: ProjectConnectionKind[] = [
   "github",

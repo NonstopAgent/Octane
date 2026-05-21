@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { requireApiAuth } from "@/lib/auth/require-api-auth";
 import { getLatestDeployment, getProject } from "@/lib/integrations/vercel-client";
+import { dispatchCriticalAlertsForSignals } from "@/lib/notifications/dispatcher";
 import {
   buildVercelDeploymentSignals,
   CORE_VERCEL_PROJECT_NAMES,
@@ -86,6 +87,7 @@ export async function GET(request: NextRequest) {
   }
 
   const signals = buildVercelDeploymentSignals(probes);
+  void dispatchCriticalAlertsForSignals(signals);
 
   return NextResponse.json({
     signals,
