@@ -306,27 +306,22 @@ function buildSystemPrompt(ctx: OctaneContext): string {
     ctx.workspaceDataMode
       ? `Current mode: **${ctx.workspaceDataMode.label}** (${ctx.workspaceDataMode.mode}). ${ctx.workspaceDataMode.description}`
       : "Workspace data mode unknown — treat portfolio metrics as user-owned unless clearly marked demo.",
-    ctx.gmailProvenance === "mock"
-      ? "Gmail connector is in **sandbox/simulated** mode (no GMAIL_ACCESS_TOKEN). Treat Gmail-class signals as illustrative until triaged and confirmed live."
-      : ctx.gmailProvenance === "live"
-        ? "Gmail connector is **live** — Gmail-sourced signals reflect real inbox metadata."
-        : "",
     "",
     "## AUTOMATED OPERATIONS",
     "Octane Core runs cross-repo pulse checks, automated triage proposals, and system mitigation actions:",
-    "- **Pulse**: GitHub/Vercel/Gmail connectors surface live signals; derived workspace signals fill gaps",
-    "- **Triage proposals**: critical/high Gmail and Vercel signals auto-propose mitigation actions on /actions (approval required)",
+    "- **Pulse**: GitHub and Vercel connectors surface live signals; rule-based derived signals fill gaps from workspace state (tasks, projects, decisions, transactions)",
+    "- **Triage proposals**: critical/high signals auto-propose mitigation actions on /actions (approval required before anything executes)",
     "- **Mitigation**: approved actions create tasks or GitHub issues — never auto-execute destructive changes",
-    "- **Ledger alerts**: Finance CSV import can flag burn anomalies and upsert high-severity finance signals",
+    "- **Agents page**: read-only execution telemetry monitor — shows Ajax and Nexus operator status, last activity, and open issues pulled live from GitHub. No agent state can be mutated from the UI.",
     "",
     "## SIGNAL LEDGER (cross-reference when advising)",
     "When answering strategy, risk, or 'what should I do' questions, cross-reference the active Signal ledger in context:",
     "- The signals list reflects **current triage state** (resolved/dismissed items are excluded)",
-    "- Distinguish **infrastructure blockers** (vercel deployment failures, gmail security/build alerts, system connector errors) from **manual work** (tasks, decisions, document reviews) — fix infra first",
-    "- Prioritize **active developer blockers** (blocked tasks, Vercel deployment failures, Gmail security/build alerts) over stale backlog items",
-    "- Treat critical/high **Gmail** and **Vercel** signals as immediate portfolio risks when live; downgrade urgency for sandbox Gmail (`isDerived` / mock provenance)",
-    "- Finance-class Gmail signals (invoice, payment, hosting) tie to runway decisions; opportunity-class signals tie to Nexus/Ajax GTM",
-    "- If signals conflict with task lists, trust fresher live connector signals (Gmail/Vercel) for operational urgency",
+    "- Signal sources: `task` (overdue/blocked/stale), `project` (no tasks, stale, zero progress, no repo), `decision` (overdue review, under review), `agent` (error/idle), `action` (pending approvals), `connection` (GitHub/Vercel not linked), `finance` (negative cashflow)",
+    "- Distinguish **infrastructure blockers** (Vercel deployment failures, GitHub connection errors, agent errors) from **manual work** (tasks, decisions) — fix infra first",
+    "- Prioritize **active developer blockers** (blocked tasks, connection errors, agent errors) over stale backlog items",
+    "- Finance signals reflect 30-day cashflow from stored transactions — negative burn rate surfaces as medium/high severity",
+    "- If signals conflict with task lists, trust severity ranking: critical > high > medium > low",
     "",
     "## EXECUTIVE GUIDANCE (Ajax / Nexus)",
     "- **Ajax**: unblock revenue — Etsy/Lemon Squeezy connectivity, Review Gate throughput, Nova research quality; prescribe concrete next engineering or ops steps",
@@ -398,6 +393,7 @@ function buildSystemPrompt(ctx: OctaneContext): string {
   if (ctx.agents?.length) {
     const running = ctx.agents.filter((a) => a.status === "running" || a.status === "active");
     lines.push(`## AI AGENTS (${ctx.agents.length} total, ${running.length} running)`);
+    lines.push("Note: Agent state is read-only telemetry. To propose work for Ajax or Nexus, create a GitHub issue or log a task.");
     ctx.agents.forEach((a) => {
       lines.push(`- **${a.name}** [${a.status}]: ${a.purpose}`);
     });
