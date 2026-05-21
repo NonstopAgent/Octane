@@ -60,6 +60,8 @@ export interface Signal {
   status: SignalStatus;
   projectId?: string;
   entityId?: string;
+  /** Server-extracted Gmail/connector metadata (amounts, keywords, thread hints). */
+  enrichedMetadata?: Record<string, string | number | boolean>;
   relatedRecordType?: string;
   relatedRecordId?: string;
   recommendedAction?: string;

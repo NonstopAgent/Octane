@@ -18,6 +18,8 @@ type GmailFetchResult = {
 export function useGmailSignals() {
   const upsertSignals = useOctaneStore((s) => s.upsertSignals);
   const recordActivity = useOctaneStore((s) => s.recordActivity);
+  const projects = useOctaneStore((s) => s.projects);
+  const entities = useOctaneStore((s) => s.entities);
   const [loading, setLoading] = useState(false);
   const [lastProvenance, setLastProvenance] = useState<"live" | "mock" | null>(
     null,
@@ -26,7 +28,18 @@ export function useGmailSignals() {
   const refreshGmailSignals = useCallback(async (): Promise<GmailFetchResult> => {
     setLoading(true);
     try {
-      const res = await fetch("/api/integrations/gmail/messages");
+      const res = await fetch("/api/integrations/gmail/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projects: projects.map((p) => ({ id: p.id, name: p.name })),
+          entities: entities.map((e) => ({
+            id: e.id,
+            name: e.name,
+            linkedProjectIds: e.linkedProjectIds,
+          })),
+        }),
+      });
       if (!res.ok) {
         throw new Error(`Gmail fetch failed (${res.status})`);
       }
@@ -55,7 +68,7 @@ export function useGmailSignals() {
     } finally {
       setLoading(false);
     }
-  }, [upsertSignals, recordActivity]);
+  }, [upsertSignals, recordActivity, projects, entities]);
 
   return { refreshGmailSignals, loading, lastProvenance };
 }

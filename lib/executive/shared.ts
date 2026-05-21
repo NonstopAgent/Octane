@@ -71,19 +71,35 @@ export function selectTopUniversalSignals(
   ).slice(0, limit);
 }
 
+function isInfrastructureSignal(signal: Signal): boolean {
+  return (
+    signal.source === "vercel" ||
+    signal.source === "gmail" ||
+    signal.source === "system" ||
+    signal.type === "deployment" ||
+    signal.type === "blocker"
+  );
+}
+
 export function universalSignalsToSupporting(
   signals: Signal[],
 ): ExecutiveSupportingSignal[] {
-  return signals.map((s) => ({
-    label:
-      s.source === "vercel"
-        ? "Vercel deployment"
-        : s.source === "gmail"
-          ? "Gmail"
-          : "Live signal",
-    detail: `${s.title} — ${s.summary}`,
-    severity: executiveSeverityFromSignal(s.severity),
-  }));
+  return signals.map((s) => {
+    const infra = isInfrastructureSignal(s);
+    return {
+      label: infra
+        ? s.source === "vercel"
+          ? "Infrastructure — Vercel"
+          : s.source === "gmail"
+            ? "Infrastructure — Gmail"
+            : "Infrastructure blocker"
+        : s.source === "finance"
+          ? "Finance / ledger"
+          : "Manual follow-up",
+      detail: `${s.title} — ${s.summary}`,
+      severity: executiveSeverityFromSignal(s.severity),
+    };
+  });
 }
 
 export function signalOutlookHints(
@@ -130,6 +146,16 @@ export function enrichExecutiveAnswerWithLiveSignals(
     recommendedActions: [
       ...(outlookHints.length > 0
         ? ["Review /signals and resolve critical items before new bets."]
+        : []),
+      ...(top.some(isInfrastructureSignal)
+        ? [
+            "Clear infrastructure blockers (Vercel/Gmail/system) before scheduling new Ajax or Nexus feature work.",
+          ]
+        : []),
+      ...(top.some((s) => s.source === "gmail" && s.type === "cost")
+        ? [
+            "Reconcile finance-class Gmail signals against Finance ledger and runway.",
+          ]
         : []),
       ...top
         .map((s) => s.recommendedAction)

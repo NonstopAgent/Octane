@@ -16,4 +16,6 @@ export interface Transaction {
   notes?: string;
   transactionDate: string;
   createdAt: string;
+  /** Set when CSV import flags spend above 2.5× projected monthly burn. */
+  anomaly?: boolean;
 }

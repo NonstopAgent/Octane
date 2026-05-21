@@ -1,12 +1,27 @@
+import {
+  isExpenseTransaction,
+  projectedMonthlyBurnFromLast30Days,
+} from "@/lib/finance/metrics";
 import type { Transaction, TransactionType } from "@/lib/types";
 
 export type CreatableTransaction = Omit<Transaction, "id" | "createdAt">;
+
+export type CsvImportAnomaly = {
+  rowIndex: number;
+  projectLabel: string;
+  projectId?: string;
+  amount: number;
+};
 
 export type CsvImportResult = {
   added: number;
   skippedDuplicates: number;
   errors: string[];
+  anomalyCount: number;
+  anomalies: CsvImportAnomaly[];
 };
+
+const ANOMALY_BURN_MULTIPLIER = 2.5;
 
 export type FinanceCsvRow = {
   date: string;
@@ -161,6 +176,35 @@ export function transactionDedupeKey(
   return `${transactionDate}|${amount}|${type}|${projectId ?? ""}`;
 }
 
+/** Expense row exceeds 2.5× trailing 30-day projected monthly burn (project or global). */
+export function isExpenseBurnAnomaly(
+  amount: number,
+  type: TransactionType,
+  existingTransactions: Transaction[],
+  projectId?: string,
+): boolean {
+  const expenseTypes: TransactionType[] = [
+    "expense",
+    "software",
+    "contractor",
+    "legal",
+    "other",
+  ];
+  if (!expenseTypes.includes(type)) return false;
+  const expenseAmount = Math.abs(amount);
+  if (expenseAmount <= 0) return false;
+
+  const projectBurn = projectedMonthlyBurnFromLast30Days(
+    existingTransactions,
+    projectId,
+  );
+  const globalBurn = projectedMonthlyBurnFromLast30Days(existingTransactions);
+  const baseline = projectId && projectBurn > 0 ? projectBurn : globalBurn;
+  if (baseline <= 0) return false;
+
+  return expenseAmount > ANOMALY_BURN_MULTIPLIER * baseline;
+}
+
 export function buildExistingTransactionDedupeKeys(
   transactions: Transaction[],
 ): Set<string> {
@@ -195,6 +239,8 @@ export function importFinanceCsvRows(
   let added = 0;
   let skippedDuplicates = 0;
   const errors: string[] = [];
+  const anomalies: CsvImportAnomaly[] = [];
+  const ledger = [...existingTransactions];
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
@@ -208,17 +254,29 @@ export function importFinanceCsvRows(
       continue;
     }
 
+    const anomaly = isExpenseBurnAnomaly(amount, type, ledger, projectId);
+
     try {
-      createTransaction({
+      const created = createTransaction({
         type,
         amount,
         category: row.type,
         notes: row.notes || undefined,
         transactionDate: row.date,
         projectId,
+        ...(anomaly ? { anomaly: true } : {}),
       });
+      ledger.push(created);
       seen.add(key);
       added += 1;
+      if (anomaly) {
+        anomalies.push({
+          rowIndex: i + 2,
+          projectLabel: row.project || "Global",
+          projectId,
+          amount: Math.abs(amount),
+        });
+      }
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Could not create transaction";
@@ -226,5 +284,50 @@ export function importFinanceCsvRows(
     }
   }
 
-  return { added, skippedDuplicates, errors };
+  return {
+    added,
+    skippedDuplicates,
+    errors,
+    anomalyCount: anomalies.length,
+    anomalies,
+  };
+}
+
+/** High-severity finance signals for ledger anomalies surfaced after CSV import. */
+export function buildLedgerAnomalySignals(
+  anomalies: CsvImportAnomaly[],
+  projects: { id: string; name: string }[],
+): import("@/lib/types/signal").Signal[] {
+  const now = new Date().toISOString();
+  const byProject = new Map<string, CsvImportAnomaly[]>();
+
+  for (const row of anomalies) {
+    const key = row.projectId ?? row.projectLabel;
+    const list = byProject.get(key) ?? [];
+    list.push(row);
+    byProject.set(key, list);
+  }
+
+  const signals: import("@/lib/types/signal").Signal[] = [];
+  for (const [key, rows] of byProject) {
+    const projectName =
+      projects.find((p) => p.id === key)?.name ?? rows[0].projectLabel;
+    const maxAmount = Math.max(...rows.map((r) => r.amount));
+    signals.push({
+      id: `sig-ledger-anomaly-${key}-${now.slice(0, 10)}`,
+      source: "finance",
+      type: "cost",
+      title: `[Ledger Alert] Financial Anomaly Detected: ${projectName}`,
+      summary: `${rows.length} imported expense row${rows.length === 1 ? "" : "s"} exceeded 2.5× trailing 30-day burn (largest ~$${maxAmount.toFixed(2)}). Review Finance ledger and attribution.`,
+      severity: "high",
+      status: "new",
+      projectId: rows[0].projectId,
+      recommendedAction:
+        "Validate vendor charges in Finance, confirm project allocation, and dismiss or resolve after review.",
+      isDerived: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+  return signals;
 }

@@ -30,6 +30,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  buildLedgerAnomalySignals,
   importFinanceCsvRows,
   parseFinanceCsv,
 } from "@/lib/finance/csv-import";
@@ -84,7 +85,10 @@ function FinancePageContent() {
     added: number;
     skippedDuplicates: number;
     errors: string[];
+    anomalyCount: number;
   } | null>(null);
+  const upsertSignals = useOctaneStore((state) => state.upsertSignals);
+  const proposeAction = useOctaneStore((state) => state.proposeAction);
   const openDialog = useCallback(() => setDialogOpen(true), []);
   useOpenFromSearchParam("new", "1", openDialog);
 
@@ -147,7 +151,12 @@ function FinancePageContent() {
       const text = String(reader.result ?? "");
       const { rows, errors: parseErrors } = parseFinanceCsv(text);
       if (parseErrors.length > 0 && rows.length === 0) {
-        setCsvPreview({ added: 0, skippedDuplicates: 0, errors: parseErrors });
+        setCsvPreview({
+          added: 0,
+          skippedDuplicates: 0,
+          errors: parseErrors,
+          anomalyCount: 0,
+        });
         toast.error(parseErrors[0]);
         return;
       }
@@ -161,7 +170,29 @@ function FinancePageContent() {
         added: result.added,
         skippedDuplicates: result.skippedDuplicates,
         errors: allErrors,
+        anomalyCount: result.anomalyCount,
       });
+
+      if (result.anomalyCount > 0) {
+        const projectLinks = projects.map((p) => ({ id: p.id, name: p.name }));
+        const anomalySignals = buildLedgerAnomalySignals(
+          result.anomalies,
+          projectLinks,
+        );
+        upsertSignals(anomalySignals);
+        for (const signal of anomalySignals) {
+          proposeAction({
+            type: "create_task",
+            title: signal.title,
+            description: signal.summary,
+            payload: { signalId: signal.id, source: "finance_csv" },
+            source: "system",
+            riskLevel: "high",
+            projectId: signal.projectId,
+          });
+        }
+      }
+
       if (result.added > 0 || result.skippedDuplicates > 0) {
         const parts: string[] = [];
         if (result.added > 0) {
@@ -174,7 +205,16 @@ function FinancePageContent() {
             `${result.skippedDuplicates} duplicate${result.skippedDuplicates !== 1 ? "s" : ""} skipped`,
           );
         }
+        if (result.anomalyCount > 0) {
+          parts.push(
+            `${result.anomalyCount} burn anomal${result.anomalyCount === 1 ? "y" : "ies"} flagged`,
+          );
+        }
         toast.success(`Import complete: ${parts.join(", ")}`);
+      } else if (result.anomalyCount > 0) {
+        toast.warning(
+          `${result.anomalyCount} expense anomal${result.anomalyCount === 1 ? "y" : "ies"} flagged vs 30-day burn`,
+        );
       }
       if (allErrors.length > 0) {
         toast.warning(`${allErrors.length} row(s) had errors`);
@@ -246,6 +286,9 @@ function FinancePageContent() {
           Last CSV import: {csvPreview.added} added
           {csvPreview.skippedDuplicates > 0
             ? `, ${csvPreview.skippedDuplicates} duplicate${csvPreview.skippedDuplicates !== 1 ? "s" : ""} skipped`
+            : ""}
+          {csvPreview.anomalyCount > 0
+            ? ` · ${csvPreview.anomalyCount} anomaly flag${csvPreview.anomalyCount !== 1 ? "s" : ""}`
             : ""}
           {csvPreview.errors.length > 0
             ? ` · ${csvPreview.errors.length} warning(s)`

@@ -2,7 +2,9 @@ import {
   endOfMonth,
   isWithinInterval,
   parseISO,
+  startOfDay,
   startOfMonth,
+  subDays,
 } from "date-fns";
 
 import type { Project, Transaction } from "@/lib/types";
@@ -85,6 +87,34 @@ export function monthlyBurn(
   date: Date = new Date(),
 ): number {
   return monthlyExpenses(transactions, date);
+}
+
+/** Sum of expense outflows in the trailing N calendar days (inclusive of reference day). */
+export function expensesInLastNDays(
+  transactions: Transaction[],
+  days: number,
+  projectId?: string,
+  referenceDate: Date = new Date(),
+): number {
+  const end = startOfDay(referenceDate);
+  const start = subDays(end, days);
+  return transactions
+    .filter((transaction) => {
+      if (!isExpenseTransaction(transaction)) return false;
+      if (projectId && transaction.projectId !== projectId) return false;
+      const txnDate = startOfDay(parseISO(transaction.transactionDate));
+      return isWithinInterval(txnDate, { start, end });
+    })
+    .reduce((sum, transaction) => sum + Math.abs(transaction.amount), 0);
+}
+
+/** Trailing 30-day expense total used as projected monthly burn for anomaly checks. */
+export function projectedMonthlyBurnFromLast30Days(
+  transactions: Transaction[],
+  projectId?: string,
+  referenceDate: Date = new Date(),
+): number {
+  return expensesInLastNDays(transactions, 30, projectId, referenceDate);
 }
 
 export function runwayMonths(transactions: Transaction[]): number | null {
