@@ -3,10 +3,11 @@ import {
   differenceInCalendarDays,
   isBefore,
   isWithinInterval,
-  parseISO,
   startOfDay,
   subHours,
 } from "date-fns";
+
+import { safeParseISO } from "@/lib/dates/safe-parse";
 
 import {
   getMonthlyExpenses,
@@ -90,9 +91,10 @@ export type MorningBriefing = {
 
 function projectNameById(
   projects: Project[],
-  projectId: string,
+  projectId: string | undefined,
 ): string {
-  return projects.find((p) => p.id === projectId)?.name ?? "Unknown project";
+  if (!projectId) return "";
+  return projects.find((p) => p.id === projectId)?.name ?? "";
 }
 
 function selectOverdueTasks(
@@ -100,19 +102,21 @@ function selectOverdueTasks(
   projects: Project[],
   today: Date,
 ): BriefingTaskRef[] {
-  return tasks
+  return (tasks ?? [])
     .filter((task) => {
       if (task.status === "done" || !task.dueDate) return false;
-      return isBefore(startOfDay(parseISO(task.dueDate)), today);
+      const due = safeParseISO(task.dueDate);
+      if (!due) return false;
+      return isBefore(startOfDay(due), today);
     })
-    .map((task) => ({
-      task,
-      projectName: projectNameById(projects, task.projectId),
-      daysOverdue: differenceInCalendarDays(
-        today,
-        startOfDay(parseISO(task.dueDate!)),
-      ),
-    }))
+    .map((task) => {
+      const due = safeParseISO(task.dueDate!)!;
+      return {
+        task,
+        projectName: projectNameById(projects, task.projectId) || "Unassigned",
+        daysOverdue: differenceInCalendarDays(today, startOfDay(due)),
+      };
+    })
     .sort((a, b) => b.daysOverdue - a.daysOverdue);
 }
 
@@ -126,7 +130,7 @@ function selectBlockedTasks(
     medium: 2,
     low: 1,
   };
-  return tasks
+  return (tasks ?? [])
     .filter((t) => t.status === "blocked")
     .map((task) => ({
       task,
@@ -143,15 +147,17 @@ function selectStaleProjects(
   projects: Project[],
   today: Date,
 ): BriefingProjectRef[] {
-  return projects
+  return (projects ?? [])
     .filter((p) => isProjectStale(p, today))
-    .map((project) => ({
-      project,
-      daysSinceUpdate: differenceInCalendarDays(
-        today,
-        startOfDay(parseISO(project.updatedAt)),
-      ),
-    }))
+    .map((project) => {
+      const updated = safeParseISO(project.updatedAt);
+      return {
+        project,
+        daysSinceUpdate: updated
+          ? differenceInCalendarDays(today, startOfDay(updated))
+          : 0,
+      };
+    })
     .sort((a, b) => b.daysSinceUpdate - a.daysSinceUpdate);
 }
 
@@ -160,24 +166,25 @@ function selectDecisionsDue(
   projects: Project[],
   today: Date,
 ): BriefingDecisionRef[] {
-  return decisions
+  return (decisions ?? [])
     .filter((decision) => {
       if (!decision.reviewDate || !isPendingDecisionStatus(decision.status)) {
         return false;
       }
-      const review = startOfDay(parseISO(decision.reviewDate));
-      return review <= today;
+      const review = safeParseISO(decision.reviewDate);
+      if (!review) return false;
+      return startOfDay(review) <= today;
     })
-    .map((decision) => ({
-      decision,
-      projectName: decision.projectId
-        ? projectNameById(projects, decision.projectId)
-        : undefined,
-      daysUntilReview: differenceInCalendarDays(
-        startOfDay(parseISO(decision.reviewDate!)),
-        today,
-      ),
-    }))
+    .map((decision) => {
+      const review = safeParseISO(decision.reviewDate!)!;
+      return {
+        decision,
+        projectName: decision.projectId
+          ? projectNameById(projects, decision.projectId) || undefined
+          : undefined,
+        daysUntilReview: differenceInCalendarDays(startOfDay(review), today),
+      };
+    })
     .sort((a, b) => a.daysUntilReview - b.daysUntilReview);
 }
 
@@ -190,10 +197,12 @@ function selectUpcomingDeadlines(
   const end = addDays(today, horizonDays);
   const window = { start: today, end };
 
-  const taskDeadlines: BriefingDeadline[] = tasks
+  const taskDeadlines: BriefingDeadline[] = (tasks ?? [])
     .filter((task) => {
       if (task.status === "done" || !task.dueDate) return false;
-      const due = startOfDay(parseISO(task.dueDate));
+      const dueParsed = safeParseISO(task.dueDate);
+      if (!dueParsed) return false;
+      const due = startOfDay(dueParsed);
       return isWithinInterval(due, window);
     })
     .map((task) => ({
@@ -204,12 +213,14 @@ function selectUpcomingDeadlines(
       detail: `Task · ${task.priority} priority`,
     }));
 
-  const decisionDeadlines: BriefingDeadline[] = decisions
+  const decisionDeadlines: BriefingDeadline[] = (decisions ?? [])
     .filter((decision) => {
       if (!decision.reviewDate || !isPendingDecisionStatus(decision.status)) {
         return false;
       }
-      const review = startOfDay(parseISO(decision.reviewDate));
+      const reviewParsed = safeParseISO(decision.reviewDate);
+      if (!reviewParsed) return false;
+      const review = startOfDay(reviewParsed);
       return isWithinInterval(review, window) && review > today;
     })
     .map((decision) => ({
@@ -449,11 +460,13 @@ function buildMoneyWatch(
   financialAlerts: string[],
 ): string[] {
   const watch = [...financialAlerts];
-  const monthlyRev = getMonthlyRevenue(state.transactions, referenceDate);
-  const monthlyExp = getMonthlyExpenses(state.transactions, referenceDate);
+  const transactions = state.transactions ?? [];
+  const projects = state.projects ?? [];
+  const monthlyRev = getMonthlyRevenue(transactions, referenceDate);
+  const monthlyExp = getMonthlyExpenses(transactions, referenceDate);
 
-  for (const project of state.projects) {
-    const projectTx = state.transactions.filter(
+  for (const project of projects) {
+    const projectTx = transactions.filter(
       (t) => t.projectId === project.id,
     );
     const rev = getMonthlyRevenue(projectTx, referenceDate);
@@ -490,28 +503,31 @@ function selectUpcomingCompliance(
   today: Date,
 ): BriefingComplianceRef[] {
   const horizon = addDays(today, 30);
-  return reminders
+  return (reminders ?? [])
     .filter(
       (r) =>
         r.status !== "completed" &&
         r.status !== "cancelled" &&
         r.dueDate,
     )
-    .map((reminder) => ({
-      reminder,
-      daysUntilDue: differenceInCalendarDays(
-        startOfDay(parseISO(reminder.dueDate!)),
-        today,
-      ),
-    }))
-    .filter(({ reminder, daysUntilDue }) => {
-      if (!reminder.dueDate) return false;
-      const due = startOfDay(parseISO(reminder.dueDate));
+    .map((reminder) => {
+      const due = safeParseISO(reminder.dueDate!);
+      return {
+        reminder,
+        due,
+        daysUntilDue: due
+          ? differenceInCalendarDays(startOfDay(due), today)
+          : Number.POSITIVE_INFINITY,
+      };
+    })
+    .filter(({ reminder, due, daysUntilDue }) => {
+      if (!reminder.dueDate || !due) return false;
       return (
         daysUntilDue >= 0 &&
-        isWithinInterval(due, { start: today, end: horizon })
+        isWithinInterval(startOfDay(due), { start: today, end: horizon })
       );
     })
+    .map(({ reminder, daysUntilDue }) => ({ reminder, daysUntilDue }))
     .sort((a, b) => a.daysUntilDue - b.daysUntilDue)
     .slice(0, 8);
 }
@@ -521,37 +537,37 @@ export function generateMorningBriefing(
   referenceDate: Date = new Date(),
 ): MorningBriefing {
   const today = startOfDay(referenceDate);
-  const recentActivity24h = selectRecentActivity(
-    state.activityLogs,
-    referenceDate,
-  );
+  const tasks = state.tasks ?? [];
+  const projects = state.projects ?? [];
+  const decisions = state.decisions ?? [];
+  const transactions = state.transactions ?? [];
+  const agents = state.agents ?? [];
+  const activityLogs = state.activityLogs ?? [];
+  const complianceReminders = state.complianceReminders ?? [];
+
+  const recentActivity24h = selectRecentActivity(activityLogs, referenceDate);
   const upcomingCompliance = selectUpcomingCompliance(
-    state.complianceReminders,
+    complianceReminders,
     today,
   );
-  const monthlyRevenue = getMonthlyRevenue(state.transactions, referenceDate);
-  const monthlyExpenses = getMonthlyExpenses(state.transactions, referenceDate);
+  const monthlyRevenue = getMonthlyRevenue(transactions, referenceDate);
+  const monthlyExpenses = getMonthlyExpenses(transactions, referenceDate);
   const cashSnapshot: BriefingCashSnapshot = {
     monthlyRevenue,
     monthlyExpenses,
-    runwayMonths: getRunwayMonths(cashAvailable(state.transactions), monthlyBurn(state.transactions)),
+    runwayMonths: getRunwayMonths(
+      cashAvailable(transactions),
+      monthlyBurn(transactions),
+    ),
   };
 
-  const overdueTasks = selectOverdueTasks(state.tasks, state.projects, today);
-  const blockedWork = selectBlockedTasks(state.tasks, state.projects);
+  const overdueTasks = selectOverdueTasks(tasks, projects, today);
+  const blockedWork = selectBlockedTasks(tasks, projects);
   const blockedTasksCount = blockedWork.length;
-  const staleProjects = selectStaleProjects(state.projects, today);
-  const agentIssues = state.agents.filter((a) => a.status === "error");
-  const decisionsDue = selectDecisionsDue(
-    state.decisions,
-    state.projects,
-    today,
-  );
-  const upcomingDeadlines = selectUpcomingDeadlines(
-    state.tasks,
-    state.decisions,
-    today,
-  );
+  const staleProjects = selectStaleProjects(projects, today);
+  const agentIssues = agents.filter((a) => a.status === "error");
+  const decisionsDue = selectDecisionsDue(decisions, projects, today);
+  const upcomingDeadlines = selectUpcomingDeadlines(tasks, decisions, today);
 
   const financialAlerts: string[] = [];
   if (monthlyExpenses > monthlyRevenue) {
@@ -561,8 +577,8 @@ export function generateMorningBriefing(
   }
 
   const spendingNoRevenue: string[] = [];
-  for (const project of state.projects) {
-    const projectTx = state.transactions.filter(
+  for (const project of projects) {
+    const projectTx = transactions.filter(
       (t) => t.projectId === project.id,
     );
     const rev = getMonthlyRevenue(projectTx, referenceDate);

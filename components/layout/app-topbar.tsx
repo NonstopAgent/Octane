@@ -200,10 +200,6 @@ export function AppTopbar() {
                 <User className="size-4" />
                 Settings
               </DropdownMenuItem>
-              <DropdownMenuItem render={<Link href="/setup" />}>
-                <Sparkles className="size-4" />
-                Workspace Setup
-              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={handleLogout}

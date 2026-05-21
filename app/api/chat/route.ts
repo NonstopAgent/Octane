@@ -43,9 +43,17 @@ interface OctaneContext {
     severity: string;
     source: string;
     type: string;
+    isLive?: boolean;
+    isDerived?: boolean;
   }[];
   profile?: { name: string; role: string };
   activeEntityFilter?: string;
+  workspaceDataMode?: {
+    mode: "demo_seed" | "real_workspace" | "mixed";
+    label: string;
+    description: string;
+  };
+  gmailProvenance?: "live" | "mock" | null;
 }
 
 // ─── GitHub Tool Definitions ─────────────────────────────────────────────────
@@ -294,12 +302,23 @@ function buildSystemPrompt(ctx: OctaneContext): string {
     "",
     "When Logan asks about a repo or mentions a problem with Ajax/Nexus, use these tools immediately. Don't wait for permission. Report what you found and what you did.",
     "",
+    "## WORKSPACE DATA MODE",
+    ctx.workspaceDataMode
+      ? `Current mode: **${ctx.workspaceDataMode.label}** (${ctx.workspaceDataMode.mode}). ${ctx.workspaceDataMode.description}`
+      : "Workspace data mode unknown — treat portfolio metrics as user-owned unless clearly marked demo.",
+    ctx.gmailProvenance === "mock"
+      ? "Gmail connector is in **sandbox/simulated** mode (no GMAIL_ACCESS_TOKEN). Treat Gmail-class signals as illustrative until triaged and confirmed live."
+      : ctx.gmailProvenance === "live"
+        ? "Gmail connector is **live** — Gmail-sourced signals reflect real inbox metadata."
+        : "",
+    "",
     "## SIGNAL LEDGER (cross-reference when advising)",
-    "When answering strategy, risk, or 'what should I do' questions, cross-reference the live Signal ledger in context:",
-    "- Prioritize **active developer blockers** (blocked tasks, Vercel deployment failures, Gmail security/build alerts) over stale or static backlog items",
-    "- Treat critical/high Gmail and `[Vercel] Deployment Failure` signals as immediate portfolio risks",
+    "When answering strategy, risk, or 'what should I do' questions, cross-reference the active Signal ledger in context:",
+    "- The signals list reflects **current triage state** (resolved/dismissed items are excluded)",
+    "- Prioritize **active developer blockers** (blocked tasks, Vercel deployment failures, Gmail security/build alerts) over stale backlog items",
+    "- Treat critical/high **Gmail** and **Vercel** signals as immediate portfolio risks when live; downgrade urgency for sandbox Gmail (`isDerived` / mock provenance)",
     "- Finance-class Gmail signals (invoice, payment) tie to runway decisions; opportunity-class signals tie to Nexus/Ajax GTM",
-    "- If signals conflict with task lists, trust fresher connector signals (Gmail/Vercel) for operational urgency",
+    "- If signals conflict with task lists, trust fresher live connector signals (Gmail/Vercel) for operational urgency",
     "",
     "## LOGAN'S DIRECTION",
     "1. Ajax and Nexus should run themselves with minimal manual work from Logan",
@@ -406,8 +425,14 @@ function buildSystemPrompt(ctx: OctaneContext): string {
     if (active.length > 0) {
       lines.push("## LIVE SIGNAL LEDGER (top priority)");
       active.forEach((s) => {
+        const provenance =
+          s.source === "gmail" && s.isDerived
+            ? "sandbox"
+            : s.source === "gmail" && s.isLive
+              ? "live"
+              : s.source;
         lines.push(
-          `- [${s.severity.toUpperCase()}] [${s.source}/${s.type}] ${s.title}: ${s.summary}`,
+          `- [${s.severity.toUpperCase()}] [${provenance}/${s.type}] ${s.title}: ${s.summary}`,
         );
       });
       lines.push("");

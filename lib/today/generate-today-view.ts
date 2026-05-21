@@ -1,11 +1,11 @@
 import {
+  differenceInCalendarDays,
+  isBefore,
   isSameDay,
-  parseISO,
   startOfDay,
 } from "date-fns";
 
-import { generateMorningBriefing } from "@/lib/briefing/generate-briefing";
-import type { BriefingDecisionRef, BriefingTaskRef } from "@/lib/briefing/generate-briefing";
+import { safeParseISO } from "@/lib/dates/safe-parse";
 import { isOpenTaskStatus } from "@/lib/dashboard/metrics";
 import type { OctanePersistedState } from "@/lib/store/octane-store";
 import type { Project, Task, TaskPriority } from "@/lib/types";
@@ -15,13 +15,22 @@ export type TodayTaskRef = {
   projectName: string;
 };
 
+export type TodayOverdueTaskRef = TodayTaskRef & {
+  daysOverdue: number;
+};
+
+export type TodayBlockedProjectRef = {
+  project: Project;
+  blockedCount: number;
+};
+
 export type TodayViewData = {
   generatedAt: string;
   dueToday: TodayTaskRef[];
-  overdue: BriefingTaskRef[];
+  overdue: TodayOverdueTaskRef[];
   blocked: TodayTaskRef[];
+  blockedProjects: TodayBlockedProjectRef[];
   highPriorityOpen: TodayTaskRef[];
-  decisionsNeedingReview: BriefingDecisionRef[];
 };
 
 const PRIORITY_WEIGHT: Record<TaskPriority, number> = {
@@ -31,14 +40,15 @@ const PRIORITY_WEIGHT: Record<TaskPriority, number> = {
   low: 5,
 };
 
-function projectNameById(projects: Project[], projectId: string): string {
-  return projects.find((p) => p.id === projectId)?.name ?? "Unknown project";
+function projectNameById(projects: Project[], projectId: string | undefined): string {
+  if (!projectId) return "";
+  return projects.find((p) => p.id === projectId)?.name ?? "";
 }
 
 function toTaskRef(task: Task, projects: Project[]): TodayTaskRef {
   return {
     task,
-    projectName: projectNameById(projects, task.projectId),
+    projectName: projectNameById(projects, task.projectId) || "Unassigned",
   };
 }
 
@@ -47,10 +57,12 @@ function selectDueTodayTasks(
   projects: Project[],
   today: Date,
 ): TodayTaskRef[] {
-  return tasks
+  return (tasks ?? [])
     .filter((task) => {
       if (task.status === "done" || !task.dueDate) return false;
-      return isSameDay(startOfDay(parseISO(task.dueDate)), today);
+      const due = safeParseISO(task.dueDate);
+      if (!due) return false;
+      return isSameDay(startOfDay(due), today);
     })
     .map((task) => toTaskRef(task, projects))
     .sort((a, b) => {
@@ -61,8 +73,30 @@ function selectDueTodayTasks(
     });
 }
 
+function selectOverdueTasks(
+  tasks: Task[],
+  projects: Project[],
+  today: Date,
+): TodayOverdueTaskRef[] {
+  return (tasks ?? [])
+    .filter((task) => {
+      if (task.status === "done" || !task.dueDate) return false;
+      const due = safeParseISO(task.dueDate);
+      if (!due) return false;
+      return isBefore(startOfDay(due), today);
+    })
+    .map((task) => {
+      const due = safeParseISO(task.dueDate!)!;
+      return {
+        ...toTaskRef(task, projects),
+        daysOverdue: differenceInCalendarDays(today, startOfDay(due)),
+      };
+    })
+    .sort((a, b) => b.daysOverdue - a.daysOverdue);
+}
+
 function selectBlockedTasks(tasks: Task[], projects: Project[]): TodayTaskRef[] {
-  return tasks
+  return (tasks ?? [])
     .filter((t) => t.status === "blocked")
     .map((task) => toTaskRef(task, projects))
     .sort(
@@ -71,11 +105,31 @@ function selectBlockedTasks(tasks: Task[], projects: Project[]): TodayTaskRef[] 
     );
 }
 
+function selectBlockedProjects(
+  tasks: Task[],
+  projects: Project[],
+): TodayBlockedProjectRef[] {
+  const counts = new Map<string, number>();
+  for (const task of tasks ?? []) {
+    if (task.status !== "blocked" || !task.projectId) continue;
+    counts.set(task.projectId, (counts.get(task.projectId) ?? 0) + 1);
+  }
+
+  return [...counts.entries()]
+    .map(([projectId, blockedCount]) => {
+      const project = (projects ?? []).find((p) => p.id === projectId);
+      if (!project) return null;
+      return { project, blockedCount };
+    })
+    .filter((row): row is TodayBlockedProjectRef => row !== null)
+    .sort((a, b) => b.blockedCount - a.blockedCount);
+}
+
 function selectHighPriorityOpen(
   tasks: Task[],
   projects: Project[],
 ): TodayTaskRef[] {
-  return tasks
+  return (tasks ?? [])
     .filter(
       (t) =>
         isOpenTaskStatus(t.status) &&
@@ -103,14 +157,15 @@ export function generateTodayView(
   referenceDate: Date = new Date(),
 ): TodayViewData {
   const today = startOfDay(referenceDate);
-  const briefing = generateMorningBriefing(state, referenceDate);
+  const tasks = state.tasks ?? [];
+  const projects = state.projects ?? [];
 
   return {
-    generatedAt: briefing.generatedAt,
-    dueToday: selectDueTodayTasks(state.tasks, state.projects, today),
-    overdue: briefing.overdueTasks,
-    blocked: selectBlockedTasks(state.tasks, state.projects),
-    highPriorityOpen: selectHighPriorityOpen(state.tasks, state.projects),
-    decisionsNeedingReview: briefing.decisionsDue,
+    generatedAt: referenceDate.toISOString(),
+    dueToday: selectDueTodayTasks(tasks, projects, today),
+    overdue: selectOverdueTasks(tasks, projects, today),
+    blocked: selectBlockedTasks(tasks, projects),
+    blockedProjects: selectBlockedProjects(tasks, projects),
+    highPriorityOpen: selectHighPriorityOpen(tasks, projects),
   };
 }

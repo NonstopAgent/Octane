@@ -1,9 +1,10 @@
 "use client";
 
-import { format, parseISO } from "date-fns";
+import { format } from "date-fns";
 import {
   AlertCircle,
   CheckCircle2,
+  FolderKanban,
   ListTodo,
   Plus,
   Scale,
@@ -17,7 +18,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 
 import { PageHeader } from "@/components/layout/page-header";
-import { EmptyState, StatusBadge } from "@/components/modules";
+import { EmptyState } from "@/components/modules";
 import { AddNoteDialog } from "@/components/modules/today/add-note-dialog";
 import { TodayTaskRow } from "@/components/modules/today/task-row";
 import { TodaySection } from "@/components/modules/today/today-section";
@@ -35,46 +36,24 @@ import {
 } from "@/lib/store/octane-store";
 import { generateTodayView } from "@/lib/today/generate-today-view";
 
-// Targeted selector — only subscribe to fields generateTodayView needs.
-// Avoids re-renders from unrelated state changes (e.g. signals updates).
 function selectTodayState(s: OctaneStore) {
   return {
-    profile: s.profile,
-    projects: s.projects,
-    tasks: s.tasks,
-    decisions: s.decisions,
-    roadmapItems: s.roadmapItems,
-    transactions: s.transactions,
-    documents: s.documents,
-    ipAssets: s.ipAssets,
-    entities: s.entities,
-    agents: s.agents,
-    activityLogs: s.activityLogs,
-    workSessions: s.workSessions,
-    inboxItems: s.inboxItems,
-    founderNotes: s.founderNotes,
-    complianceReminders: s.complianceReminders,
-    legalQuestions: s.legalQuestions,
-    formationChecklistItems: s.formationChecklistItems,
-    agentLogs: s.agentLogs,
-    agentRuns: s.agentRuns,
-    connections: s.connections,
-    octaneActions: s.octaneActions,
-    projectConnections: s.projectConnections,
-    codingJobs: s.codingJobs,
+    projects: s.projects ?? [],
+    tasks: s.tasks ?? [],
+    signals: s.signals ?? [],
   };
 }
 
 export function TodayView() {
   const state = useOctaneStore(useShallow(selectTodayState));
   const workspace = useOctaneStore(useShallow(selectWorkspaceForSignals));
-  const storedSignals = useOctaneStore((s) => s.signals);
+  const storedSignals = useOctaneStore((s) => s.signals ?? []);
   const [showStartSession, setShowStartSession] = useState(false);
   const [noteOpen, setNoteOpen] = useState(false);
 
   const today = useMemo(
-    () => generateTodayView({ ...state, signals: storedSignals }),
-    [state, storedSignals],
+    () => generateTodayView({ ...workspace, ...state }),
+    [workspace, state],
   );
 
   const activeSignals = useMemo(
@@ -87,6 +66,14 @@ export function TodayView() {
 
   const openSession = useCallback(() => setShowStartSession(true), []);
   useOpenFromSearchParam("session", "1", openSession);
+
+  const generatedLabel = useMemo(() => {
+    const parsed = new Date(today.generatedAt);
+    if (Number.isNaN(parsed.getTime())) {
+      return format(new Date(), "EEEE, MMM d");
+    }
+    return format(parsed, "EEEE, MMM d");
+  }, [today.generatedAt]);
 
   if (state.projects.length === 0 && state.tasks.length === 0) {
     return (
@@ -114,7 +101,7 @@ export function TodayView() {
     <div className="space-y-8">
       <PageHeader
         title="Today"
-        description={`Execution dashboard · ${format(new Date(today.generatedAt), "EEEE, MMM d")}`}
+        description={`Execution dashboard · ${generatedLabel}`}
         actions={
           <div className="flex flex-wrap gap-2">
             <Button type="button" onClick={() => setShowStartSession(true)}>
@@ -151,6 +138,33 @@ export function TodayView() {
         showStartForm={showStartSession}
         onShowStartFormChange={setShowStartSession}
       />
+
+      {today.blockedProjects.length > 0 ? (
+        <TodaySection
+          title="Blocked projects"
+          description="Projects with one or more blocked tasks"
+          icon={FolderKanban}
+        >
+          <ul className="space-y-2">
+            {today.blockedProjects.map(({ project, blockedCount }) => (
+              <li
+                key={project.id}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-900/40 bg-amber-950/15 px-3 py-2.5"
+              >
+                <Link
+                  href={`/projects?detail=${project.id}`}
+                  className="text-sm font-medium text-zinc-100 hover:text-amber-200"
+                >
+                  {project.name}
+                </Link>
+                <span className="text-xs font-medium text-amber-300/90">
+                  {blockedCount} blocked
+                </span>
+              </li>
+            ))}
+          </ul>
+        </TodaySection>
+      ) : null}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <TaskListSection
@@ -221,52 +235,6 @@ export function TodayView() {
           </ul>
         </TodaySection>
       ) : null}
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <TodaySection
-          title="Decisions needing review"
-          description="Active decisions at or past review date"
-          icon={Scale}
-        >
-          {today.decisionsNeedingReview.length === 0 ? (
-            <EmptyState
-              icon={CheckCircle2}
-              title="No decisions due"
-              description="No active decisions need review today."
-            />
-          ) : (
-            <ul className="space-y-3">
-              {today.decisionsNeedingReview.map(
-                ({ decision, projectName, daysUntilReview }) => (
-                  <li
-                    key={decision.id}
-                    className="rounded-lg border border-zinc-800/90 bg-zinc-950/40 p-3"
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <p className="font-medium text-zinc-100">{decision.title}</p>
-                      <StatusBadge domain="decision" status={decision.status} />
-                    </div>
-                    {projectName ? (
-                      <p className="mt-1 text-xs text-zinc-500">{projectName}</p>
-                    ) : null}
-                    <p className="mt-2 text-xs text-zinc-600">
-                      {daysUntilReview < 0
-                        ? `${Math.abs(daysUntilReview)} days overdue`
-                        : daysUntilReview === 0
-                          ? "Due today"
-                          : `Due in ${daysUntilReview} days`}
-                      {decision.reviewDate
-                        ? ` · ${format(parseISO(decision.reviewDate), "MMM d, yyyy")}`
-                        : null}
-                    </p>
-                  </li>
-                ),
-              )}
-            </ul>
-          )}
-        </TodaySection>
-
-      </div>
 
       <AddNoteDialog open={noteOpen} onOpenChange={setNoteOpen} />
     </div>

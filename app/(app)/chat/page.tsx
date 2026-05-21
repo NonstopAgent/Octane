@@ -16,6 +16,7 @@ import { useShallow } from "zustand/react/shallow";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { parseOctaneCommand } from "@/lib/actions/parse-octane-command";
+import { detectWorkspaceDataMode } from "@/lib/data/workspace-mode";
 import {
   buildDisplaySignals,
   selectActiveSignals,
@@ -306,10 +307,13 @@ function ChatPageContent() {
       summary: d.summary,
     }));
 
-    const signals = selectActiveSignals(
-      buildDisplaySignals(workspace, storedSignals),
-    )
-      .filter((s) => s.severity === "critical" || s.severity === "high")
+    const displaySignals = buildDisplaySignals(workspace, storedSignals);
+    const signals = selectActiveSignals(displaySignals)
+      .filter(
+        (s) =>
+          (s.severity === "critical" || s.severity === "high") &&
+          (s.source === "gmail" || s.source === "vercel"),
+      )
       .slice(0, 12)
       .map((s) => ({
         title: s.title,
@@ -317,7 +321,24 @@ function ChatPageContent() {
         severity: s.severity,
         source: s.source,
         type: s.type,
+        isLive: s.isLive,
+        isDerived: s.isDerived,
       }));
+
+    const gmailSignals = displaySignals.filter((s) => s.source === "gmail");
+    const gmailProvenance: "live" | "mock" | null = gmailSignals.some(
+      (s) => s.isLive,
+    )
+      ? "live"
+      : gmailSignals.some((s) => s.isDerived)
+        ? "mock"
+        : null;
+
+    const workspaceDataMode = detectWorkspaceDataMode({
+      profile: state.profile,
+      projects: state.projects,
+      projectConnections: state.projectConnections,
+    });
 
     return {
       projects,
@@ -331,6 +352,12 @@ function ChatPageContent() {
         ? { name: state.profile.name, role: state.profile.role }
         : undefined,
       activeEntityFilter: entityFilter !== "all" ? entityFilter : undefined,
+      workspaceDataMode: {
+        mode: workspaceDataMode.mode,
+        label: workspaceDataMode.label,
+        description: workspaceDataMode.description,
+      },
+      gmailProvenance,
     };
   }, [state, entityFilter, workspace, storedSignals]);
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { differenceInMinutes, format, formatDistanceToNow, parseISO } from "date-fns";
+import { differenceInMinutes, format, formatDistanceToNow } from "date-fns";
 import { Clock, Play, Square, XCircle } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { safeParseISO } from "@/lib/dates/safe-parse";
 import { useOctaneStore } from "@/lib/store/octane-store";
 import type { Project, Task, WorkSession } from "@/lib/types";
 
@@ -22,9 +23,9 @@ export function WorkSessionPanel({
   showStartForm: boolean;
   onShowStartFormChange: (open: boolean) => void;
 }) {
-  const workSessions = useOctaneStore((s) => s.workSessions);
-  const projects = useOctaneStore((s) => s.projects);
-  const tasks = useOctaneStore((s) => s.tasks);
+  const workSessions = useOctaneStore((s) => s.workSessions ?? []);
+  const projects = useOctaneStore((s) => s.projects ?? []);
+  const tasks = useOctaneStore((s) => s.tasks ?? []);
   const startWorkSession = useOctaneStore((s) => s.startWorkSession);
   const completeWorkSession = useOctaneStore((s) => s.completeWorkSession);
   const abandonWorkSession = useOctaneStore((s) => s.abandonWorkSession);
@@ -265,7 +266,10 @@ function ActiveSessionCard({
   onComplete: () => void;
   onAbandon: () => void;
 }) {
-  const elapsed = differenceInMinutes(new Date(), parseISO(session.startedAt));
+  const startedAt = safeParseISO(session.startedAt);
+  const elapsed = startedAt
+    ? differenceInMinutes(new Date(), startedAt)
+    : 0;
   const linkedTask = session.taskId
     ? tasks.find((t) => t.id === session.taskId)
     : undefined;
@@ -279,7 +283,10 @@ function ActiveSessionCard({
         <div>
           <p className="font-medium text-zinc-100">{session.title}</p>
           <p className="mt-1 text-xs text-zinc-500">
-            Started {formatDistanceToNow(parseISO(session.startedAt), { addSuffix: true })}
+            Started{" "}
+            {startedAt
+              ? formatDistanceToNow(startedAt, { addSuffix: true })
+              : "recently"}
             {linkedProject ? ` · ${linkedProject.name}` : null}
             {linkedTask ? ` · ${linkedTask.title}` : null}
           </p>
@@ -335,17 +342,16 @@ function SessionHistoryRow({
   const taskTitle = session.taskId
     ? tasks.find((t) => t.id === session.taskId)?.title
     : undefined;
-  const ended = session.endedAt ?? session.updatedAt;
+  const endedAt = safeParseISO(session.endedAt ?? session.updatedAt);
 
   return (
     <li className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-zinc-800/90 bg-zinc-950/40 px-3 py-2 text-sm">
       <div>
         <p className="text-zinc-200">{session.title}</p>
         <p className="text-xs text-zinc-500">
-          {session.projectId ? projectNames[session.projectId] : "No project"}
+          {session.projectId ? projectNames[session.projectId] ?? "Unknown project" : "No project"}
           {taskTitle ? ` · ${taskTitle}` : ""}
-          {" · "}
-          {format(parseISO(ended), "MMM d, h:mm a")}
+          {endedAt ? ` · ${format(endedAt, "MMM d, h:mm a")}` : null}
         </p>
       </div>
       <span

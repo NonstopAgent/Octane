@@ -14,7 +14,7 @@ import { useShallow } from "zustand/react/shallow";
 
 import { AgentMonitorTable } from "@/components/modules/agents/agent-monitor-table";
 import { PageHeader } from "@/components/layout/page-header";
-import { EmptyState } from "@/components/modules";
+import { EmptyState, MetricCard } from "@/components/modules";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -67,6 +67,29 @@ export default function BriefingPage() {
         title="Morning Briefing"
         description={`Read-only daily digest · ${format(new Date(briefing.generatedAt), "EEEE, MMM d")}`}
       />
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <MetricCard
+          title="Monthly revenue"
+          value={formatCurrency(briefing.cashSnapshot.monthlyRevenue)}
+          icon={DollarSign}
+        />
+        <MetricCard
+          title="Monthly burn"
+          value={formatCurrency(briefing.cashSnapshot.monthlyExpenses)}
+          icon={DollarSign}
+        />
+        <MetricCard
+          title="Runway"
+          value={formatRunway(briefing.cashSnapshot.runwayMonths)}
+          icon={DollarSign}
+        />
+        <MetricCard
+          title="Blocked tasks"
+          value={String(briefing.blockedTasksCount)}
+          icon={AlertCircle}
+        />
+      </div>
 
       <BriefingSection
         title="Last 24 hours"
