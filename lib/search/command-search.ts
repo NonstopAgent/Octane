@@ -259,7 +259,7 @@ export function searchCommandIndex(
     }
   }
 
-  const pendingCount = state.octaneActions?.filter((a) => a.status === "proposed")
+  const pendingCount = state.octaneActions?.filter((a) => a.status === "pending")
     .length ?? 0;
   if (
     pendingCount > 0 &&

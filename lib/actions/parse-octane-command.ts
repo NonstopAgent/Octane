@@ -1,7 +1,11 @@
 import { resolveCodingRepo } from "@/lib/coding/github-repo-context";
 import { inferGithubRepoFromText } from "@/lib/integrations/infer-github-repo";
 import type { CodingJobMode } from "@/lib/types/coding-job";
-import type { OctaneAction, OctaneActionSource, OctaneActionType } from "@/lib/types/octane-action";
+import type {
+  OctaneAction,
+  OctaneActionSource,
+  OctaneActionType,
+} from "@/lib/types/octane-action";
 import type { ProjectConnection } from "@/lib/types/project-connection";
 
 export type ParseOctaneCommandInput = {
@@ -20,8 +24,13 @@ export type ParsedCodingJobIntent = {
   mode: CodingJobMode;
 };
 
+export type ParsedOctaneActionProposal = Omit<
+  OctaneAction,
+  "id" | "status" | "createdAt"
+>;
+
 export type ParseOctaneCommandResult = {
-  actions: OctaneAction[];
+  actions: ParsedOctaneActionProposal[];
   replies: string[];
   codingJob?: ParsedCodingJobIntent;
 };
@@ -47,10 +56,6 @@ function buildCodingJobIntent(
   };
 }
 
-function actionId(): string {
-  return `action-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
 function propose(
   type: OctaneActionType,
   title: string,
@@ -58,17 +63,15 @@ function propose(
   payload: Record<string, unknown>,
   source: OctaneActionSource,
   projectId?: string,
-): OctaneAction {
+): ParsedOctaneActionProposal {
   return {
-    id: actionId(),
     type,
-    status: "proposed",
     title,
     description,
     payload,
     source,
     projectId,
-    proposedAt: new Date().toISOString(),
+    riskLevel: "medium",
   };
 }
 
@@ -83,8 +86,8 @@ export function parseOctaneCommand(input: ParseOctaneCommandInput): ParseOctaneC
   if (!text) return { actions: [], replies: [] };
 
   const lower = text.toLowerCase();
-  const source = input.source ?? "chat";
-  const actions: OctaneAction[] = [];
+  const source = input.source ?? "advisor";
+  const actions: ParsedOctaneActionProposal[] = [];
   const replies: string[] = [];
 
   const addProject =
@@ -346,7 +349,7 @@ export function parseOctaneCommand(input: ParseOctaneCommandInput): ParseOctaneC
           body,
           labels: /\bhotfix\b/i.test(text) ? ["bug"] : [],
         },
-        source,
+        "github",
         input.projectId,
       ),
     );

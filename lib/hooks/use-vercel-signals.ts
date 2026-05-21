@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 
+import { syncSignalActionProposals } from "@/lib/actions/sync-signal-action-proposals";
 import { resolveVercelProjectNames } from "@/lib/signals/vercel-deployment-signals";
 import {
   selectOctanePersistedState,
@@ -49,6 +50,7 @@ export function useVercelSignals() {
       const signals = data.signals ?? [];
       if (signals.length > 0) {
         upsertSignals(signals);
+        syncSignalActionProposals(useOctaneStore.getState, signals);
       }
       if (signals.length > 0 || data.configured) {
         recordActivity({

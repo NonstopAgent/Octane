@@ -327,7 +327,7 @@ function agentSignals(state: OctanePersistedState): Signal[] {
 function actionSignals(state: OctanePersistedState): Signal[] {
   const signals: Signal[] = [];
 
-  const pendingApprovals = state.octaneActions.filter((a) => a.status === "proposed");
+  const pendingApprovals = state.octaneActions.filter((a) => a.status === "pending");
   if (pendingApprovals.length > 0) {
     signals.push(
       makeSignal({
@@ -336,7 +336,7 @@ function actionSignals(state: OctanePersistedState): Signal[] {
         entityId: "pending-actions",
         severity: pendingApprovals.length > 3 ? "high" : "medium",
         title: `${pendingApprovals.length} action${pendingApprovals.length !== 1 ? "s" : ""} awaiting your approval`,
-        summary: `You have ${pendingApprovals.length} proposed action${pendingApprovals.length !== 1 ? "s" : ""} waiting for review.`,
+        summary: `You have ${pendingApprovals.length} pending action${pendingApprovals.length !== 1 ? "s" : ""} waiting for review.`,
         recommendedAction: "Review and approve or reject pending actions.",
       }),
     );

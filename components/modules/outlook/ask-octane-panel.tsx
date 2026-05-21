@@ -408,7 +408,7 @@ export function AskOctanePanel() {
 
     const parsed = parseOctaneCommand({
       text: trimmed,
-      source: "chat",
+      source: "advisor",
       projectConnections: state.projectConnections,
       projects: state.projects.map((p) => ({ id: p.id, name: p.name })),
     });

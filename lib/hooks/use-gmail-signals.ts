@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react";
 
+import { syncSignalActionProposals } from "@/lib/actions/sync-signal-action-proposals";
 import { normalizeGmailSignals } from "@/lib/signals/normalize-gmail-signals";
 import { useOctaneStore } from "@/lib/store/octane-store";
 import type { GmailMessage } from "@/lib/types/gmail-message";
@@ -39,6 +40,7 @@ export function useGmailSignals() {
           ? data.signals
           : normalizeGmailSignals(data.messages ?? []);
       upsertSignals(signals);
+      syncSignalActionProposals(useOctaneStore.getState, signals);
       setLastProvenance(data.provenance);
       recordActivity({
         action: "updated",

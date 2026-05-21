@@ -265,11 +265,22 @@ export interface OctaneStore extends OctanePersistedState {
   getConnectionById: (id: string) => Connection | undefined;
 
   // Octane actions (approval flow)
+  proposeAction: (
+    data: Omit<OctaneAction, "id" | "status" | "createdAt">,
+  ) => OctaneAction;
+  proposeActions: (
+    actions: Omit<OctaneAction, "id" | "status" | "createdAt">[],
+  ) => OctaneAction[];
+  updateActionStatus: (
+    id: string,
+    status: OctaneAction["status"],
+    opts?: { errorMessage?: string },
+  ) => void;
   proposeOctaneAction: (
-    data: Omit<OctaneAction, "id" | "status" | "proposedAt">,
+    data: Omit<OctaneAction, "id" | "status" | "createdAt">,
   ) => OctaneAction;
   proposeOctaneActions: (
-    actions: Omit<OctaneAction, "id" | "status" | "proposedAt">[],
+    actions: Omit<OctaneAction, "id" | "status" | "createdAt">[],
   ) => OctaneAction[];
   approveOctaneAction: (id: string) => void;
   rejectOctaneAction: (id: string) => void;
@@ -1556,12 +1567,12 @@ export const useOctaneStore = create<OctaneStore>()(
       },
       getConnectionById: (id) => get().connections.find((c) => c.id === id),
 
-      proposeOctaneAction: (data) => {
+      proposeAction: (data) => {
         const action: OctaneAction = {
           ...data,
           id: createId("action"),
-          status: "proposed",
-          proposedAt: new Date().toISOString(),
+          status: "pending",
+          createdAt: new Date().toISOString(),
         };
         set((state) => ({
           octaneActions: [action, ...state.octaneActions],
@@ -1575,24 +1586,53 @@ export const useOctaneStore = create<OctaneStore>()(
         });
         return action;
       },
-      proposeOctaneActions: (items) =>
-        items.map((item) => get().proposeOctaneAction(item)),
+      proposeActions: (items) => items.map((item) => get().proposeAction(item)),
+      proposeOctaneAction: (data) => get().proposeAction(data),
+      proposeOctaneActions: (items) => get().proposeActions(items),
 
-      approveOctaneAction: (id) => {
-        const action = get().octaneActions.find((a) => a.id === id);
-        if (!action || action.status !== "proposed") return;
-
+      updateActionStatus: (id, status, opts) => {
+        const existing = get().octaneActions.find((a) => a.id === id);
+        if (!existing) return;
         set((state) => ({
           octaneActions: state.octaneActions.map((a) =>
             a.id === id
               ? {
                   ...a,
-                  status: "approved" as const,
-                  resolvedAt: new Date().toISOString(),
+                  status,
+                  resolvedAt:
+                    status === "pending" ? undefined : new Date().toISOString(),
+                  errorMessage:
+                    status === "executed" && opts?.errorMessage
+                      ? opts.errorMessage
+                      : status === "pending"
+                        ? undefined
+                        : a.errorMessage,
                 }
               : a,
           ),
         }));
+        if (status !== "pending" && existing) {
+          const label =
+            status === "executed"
+              ? opts?.errorMessage
+                ? "Failed"
+                : "Executed"
+              : status.charAt(0).toUpperCase() + status.slice(1);
+          logActivity(set, get, {
+            action: "updated",
+            entityType: "system",
+            entityId: id,
+            entityName: existing.title,
+            description: `${label}: ${existing.title}${opts?.errorMessage ? ` — ${opts.errorMessage}` : ""}`,
+          });
+        }
+      },
+
+      approveOctaneAction: (id) => {
+        const action = get().octaneActions.find((a) => a.id === id);
+        if (!action || action.status !== "pending") return;
+
+        get().updateActionStatus(id, "approved");
 
         const approved = get().octaneActions.find((a) => a.id === id);
         if (!approved) return;
@@ -1610,74 +1650,13 @@ export const useOctaneStore = create<OctaneStore>()(
         }
       },
       rejectOctaneAction: (id) => {
-        const existing = get().octaneActions.find((a) => a.id === id);
-        set((state) => ({
-          octaneActions: state.octaneActions.map((a) =>
-            a.id === id
-              ? {
-                  ...a,
-                  status: "rejected" as const,
-                  resolvedAt: new Date().toISOString(),
-                }
-              : a,
-          ),
-        }));
-        if (existing) {
-          logActivity(set, get, {
-            action: "updated",
-            entityType: "system",
-            entityId: id,
-            entityName: existing.title,
-            description: `Rejected: ${existing.title}`,
-          });
-        }
+        get().updateActionStatus(id, "rejected");
       },
       completeOctaneAction: (id) => {
-        const existing = get().octaneActions.find((a) => a.id === id);
-        set((state) => ({
-          octaneActions: state.octaneActions.map((a) =>
-            a.id === id
-              ? {
-                  ...a,
-                  status: "completed" as const,
-                  resolvedAt: new Date().toISOString(),
-                }
-              : a,
-          ),
-        }));
-        if (existing) {
-          logActivity(set, get, {
-            action: "updated",
-            entityType: "system",
-            entityId: id,
-            entityName: existing.title,
-            description: `Completed: ${existing.title}`,
-          });
-        }
+        get().updateActionStatus(id, "executed");
       },
       failOctaneAction: (id, errorMessage) => {
-        const existing = get().octaneActions.find((a) => a.id === id);
-        set((state) => ({
-          octaneActions: state.octaneActions.map((a) =>
-            a.id === id
-              ? {
-                  ...a,
-                  status: "failed" as const,
-                  errorMessage,
-                  resolvedAt: new Date().toISOString(),
-                }
-              : a,
-          ),
-        }));
-        if (existing) {
-          logActivity(set, get, {
-            action: "updated",
-            entityType: "system",
-            entityId: id,
-            entityName: existing.title,
-            description: `Failed: ${existing.title} — ${errorMessage}`,
-          });
-        }
+        get().updateActionStatus(id, "executed", { errorMessage });
       },
       getOctaneActionById: (id) => get().octaneActions.find((a) => a.id === id),
 

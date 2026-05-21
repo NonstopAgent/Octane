@@ -339,7 +339,7 @@ export default function DashboardPage() {
           className="rounded-xl border border-zinc-800/80 bg-zinc-900/30 px-4 py-3 hover:border-amber-800/40"
         >
           <p className="text-lg font-bold text-zinc-100">
-            {state.octaneActions.filter((a) => a.status === "proposed").length}
+            {state.octaneActions.filter((a) => a.status === "pending").length}
           </p>
           <p className="mt-0.5 text-[11px] text-zinc-500">Pending approvals</p>
         </Link>

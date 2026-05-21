@@ -8,7 +8,7 @@ export default function AgentsPage() {
     <div className="space-y-8">
       <PageHeader
         title="Agent Monitor"
-        description="Read-only view of Octane Ajax and Nexus operators — live GitHub activity, no configuration here."
+        description="Read-only view of Octane Ajax and Nexus operators — click a row for tasks, pending actions, and activity."
       />
 
       <AgentMonitorTable />

@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { ExternalLink, GitBranch } from "lucide-react";
 import Link from "next/link";
 
+import { AgentOperationalSheet } from "@/components/modules/agents/agent-operational-sheet";
 import { AgentStatusBadge } from "@/components/modules/agents/agent-status-badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { PROJECT_IDS } from "@/lib/mock/seed";
+import type { OctaneActionSource } from "@/lib/types/octane-action";
 import { cn } from "@/lib/utils";
 
 export type AgentMonitorStatus = "active" | "idle" | "error" | "loading";
@@ -19,6 +21,8 @@ export type AgentMonitorRow = {
   repo: string;
   projectId: string;
   pipelineNote: string;
+  actionSources: OctaneActionSource[];
+  activityKeywords: string[];
 };
 
 export const AGENT_MONITOR_ROWS: AgentMonitorRow[] = [
@@ -30,6 +34,8 @@ export const AGENT_MONITOR_ROWS: AgentMonitorRow[] = [
     repo: "NonstopAgent/Octane-Ajax",
     projectId: PROJECT_IDS.ajax,
     pipelineNote: "Nova / Forge / Pixel",
+    actionSources: ["github", "vercel", "gmail"],
+    activityKeywords: ["ajax", "nova", "forge", "pixel", "octane-ajax"],
   },
   {
     id: "monitor-nexus-agent",
@@ -39,6 +45,8 @@ export const AGENT_MONITOR_ROWS: AgentMonitorRow[] = [
     repo: "NonstopAgent/Octane-Nexus",
     projectId: PROJECT_IDS.nexus,
     pipelineNote: "Ingestion & media signals",
+    actionSources: ["github", "gmail"],
+    activityKeywords: ["nexus", "ingestion", "media", "octane-nexus"],
   },
 ];
 
@@ -131,22 +139,56 @@ function MonitorStatusBadge({ status }: { status: AgentMonitorStatus }) {
 }
 
 export function AgentMonitorTable() {
+  const [selectedRow, setSelectedRow] = useState<AgentMonitorRow | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+
+  const openRow = useCallback((row: AgentMonitorRow) => {
+    setSelectedRow(row);
+    setSheetOpen(true);
+  }, []);
+
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
-      {AGENT_MONITOR_ROWS.map((row) => (
-        <AgentMonitorCard key={row.id} row={row} />
-      ))}
-    </div>
+    <>
+      <div className="grid gap-4 lg:grid-cols-2">
+        {AGENT_MONITOR_ROWS.map((row) => (
+          <AgentMonitorCard key={row.id} row={row} onOpen={() => openRow(row)} />
+        ))}
+      </div>
+      <AgentOperationalSheet
+        row={selectedRow}
+        open={sheetOpen}
+        onOpenChange={setSheetOpen}
+      />
+    </>
   );
 }
 
-function AgentMonitorCard({ row }: { row: AgentMonitorRow }) {
+function AgentMonitorCard({
+  row,
+  onOpen,
+}: {
+  row: AgentMonitorRow;
+  onOpen: () => void;
+}) {
   const { summary, status, lastActivityLabel, fetchFailed } = useRepoMonitor(
     row.repo,
   );
 
   return (
-    <Card className="border-zinc-800/80 bg-zinc-900/40">
+    <Card
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
+      className={cn(
+        "cursor-pointer border-zinc-800/80 bg-zinc-900/40 transition-colors hover:border-zinc-700 hover:bg-zinc-900/60",
+      )}
+    >
       <CardContent className="space-y-4 p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -196,8 +238,12 @@ function AgentMonitorCard({ row }: { row: AgentMonitorRow }) {
         ) : null}
 
         <div className="flex flex-wrap gap-2 pt-1">
+          <span className="inline-flex h-8 items-center text-xs text-zinc-500">
+            Click card for tasks, approvals & activity
+          </span>
           <Link
             href={`/projects?detail=${row.projectId}`}
+            onClick={(e) => e.stopPropagation()}
             className={cn(
               "inline-flex h-8 items-center rounded-lg border border-zinc-700 px-2.5 text-xs font-medium text-zinc-200 hover:bg-zinc-800",
             )}
@@ -208,6 +254,7 @@ function AgentMonitorCard({ row }: { row: AgentMonitorRow }) {
             href={`https://github.com/${row.repo}`}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
             className="inline-flex h-8 items-center gap-1 rounded-lg border border-zinc-700 px-2.5 text-xs font-medium text-zinc-200 hover:bg-zinc-800"
           >
             <ExternalLink className="size-3" aria-hidden />

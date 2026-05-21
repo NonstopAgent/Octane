@@ -15,9 +15,14 @@ import type { IPAsset } from "@/lib/types/ip-asset";
 import type { LegalQuestion } from "@/lib/types/legal-question";
 import type {
   OctaneAction,
+  OctaneActionRiskLevel,
   OctaneActionSource,
   OctaneActionStatus,
   OctaneActionType,
+} from "@/lib/types/octane-action";
+import {
+  normalizeOctaneActionSource,
+  normalizeOctaneActionStatus,
 } from "@/lib/types/octane-action";
 import type { Profile } from "@/lib/types/profile";
 import type {
@@ -190,17 +195,17 @@ const ACTION_TYPES: OctaneActionType[] = [
   "link_project_resource",
 ];
 const ACTION_STATUSES: OctaneActionStatus[] = [
-  "proposed",
+  "pending",
   "approved",
   "rejected",
-  "completed",
-  "failed",
+  "executed",
 ];
 const ACTION_SOURCES: OctaneActionSource[] = [
-  "chat",
-  "command_palette",
+  "advisor",
+  "gmail",
+  "vercel",
+  "github",
   "manual",
-  "setup",
 ];
 const PROJECT_CONN_KINDS: ProjectConnectionKind[] = [
   "github",
@@ -429,21 +434,33 @@ function normalizeConnection(raw: unknown, index: number): Connection | null {
   };
 }
 
+const ACTION_RISK_LEVELS: OctaneActionRiskLevel[] = [
+  "critical",
+  "high",
+  "medium",
+  "low",
+];
+
 function normalizeOctaneAction(raw: unknown, index: number): OctaneAction | null {
   if (!raw || typeof raw !== "object") return null;
-  const r = raw as Partial<OctaneAction>;
+  const r = raw as Partial<OctaneAction> & { proposedAt?: string };
   const now = new Date().toISOString();
-  const proposedAt = safeIsoDate(r.proposedAt, now);
+  const createdAt = safeIsoDate(r.createdAt ?? r.proposedAt, now);
+  const status = normalizeOctaneActionStatus(r.status);
+  const source = normalizeOctaneActionSource(r.source);
   return {
     id: safeString(r.id, `action-normalized-${index}`),
     type: pickEnum(r.type, ACTION_TYPES, "add_project"),
-    status: pickEnum(r.status, ACTION_STATUSES, "proposed"),
+    status: ACTION_STATUSES.includes(status) ? status : "pending",
     title: safeString(r.title, "Proposed action"),
     description: safeString(r.description),
     payload: safePayload(r.payload),
-    source: pickEnum(r.source, ACTION_SOURCES, "manual"),
+    source: ACTION_SOURCES.includes(source) ? source : "manual",
+    riskLevel: r.riskLevel
+      ? pickEnum(r.riskLevel, ACTION_RISK_LEVELS, "medium")
+      : undefined,
     projectId: safeOptionalString(r.projectId),
-    proposedAt,
+    createdAt,
     resolvedAt: safeOptionalString(r.resolvedAt),
     errorMessage: safeOptionalString(r.errorMessage),
   };

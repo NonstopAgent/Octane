@@ -247,7 +247,7 @@ function ChatPageContent() {
   const storedSignals = useOctaneStore((s) => s.signals);
   const proposeOctaneActions = useOctaneStore((s) => s.proposeOctaneActions);
   const pendingCount = useOctaneStore(
-    (s) => s.octaneActions.filter((a) => a.status === "proposed").length,
+    (s) => s.octaneActions.filter((a) => a.status === "pending").length,
   );
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -377,7 +377,7 @@ function ChatPageContent() {
       const trimmed = text.trim();
       const parsed = parseOctaneCommand({
         text: trimmed,
-        source: "chat",
+        source: "advisor",
         projectConnections: state.projectConnections,
         projects: state.projects.map((p) => ({ id: p.id, name: p.name })),
       });

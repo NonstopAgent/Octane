@@ -5,6 +5,7 @@ import { Check, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { OctaneAction } from "@/lib/types/octane-action";
+import { isPendingOctaneAction } from "@/lib/types/octane-action";
 import { cn } from "@/lib/utils";
 
 type ActionProposalCardProps = {
@@ -13,14 +14,22 @@ type ActionProposalCardProps = {
   onReject: (id: string) => void;
 };
 
+const SOURCE_LABELS: Record<OctaneAction["source"], string> = {
+  advisor: "Advisor",
+  gmail: "Gmail",
+  vercel: "Vercel",
+  github: "GitHub",
+  manual: "Manual",
+};
+
 export function ActionProposalCard({
   action,
   onApprove,
   onReject,
 }: ActionProposalCardProps) {
-  const isPending = action.status === "proposed";
+  const isPending = isPendingOctaneAction(action);
   const approveLabel =
-    action.type === "create_github_issue" ? "Approve Execution" : "Approve";
+    action.type === "create_github_issue" ? "Approve execution" : "Approve";
 
   return (
     <div
@@ -36,9 +45,26 @@ export function ActionProposalCard({
           <p className="font-medium text-zinc-100">{action.title}</p>
           <p className="mt-1 text-sm text-zinc-400">{action.description}</p>
         </div>
-        <Badge variant="outline" className="border-zinc-700 text-xs text-zinc-400">
-          {action.status}
-        </Badge>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Badge variant="outline" className="border-zinc-700 text-xs text-zinc-400">
+            {SOURCE_LABELS[action.source]}
+          </Badge>
+          {action.riskLevel ? (
+            <Badge
+              variant="outline"
+              className={cn(
+                "border-zinc-700 text-xs capitalize",
+                action.riskLevel === "critical" && "border-red-900/60 text-red-300",
+                action.riskLevel === "high" && "border-amber-900/60 text-amber-300",
+              )}
+            >
+              {action.riskLevel}
+            </Badge>
+          ) : null}
+          <Badge variant="outline" className="border-zinc-700 text-xs text-zinc-400">
+            {action.status}
+          </Badge>
+        </div>
       </div>
       {action.errorMessage ? (
         <p className="mt-2 text-xs text-red-400/90">{action.errorMessage}</p>
