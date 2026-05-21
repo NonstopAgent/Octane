@@ -1,66 +1,66 @@
 import type { LucideIcon } from "lucide-react";
 import {
-  Activity,
   Bot,
   CalendarDays,
   CheckSquare,
-  ClipboardCheck,
   ClipboardList,
-  Code2,
-  FileText,
-  Inbox,
-  LayoutDashboard,
-  Map,
-  NotebookPen,
-  Plug,
-  Radio,
-  Scale,
-  Settings,
-  Wallet,
   FolderKanban,
   Landmark,
-  Telescope,
+  LayoutDashboard,
+  Settings,
+  Wallet,
   Zap,
 } from "lucide-react";
+
+export type NavSection = "executive" | "portfolio" | "operations" | "system";
 
 export type NavItem = {
   title: string;
   href: string;
   icon: LucideIcon;
+  section: NavSection;
   badge?: string;
 };
 
-/** Sidebar order — company hub first, tools and experimental last. */
+export const NAV_SECTION_LABELS: Record<NavSection, string> = {
+  executive: "Executive Command",
+  portfolio: "Portfolio",
+  operations: "Operations",
+  system: "System",
+};
+
+/**
+ * Primary sidebar nav — 9 high-frequency anchors only.
+ * All other routes (Roadmap, Decisions, Notes, Activity, etc.) remain fully
+ * accessible via direct URL or in-page links; they're simply removed from the
+ * sidebar to reduce visual noise.
+ */
 export const mainNavItems: NavItem[] = [
-  // ── Command center ─────────────────────────────────────
-  { title: "Today", href: "/today", icon: CalendarDays },
-  { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { title: "Signals", href: "/signals", icon: Zap },
-  // ── Holdings & Portfolio ────────────────────────────────
-  { title: "Holdings", href: "/holdings", icon: Landmark },
-  { title: "Projects", href: "/projects", icon: FolderKanban },
-  { title: "Agents", href: "/agents", icon: Bot },
+  // ── Executive Command ───────────────────────────────────
+  { title: "Dashboard",  href: "/dashboard", icon: LayoutDashboard, section: "executive" },
+  { title: "Today",      href: "/today",     icon: CalendarDays,    section: "executive" },
+  // ── Portfolio ───────────────────────────────────────────
+  { title: "Holdings",   href: "/holdings",  icon: Landmark,        section: "portfolio" },
+  { title: "Projects",   href: "/projects",  icon: FolderKanban,    section: "portfolio" },
+  { title: "Agents",     href: "/agents",    icon: Bot,             section: "portfolio" },
+  { title: "Signals",    href: "/signals",   icon: Zap,             section: "portfolio" },
   // ── Operations ─────────────────────────────────────────
-  { title: "Actions", href: "/actions", icon: ClipboardList },
-  { title: "Tasks", href: "/tasks", icon: CheckSquare },
-  { title: "Inbox", href: "/inbox", icon: Inbox },
-  { title: "Connections", href: "/connections", icon: Plug },
-  // ── Finance & Legal ─────────────────────────────────────
-  { title: "Finance", href: "/finance", icon: Wallet },
-  { title: "Documents", href: "/documents", icon: FileText },
-  { title: "Decisions", href: "/decisions", icon: Scale },
-  // ── Strategy & Intelligence ─────────────────────────────
-  { title: "Outlook", href: "/outlook", icon: Telescope },
-  { title: "Morning Briefing", href: "/briefing", icon: Radio },
-  { title: "Roadmap", href: "/roadmap", icon: Map },
-  { title: "Review", href: "/review", icon: ClipboardCheck },
-  // ── History & Notes ─────────────────────────────────────
-  { title: "Activity", href: "/activity", icon: Activity },
-  { title: "Notes", href: "/notes", icon: NotebookPen },
-  // ── Settings ────────────────────────────────────────────
-  { title: "Settings", href: "/settings", icon: Settings },
-  // ── Experimental ───────────────────────────────────────
-  { title: "Octane Engineer", href: "/coding", icon: Code2, badge: "exp" },
+  { title: "Tasks",      href: "/tasks",     icon: CheckSquare,     section: "operations" },
+  { title: "Finance",    href: "/finance",   icon: Wallet,          section: "operations" },
+  { title: "Actions",    href: "/actions",   icon: ClipboardList,   section: "operations" },
+  // ── System ──────────────────────────────────────────────
+  { title: "Settings",   href: "/settings",  icon: Settings,        section: "system" },
 ];
 
-export const appRoutePrefixes = mainNavItems.map((item) => item.href);
+/**
+ * All route prefixes that belong to the app shell — used by middleware for
+ * auth guards. Includes every page even if it's not in the visible sidebar.
+ */
+export const appRoutePrefixes = [
+  "/dashboard", "/today", "/holdings", "/projects", "/agents", "/signals",
+  "/tasks", "/finance", "/actions", "/settings",
+  // Hidden from sidebar but still protected routes:
+  "/connections", "/decisions", "/documents", "/roadmap", "/review",
+  "/outlook", "/briefing", "/inbox", "/notes", "/activity", "/universe",
+  "/coding",
+];

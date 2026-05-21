@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
 
-import { mainNavItems } from "@/lib/nav";
+import { mainNavItems, NAV_SECTION_LABELS, type NavSection } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -12,50 +12,50 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
-  let shownExpSep = false;
+
+  // Group items by section, preserving first-seen section order
+  const sections: NavSection[] = [];
+  const grouped = {} as Record<NavSection, typeof mainNavItems>;
+  for (const item of mainNavItems) {
+    if (!grouped[item.section]) {
+      grouped[item.section] = [];
+      sections.push(item.section);
+    }
+    grouped[item.section].push(item);
+  }
 
   return (
-    <nav className="space-y-0.5">
-      {mainNavItems.map((item) => {
-        const Icon = item.icon;
-        const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
-        const isExp = item.badge === "exp";
-
-        // Insert a separator before the first experimental item
-        const sep = isExp && !shownExpSep;
-        if (isExp) shownExpSep = true;
-
-        return (
-          <div key={item.href}>
-            {sep && (
-              <div className="my-2 px-3">
-                <p className="text-[9px] uppercase tracking-widest text-zinc-600">
-                  Experimental
-                </p>
-              </div>
-            )}
-            <Link
-              href={item.href}
-              onClick={onNavigate}
-              className={cn(
-                "flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors",
-                isActive
-                  ? "bg-zinc-700/50 text-zinc-50"
-                  : "text-zinc-400 hover:bg-zinc-800/70 hover:text-zinc-100",
-                isExp && "text-zinc-500",
-              )}
-            >
-              <Icon className="size-4 shrink-0" />
-              <span className="flex-1 truncate">{item.title}</span>
-              {isExp && (
-                <span className="rounded bg-zinc-800 px-1 py-0.5 text-[9px] font-medium uppercase tracking-widest text-zinc-500">
-                  exp
-                </span>
-              )}
-            </Link>
+    <nav className="space-y-4">
+      {sections.map((section) => (
+        <div key={section}>
+          <p className="mb-1 px-3 text-[9px] font-medium uppercase tracking-widest text-zinc-600">
+            {NAV_SECTION_LABELS[section]}
+          </p>
+          <div className="space-y-0.5">
+            {grouped[section].map((item) => {
+              const Icon = item.icon;
+              const isActive =
+                pathname === item.href || pathname.startsWith(`${item.href}/`);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={onNavigate}
+                  className={cn(
+                    "flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors",
+                    isActive
+                      ? "bg-zinc-700/50 text-zinc-50"
+                      : "text-zinc-400 hover:bg-zinc-800/70 hover:text-zinc-100",
+                  )}
+                >
+                  <Icon className="size-4 shrink-0" />
+                  <span className="flex-1 truncate">{item.title}</span>
+                </Link>
+              );
+            })}
           </div>
-        );
-      })}
+        </div>
+      ))}
     </nav>
   );
 }
