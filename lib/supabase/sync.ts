@@ -11,6 +11,7 @@
  */
 
 import { getSupabaseClient } from "./client";
+import { recordSupabaseSyncSuccess } from "./sync-meta";
 import type { OctanePersistedState } from "@/lib/store/octane-store";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -258,6 +259,7 @@ export async function pushToSupabase(
       return { ok: false, error: firstError.error.message };
     }
 
+    recordSupabaseSyncSuccess();
     return { ok: true };
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
@@ -282,9 +284,16 @@ export interface SyncedState {
   isEmpty: boolean;
 }
 
-export async function loadFromSupabase(): Promise<SyncedState | null> {
+export type LoadFromSupabaseResult =
+  | { ok: true; data: SyncedState }
+  | { ok: false; error: string };
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type SupabaseRowResponse = { data: any; error: { message: string } | null };
+
+export async function loadFromSupabase(): Promise<LoadFromSupabaseResult> {
   const uid = await currentUserId();
-  if (!uid) return null;
+  if (!uid) return { ok: false, error: "Not authenticated" };
 
   const client = db();
 
@@ -300,7 +309,7 @@ export async function loadFromSupabase(): Promise<SyncedState | null> {
       documentsRes,
       notesRes,
       roadmapRes,
-    ] = await Promise.all([
+    ] = (await Promise.all([
       client.from("profiles").select("data").eq("user_id", uid).single(),
       client.from("entities").select("data").eq("user_id", uid),
       client.from("projects").select("data").eq("user_id", uid),
@@ -311,15 +320,38 @@ export async function loadFromSupabase(): Promise<SyncedState | null> {
       client.from("documents").select("data").eq("user_id", uid),
       client.from("founder_notes").select("data").eq("user_id", uid),
       client.from("roadmap_items").select("data").eq("user_id", uid),
-    ]);
+    ])) as SupabaseRowResponse[];
+
+    const tableErrors = [
+      profileRes,
+      entitiesRes,
+      projectsRes,
+      tasksRes,
+      agentsRes,
+      transactionsRes,
+      decisionsRes,
+      documentsRes,
+      notesRes,
+      roadmapRes,
+    ]
+      .map((res) => res.error?.message)
+      .filter((msg): msg is string => Boolean(msg));
+
+    if (tableErrors.length === 10) {
+      const error = tableErrors[0] ?? "Supabase sync failed";
+      console.error("[sync] Load failed:", error);
+      return { ok: false, error };
+    }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const unwrap = (res: { data: any[] | null }): any[] =>
+    const unwrap = (res: SupabaseRowResponse): any[] => {
+      if (res.error) return [];
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (res.data ?? []).map((row: { data: any }) => row.data).filter(Boolean);
+      return (res.data ?? []).map((row: { data: any }) => row.data).filter(Boolean);
+    };
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const profile = (profileRes.data as any)?.data ?? null;
+    const profile = profileRes.error ? null : (profileRes.data as any)?.data ?? null;
     const entities = unwrap(entitiesRes);
     const projects = unwrap(projectsRes);
     const tasks = unwrap(tasksRes);
@@ -336,22 +368,28 @@ export async function loadFromSupabase(): Promise<SyncedState | null> {
       projects.length === 0 &&
       tasks.length === 0;
 
+    recordSupabaseSyncSuccess();
+
     return {
-      profile: profile as OctanePersistedState["profile"] | null,
-      entities: entities as OctanePersistedState["entities"],
-      projects: projects as OctanePersistedState["projects"],
-      tasks: tasks as OctanePersistedState["tasks"],
-      agents: agents as OctanePersistedState["agents"],
-      transactions: transactions as OctanePersistedState["transactions"],
-      decisions: decisions as OctanePersistedState["decisions"],
-      documents: documents as OctanePersistedState["documents"],
-      founderNotes: founderNotes as OctanePersistedState["founderNotes"],
-      roadmapItems: roadmapItems as OctanePersistedState["roadmapItems"],
-      isEmpty,
+      ok: true,
+      data: {
+        profile: profile as OctanePersistedState["profile"] | null,
+        entities: entities as OctanePersistedState["entities"],
+        projects: projects as OctanePersistedState["projects"],
+        tasks: tasks as OctanePersistedState["tasks"],
+        agents: agents as OctanePersistedState["agents"],
+        transactions: transactions as OctanePersistedState["transactions"],
+        decisions: decisions as OctanePersistedState["decisions"],
+        documents: documents as OctanePersistedState["documents"],
+        founderNotes: founderNotes as OctanePersistedState["founderNotes"],
+        roadmapItems: roadmapItems as OctanePersistedState["roadmapItems"],
+        isEmpty,
+      },
     };
   } catch (err) {
-    console.error("[sync] Load failed:", err);
-    return null;
+    const msg = err instanceof Error ? err.message : "Unknown sync error";
+    console.error("[sync] Load failed:", msg);
+    return { ok: false, error: msg };
   }
 }
 

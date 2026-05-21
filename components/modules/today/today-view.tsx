@@ -10,6 +10,7 @@ import {
   Sparkles,
   StickyNote,
   Timer,
+  Zap,
 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
@@ -22,11 +23,16 @@ import { TodayTaskRow } from "@/components/modules/today/task-row";
 import { TodaySection } from "@/components/modules/today/today-section";
 import { WorkSessionPanel } from "@/components/modules/today/work-session-panel";
 import { Button } from "@/components/ui/button";
+import { useOpenFromSearchParam } from "@/lib/hooks/use-open-from-search-param";
+import {
+  buildDisplaySignals,
+  selectActiveSignals,
+  selectWorkspaceForSignals,
+} from "@/lib/signals/workspace-signals";
 import {
   useOctaneStore,
   type OctaneStore,
 } from "@/lib/store/octane-store";
-import { useOpenFromSearchParam } from "@/lib/hooks/use-open-from-search-param";
 import { generateTodayView } from "@/lib/today/generate-today-view";
 
 // Targeted selector — only subscribe to fields generateTodayView needs.
@@ -56,16 +62,28 @@ function selectTodayState(s: OctaneStore) {
     octaneActions: s.octaneActions,
     projectConnections: s.projectConnections,
     codingJobs: s.codingJobs,
-    signals: s.signals,
   };
 }
 
 export function TodayView() {
   const state = useOctaneStore(useShallow(selectTodayState));
+  const workspace = useOctaneStore(useShallow(selectWorkspaceForSignals));
+  const storedSignals = useOctaneStore((s) => s.signals);
   const [showStartSession, setShowStartSession] = useState(false);
   const [noteOpen, setNoteOpen] = useState(false);
 
-  const today = useMemo(() => generateTodayView(state), [state]);
+  const today = useMemo(
+    () => generateTodayView({ ...state, signals: storedSignals }),
+    [state, storedSignals],
+  );
+
+  const activeSignals = useMemo(
+    () =>
+      selectActiveSignals(buildDisplaySignals(workspace, storedSignals))
+        .filter((s) => s.severity === "critical" || s.severity === "high")
+        .slice(0, 4),
+    [workspace, storedSignals],
+  );
 
   const openSession = useCallback(() => setShowStartSession(true), []);
   useOpenFromSearchParam("session", "1", openSession);
@@ -177,6 +195,32 @@ export function TodayView() {
           items={today.highPriorityOpen}
         />
       </div>
+
+      {activeSignals.length > 0 ? (
+        <TodaySection
+          title="Signals"
+          description="Critical and high-priority items from your workspace feed"
+          icon={Zap}
+        >
+          <ul className="space-y-2">
+            {activeSignals.map((signal) => (
+              <li key={signal.id}>
+                <Link
+                  href="/signals"
+                  className="block rounded-lg border border-zinc-800/90 bg-zinc-950/40 p-3 transition-colors hover:border-zinc-700"
+                >
+                  <p className="text-sm font-medium text-zinc-100">
+                    {signal.title}
+                  </p>
+                  <p className="mt-1 line-clamp-2 text-xs text-zinc-500">
+                    {signal.summary}
+                  </p>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </TodaySection>
+      ) : null}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <TodaySection

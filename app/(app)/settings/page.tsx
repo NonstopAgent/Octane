@@ -12,6 +12,10 @@ import {
   DataManagementSection,
   LAST_EXPORTED_AT_KEY,
 } from "@/components/settings/data-management-section";
+import {
+  getLastSupabaseSyncAt,
+  LAST_SUPABASE_SYNC_AT_KEY,
+} from "@/lib/supabase/sync-meta";
 import { WorkspaceDataSourcesSection } from "@/components/settings/workspace-data-sources-section";
 import { KeyboardShortcutsSection } from "@/components/settings/keyboard-shortcuts-section";
 import { selectEntityOwnershipStats } from "@/components/settings/entity-ownership";
@@ -99,6 +103,23 @@ function SettingsPageContent() {
     if (typeof window === "undefined") return null;
     return localStorage.getItem(LAST_EXPORTED_AT_KEY);
   });
+  const [lastSupabaseSyncAt, setLastSupabaseSyncAt] = useState<string | null>(
+    () => {
+      if (typeof window === "undefined") return null;
+      return getLastSupabaseSyncAt();
+    },
+  );
+
+  useEffect(() => {
+    setLastSupabaseSyncAt(getLastSupabaseSyncAt());
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === LAST_SUPABASE_SYNC_AT_KEY) {
+        setLastSupabaseSyncAt(event.newValue);
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
 
   const ownershipByEntityId = useMemo(() => {
     const map = new Map<
@@ -441,6 +462,7 @@ function SettingsPageContent() {
 
       <DataManagementSection
         lastExportedAt={lastExportedAt}
+        lastSupabaseSyncAt={lastSupabaseSyncAt}
         onExported={setLastExportedAt}
       />
 

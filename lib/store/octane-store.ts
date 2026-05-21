@@ -1847,27 +1847,45 @@ export const useOctaneStore = create<OctaneStore>()(
           const merged = [...state.signals];
           for (const sig of signals) {
             const idx = merged.findIndex((s) => s.id === sig.id);
-            if (idx >= 0) merged[idx] = sig;
-            else merged.push(sig);
+            if (idx >= 0) {
+              const existing = merged[idx];
+              const keepTriage = existing.status !== "new";
+              merged[idx] = keepTriage
+                ? {
+                    ...sig,
+                    status: existing.status,
+                    resolvedAt: existing.resolvedAt,
+                    updatedAt: existing.updatedAt,
+                  }
+                : sig;
+            } else {
+              merged.push(sig);
+            }
           }
           return { signals: merged };
         });
       },
       updateSignalStatus: (id, status) => {
         const now = new Date().toISOString();
-        set((state) => ({
-          signals: state.signals.map((s) =>
-            s.id === id
-              ? {
-                  ...s,
-                  status,
-                  updatedAt: now,
-                  resolvedAt:
-                    status === "resolved" ? now : s.resolvedAt,
-                }
-              : s,
-          ),
-        }));
+        set((state) => {
+          const exists = state.signals.some((s) => s.id === id);
+          if (!exists) return state;
+          return {
+            signals: state.signals.map((s) =>
+              s.id === id
+                ? {
+                    ...s,
+                    status,
+                    updatedAt: now,
+                    resolvedAt:
+                      status === "resolved" || status === "dismissed"
+                        ? now
+                        : s.resolvedAt,
+                  }
+                : s,
+            ),
+          };
+        });
       },
       clearResolvedSignals: () => {
         set((state) => ({

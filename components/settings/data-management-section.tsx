@@ -17,11 +17,13 @@ export const LAST_EXPORTED_AT_KEY = "octane-core-last-exported-at";
 
 type DataManagementSectionProps = {
   lastExportedAt: string | null;
+  lastSupabaseSyncAt: string | null;
   onExported: (iso: string) => void;
 };
 
 export function DataManagementSection({
   lastExportedAt,
+  lastSupabaseSyncAt,
   onExported,
 }: DataManagementSectionProps) {
   const exportSnapshotData = useOctaneStore((state) => state.exportSnapshotData);
@@ -116,7 +118,7 @@ export function DataManagementSection({
             browser unless exported. Use Export JSON regularly until Supabase
             sync is added.
           </p>
-          <div className="grid gap-3 text-sm sm:grid-cols-3">
+          <div className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
             <MetaItem
               label="App version"
               value={appVersion}
@@ -135,6 +137,15 @@ export function DataManagementSection({
                   : "Never"
               }
               testId="settings-last-exported-at"
+            />
+            <MetaItem
+              label="Last Supabase sync"
+              value={
+                lastSupabaseSyncAt
+                  ? format(new Date(lastSupabaseSyncAt), "MMM d, yyyy · h:mm a")
+                  : "Never"
+              }
+              testId="settings-last-supabase-sync-at"
             />
           </div>
 

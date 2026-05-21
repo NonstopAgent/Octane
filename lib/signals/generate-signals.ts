@@ -426,9 +426,8 @@ function financeSignals(state: OctanePersistedState): Signal[] {
  * will NOT have their status overwritten (upsert only updates data fields,
  * not user-set status). That de-duplication is handled in the store.
  *
- * Note: upsertSignals replaces by id, so a dismissed signal will be
- * re-surfaced if its underlying rule still fires. To avoid this,
- * the signals page should filter by status before display.
+ * upsertSignals() preserves triaged status (acknowledged, resolved, dismissed)
+ * when refreshing derived signals into the store.
  */
 export function generateSignals(state: OctanePersistedState): Signal[] {
   return [

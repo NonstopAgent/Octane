@@ -26,7 +26,11 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useGmailSignals } from "@/lib/hooks/use-gmail-signals";
-import { generateSignals } from "@/lib/signals/generate-signals";
+import {
+  buildDisplaySignals,
+  selectActiveSignals,
+  selectWorkspaceForSignals,
+} from "@/lib/signals/workspace-signals";
 import {
   selectOctanePersistedState,
   useOctaneStore,
@@ -213,6 +217,7 @@ function RepoStatusCard({
 
 export default function DashboardPage() {
   const state = useOctaneStore(useShallow(selectOctanePersistedState));
+  const workspace = useOctaneStore(useShallow(selectWorkspaceForSignals));
   const storedSignals = useOctaneStore((s) => s.signals);
   const { refreshGmailSignals } = useGmailSignals();
 
@@ -239,21 +244,16 @@ export default function DashboardPage() {
     [state.projects],
   );
 
-  // Top signals for dashboard preview
   const topSignals = useMemo<Signal[]>(() => {
-    const derived = generateSignals({ ...state, signals: storedSignals });
-    const gmailOnly = storedSignals.filter((s) => s.source === "gmail");
-    const byId = new Map<string, Signal>();
-    for (const s of derived) byId.set(s.id, s);
-    for (const s of gmailOnly) byId.set(s.id, s);
-    const all = [...byId.values()];
+    const all = selectActiveSignals(
+      buildDisplaySignals(workspace, storedSignals),
+    );
     const ORDER = ["critical", "high", "medium", "low"] as const;
     return all
       .filter((s) => s.severity === "critical" || s.severity === "high")
-      .filter((s) => s.status !== "resolved" && s.status !== "dismissed")
       .sort((a, b) => ORDER.indexOf(a.severity) - ORDER.indexOf(b.severity))
       .slice(0, 4);
-  }, [state, storedSignals]);
+  }, [workspace, storedSignals]);
 
   const profileName = state.profile?.name ?? "Logan";
   const hour = new Date().getHours();

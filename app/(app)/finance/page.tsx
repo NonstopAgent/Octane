@@ -30,10 +30,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  fuzzyMatchProjectId,
-  mapCsvTypeToTransactionType,
+  importFinanceCsvRows,
   parseFinanceCsv,
-  signedAmountForType,
 } from "@/lib/finance/csv-import";
 import {
   capitalAllocation,
@@ -83,7 +81,8 @@ function FinancePageContent() {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [csvPreview, setCsvPreview] = useState<{
-    count: number;
+    added: number;
+    skippedDuplicates: number;
     errors: string[];
   } | null>(null);
   const openDialog = useCallback(() => setDialogOpen(true), []);
@@ -146,38 +145,39 @@ function FinancePageContent() {
     const reader = new FileReader();
     reader.onload = () => {
       const text = String(reader.result ?? "");
-      const { rows, errors } = parseFinanceCsv(text);
-      if (errors.length > 0 && rows.length === 0) {
-        setCsvPreview({ count: 0, errors });
-        toast.error(errors[0]);
+      const { rows, errors: parseErrors } = parseFinanceCsv(text);
+      if (parseErrors.length > 0 && rows.length === 0) {
+        setCsvPreview({ added: 0, skippedDuplicates: 0, errors: parseErrors });
+        toast.error(parseErrors[0]);
         return;
       }
-      let imported = 0;
-      for (const row of rows) {
-        const type = mapCsvTypeToTransactionType(row.type);
-        const projectId = fuzzyMatchProjectId(
-          row.project,
-          projects.map((p) => ({ id: p.id, name: p.name })),
-        );
-        createTransaction({
-          type,
-          amount: signedAmountForType(type, row.amount),
-          category: row.type,
-          notes: row.notes || undefined,
-          transactionDate: row.date,
-          projectId,
-        });
-        imported += 1;
-      }
-      setCsvPreview({
-        count: imported,
-        errors: errors.length > 0 ? errors : [],
+      const result = importFinanceCsvRows(rows, {
+        projects: projects.map((p) => ({ id: p.id, name: p.name })),
+        existingTransactions: transactions,
+        createTransaction,
       });
-      if (imported > 0) {
-        toast.success(`Imported ${imported} transaction${imported !== 1 ? "s" : ""}`);
+      const allErrors = [...parseErrors, ...result.errors];
+      setCsvPreview({
+        added: result.added,
+        skippedDuplicates: result.skippedDuplicates,
+        errors: allErrors,
+      });
+      if (result.added > 0 || result.skippedDuplicates > 0) {
+        const parts: string[] = [];
+        if (result.added > 0) {
+          parts.push(
+            `${result.added} new record${result.added !== 1 ? "s" : ""} added`,
+          );
+        }
+        if (result.skippedDuplicates > 0) {
+          parts.push(
+            `${result.skippedDuplicates} duplicate${result.skippedDuplicates !== 1 ? "s" : ""} skipped`,
+          );
+        }
+        toast.success(`Import complete: ${parts.join(", ")}`);
       }
-      if (errors.length > 0) {
-        toast.warning(`${errors.length} row(s) skipped`);
+      if (allErrors.length > 0) {
+        toast.warning(`${allErrors.length} row(s) had errors`);
       }
     };
     reader.readAsText(file);
@@ -243,8 +243,10 @@ function FinancePageContent() {
 
       {csvPreview ? (
         <p className="text-xs text-zinc-500">
-          Last CSV import: {csvPreview.count} row
-          {csvPreview.count !== 1 ? "s" : ""}
+          Last CSV import: {csvPreview.added} added
+          {csvPreview.skippedDuplicates > 0
+            ? `, ${csvPreview.skippedDuplicates} duplicate${csvPreview.skippedDuplicates !== 1 ? "s" : ""} skipped`
+            : ""}
           {csvPreview.errors.length > 0
             ? ` · ${csvPreview.errors.length} warning(s)`
             : ""}

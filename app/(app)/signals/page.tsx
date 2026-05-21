@@ -20,11 +20,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useGmailSignals } from "@/lib/hooks/use-gmail-signals";
-import { generateSignals } from "@/lib/signals/generate-signals";
 import {
-  useOctaneStore,
-  type OctaneStore,
-} from "@/lib/store/octane-store";
+  buildDisplaySignals,
+  mergeSignalsForUpsert,
+  selectWorkspaceForSignals,
+} from "@/lib/signals/workspace-signals";
+import { useOctaneStore } from "@/lib/store/octane-store";
 import type { Signal, SignalSeverity, SignalStatus, SignalType } from "@/lib/types/signal";
 import { cn } from "@/lib/utils";
 
@@ -289,44 +290,8 @@ function SeverityFilter({
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-// Selector that returns workspace data WITHOUT signals — used as the
-// useEffect dependency so that calling upsertSignals() doesn't trigger
-// the effect again (breaking the infinite-loop).
-function selectWorkspaceForSignals(s: OctaneStore) {
-  return {
-    profile: s.profile,
-    projects: s.projects,
-    tasks: s.tasks,
-    decisions: s.decisions,
-    roadmapItems: s.roadmapItems,
-    transactions: s.transactions,
-    documents: s.documents,
-    ipAssets: s.ipAssets,
-    entities: s.entities,
-    agents: s.agents,
-    activityLogs: s.activityLogs,
-    workSessions: s.workSessions,
-    inboxItems: s.inboxItems,
-    founderNotes: s.founderNotes,
-    complianceReminders: s.complianceReminders,
-    legalQuestions: s.legalQuestions,
-    formationChecklistItems: s.formationChecklistItems,
-    agentLogs: s.agentLogs,
-    agentRuns: s.agentRuns,
-    connections: s.connections,
-    octaneActions: s.octaneActions,
-    projectConnections: s.projectConnections,
-    codingJobs: s.codingJobs,
-    // NOTE: signals intentionally excluded — selecting it here would cause
-    // upsertSignals() → workspace change → effect re-fires → infinite loop
-  };
-}
-
 export default function SignalsPage() {
-  // workspace = all persisted state EXCEPT signals (avoids the update loop)
   const workspace = useOctaneStore(useShallow(selectWorkspaceForSignals));
-
-  // Stored signals = persisted status overrides (acknowledged, dismissed, resolved)
   const storedSignals = useOctaneStore((s) => s.signals);
   const upsertSignals = useOctaneStore((s) => s.upsertSignals);
   const updateSignalStatus = useOctaneStore((s) => s.updateSignalStatus);
@@ -337,74 +302,46 @@ export default function SignalsPage() {
   const [severityFilter, setSeverityFilter] = useState<SignalSeverity | "all">("all");
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
 
-  // ── Pure signal generation (no side effects, no store writes) ──────────────
-  // Recomputes whenever workspace data changes. This is the live derived view.
-  const derivedSignals = useMemo(() => {
-    return generateSignals({ ...workspace, signals: storedSignals });
-    // storedSignals intentionally excluded from deps — we only need workspace
-    // changes to re-derive. Status overrides are merged below.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [workspace]);
-
-  const gmailSignals = useMemo(
-    () => storedSignals.filter((s) => s.source === "gmail"),
-    [storedSignals],
+  const signals = useMemo(
+    () => buildDisplaySignals(workspace, storedSignals),
+    [workspace, storedSignals],
   );
 
-  const freshSignals = useMemo(() => {
-    const byId = new Map<string, Signal>();
-    for (const s of derivedSignals) byId.set(s.id, s);
-    for (const s of gmailSignals) byId.set(s.id, s);
-    return [...byId.values()];
-  }, [derivedSignals, gmailSignals]);
-
-  // Merge fresh signals with stored statuses so user changes (dismiss, resolve)
-  // survive workspace re-derivation.
-  const signals = useMemo(() => {
-    const statusMap = new Map(storedSignals.map((s) => [s.id, s]));
-    return freshSignals.map((s) => {
-      const stored = statusMap.get(s.id);
-      return stored ? { ...s, status: stored.status, resolvedAt: stored.resolvedAt } : s;
-    });
-  }, [freshSignals, storedSignals]);
-
-  // ── One-time mount sync ────────────────────────────────────────────────────
-  // Populate the store once so updateSignalStatus() can find signals by id.
-  // We intentionally do NOT react to workspace changes here — that would cause
-  // the infinite loop that previously crashed /tasks. Users click Refresh.
   const mountSyncDone = useRef(false);
   useEffect(() => {
     if (mountSyncDone.current) return;
     mountSyncDone.current = true;
-    upsertSignals(freshSignals);
+    const derived = buildDisplaySignals(workspace, storedSignals);
+    upsertSignals(mergeSignalsForUpsert(derived, storedSignals));
     void refreshGmailSignals();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // empty deps — run exactly once on mount
+  }, []);
 
   async function handleRefresh() {
-    const derived = generateSignals({ ...workspace, signals: storedSignals });
-    upsertSignals(derived);
+    const derived = buildDisplaySignals(workspace, storedSignals);
+    upsertSignals(mergeSignalsForUpsert(derived, storedSignals));
     await refreshGmailSignals();
     setLastRefresh(new Date());
   }
 
+  function triageSignal(id: string, status: SignalStatus) {
+    const signal = signals.find((s) => s.id === id);
+    if (signal && !storedSignals.some((s) => s.id === id)) {
+      upsertSignals([signal]);
+    }
+    updateSignalStatus(id, status);
+  }
+
   function handleAcknowledge(id: string) {
-    // Ensure signal exists in store first (in case it was generated after mount sync)
-    const missing = signals.find((s) => s.id === id && !storedSignals.some((ss) => ss.id === id));
-    if (missing) upsertSignals([missing]);
-    updateSignalStatus(id, "acknowledged");
+    triageSignal(id, "acknowledged");
   }
 
   function handleResolve(id: string) {
-    const missing = signals.find((s) => s.id === id && !storedSignals.some((ss) => ss.id === id));
-    if (missing) upsertSignals([missing]);
-    updateSignalStatus(id, "resolved");
+    triageSignal(id, "resolved");
   }
 
   function handleDismiss(id: string) {
-    const missing = signals.find((s) => s.id === id && !storedSignals.some((ss) => ss.id === id));
-    if (missing) upsertSignals([missing]);
-    updateSignalStatus(id, "dismissed");
+    triageSignal(id, "dismissed");
   }
 
   // Apply tab + severity filters

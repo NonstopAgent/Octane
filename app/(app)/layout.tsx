@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { toast } from "sonner";
 
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { AppTopbar } from "@/components/layout/app-topbar";
@@ -12,6 +13,7 @@ import { useOctaneStore } from "@/lib/store/octane-store";
 
 function DataSyncProvider({ children }: { children: React.ReactNode }) {
   const syncedRef = useRef(false);
+  const syncErrorToastShown = useRef(false);
 
   useEffect(() => {
     if (syncedRef.current) return;
@@ -23,8 +25,19 @@ function DataSyncProvider({ children }: { children: React.ReactNode }) {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return; // not logged in — middleware will redirect
 
-        const synced = await loadFromSupabase();
-        if (!synced) return; // network error, use local cache
+        const result = await loadFromSupabase();
+        if (!result.ok) {
+          if (!syncErrorToastShown.current) {
+            syncErrorToastShown.current = true;
+            toast.error("Cloud sync unavailable", {
+              description:
+                "Using your local workspace. Check your connection or try again later.",
+            });
+          }
+          return;
+        }
+
+        const synced = result.data;
 
         // Hydrate Zustand with Supabase data (normalized — safe for /projects etc.)
         const current = useOctaneStore.getState();
@@ -63,6 +76,12 @@ function DataSyncProvider({ children }: { children: React.ReactNode }) {
         useOctaneStore.setState(normalized);
       } catch (err) {
         console.warn("[layout] Sync error (using local cache):", err);
+        if (!syncErrorToastShown.current) {
+          syncErrorToastShown.current = true;
+          toast.error("Cloud sync unavailable", {
+            description: "Using your local workspace until sync recovers.",
+          });
+        }
       }
     }
 

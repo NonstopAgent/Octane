@@ -1,4 +1,12 @@
-import type { TransactionType } from "@/lib/types";
+import type { Transaction, TransactionType } from "@/lib/types";
+
+export type CreatableTransaction = Omit<Transaction, "id" | "createdAt">;
+
+export type CsvImportResult = {
+  added: number;
+  skippedDuplicates: number;
+  errors: string[];
+};
 
 export type FinanceCsvRow = {
   date: string;
@@ -141,4 +149,82 @@ export function signedAmountForType(
   if (type === "revenue" || type === "investment") return Math.abs(amount);
   if (expenseTypes.includes(type)) return -Math.abs(amount);
   return amount;
+}
+
+/** Deterministic key for CSV / ledger deduplication. */
+export function transactionDedupeKey(
+  transactionDate: string,
+  amount: number,
+  type: TransactionType,
+  projectId?: string,
+): string {
+  return `${transactionDate}|${amount}|${type}|${projectId ?? ""}`;
+}
+
+export function buildExistingTransactionDedupeKeys(
+  transactions: Transaction[],
+): Set<string> {
+  const keys = new Set<string>();
+  for (const t of transactions) {
+    keys.add(
+      transactionDedupeKey(
+        t.transactionDate,
+        t.amount,
+        t.type,
+        t.projectId,
+      ),
+    );
+  }
+  return keys;
+}
+
+/**
+ * Import parsed CSV rows into the ledger, skipping duplicates that match
+ * transactionDate + amount + type + projectId.
+ */
+export function importFinanceCsvRows(
+  rows: FinanceCsvRow[],
+  options: {
+    projects: { id: string; name: string }[];
+    existingTransactions: Transaction[];
+    createTransaction: (data: CreatableTransaction) => Transaction;
+  },
+): CsvImportResult {
+  const { projects, existingTransactions, createTransaction } = options;
+  const seen = buildExistingTransactionDedupeKeys(existingTransactions);
+  let added = 0;
+  let skippedDuplicates = 0;
+  const errors: string[] = [];
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    const type = mapCsvTypeToTransactionType(row.type);
+    const projectId = fuzzyMatchProjectId(row.project, projects);
+    const amount = signedAmountForType(type, row.amount);
+    const key = transactionDedupeKey(row.date, amount, type, projectId);
+
+    if (seen.has(key)) {
+      skippedDuplicates += 1;
+      continue;
+    }
+
+    try {
+      createTransaction({
+        type,
+        amount,
+        category: row.type,
+        notes: row.notes || undefined,
+        transactionDate: row.date,
+        projectId,
+      });
+      seen.add(key);
+      added += 1;
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Could not create transaction";
+      errors.push(`Row ${i + 2}: ${message}`);
+    }
+  }
+
+  return { added, skippedDuplicates, errors };
 }
