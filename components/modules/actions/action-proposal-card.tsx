@@ -19,6 +19,8 @@ export function ActionProposalCard({
   onReject,
 }: ActionProposalCardProps) {
   const isPending = action.status === "proposed";
+  const approveLabel =
+    action.type === "create_github_issue" ? "Approve Execution" : "Approve";
 
   return (
     <div
@@ -50,7 +52,7 @@ export function ActionProposalCard({
             onClick={() => onApprove(action.id)}
           >
             <Check className="size-3.5" />
-            Approve
+            {approveLabel}
           </Button>
           <Button
             type="button"

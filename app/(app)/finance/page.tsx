@@ -3,6 +3,7 @@
 import { Suspense, useCallback, useMemo, useState } from "react";
 import {
   Banknote,
+  FileSpreadsheet,
   Flame,
   Plus,
   TrendingDown,
@@ -28,6 +29,12 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  fuzzyMatchProjectId,
+  mapCsvTypeToTransactionType,
+  parseFinanceCsv,
+  signedAmountForType,
+} from "@/lib/finance/csv-import";
 import {
   capitalAllocation,
   cashAvailable,
@@ -75,6 +82,10 @@ function FinancePageContent() {
   const getProjectById = useOctaneStore((state) => state.getProjectById);
 
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [csvPreview, setCsvPreview] = useState<{
+    count: number;
+    errors: string[];
+  } | null>(null);
   const openDialog = useCallback(() => setDialogOpen(true), []);
   useOpenFromSearchParam("new", "1", openDialog);
 
@@ -129,6 +140,50 @@ function FinancePageContent() {
     });
   };
 
+  const handleCsvFile = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = String(reader.result ?? "");
+      const { rows, errors } = parseFinanceCsv(text);
+      if (errors.length > 0 && rows.length === 0) {
+        setCsvPreview({ count: 0, errors });
+        toast.error(errors[0]);
+        return;
+      }
+      let imported = 0;
+      for (const row of rows) {
+        const type = mapCsvTypeToTransactionType(row.type);
+        const projectId = fuzzyMatchProjectId(
+          row.project,
+          projects.map((p) => ({ id: p.id, name: p.name })),
+        );
+        createTransaction({
+          type,
+          amount: signedAmountForType(type, row.amount),
+          category: row.type,
+          notes: row.notes || undefined,
+          transactionDate: row.date,
+          projectId,
+        });
+        imported += 1;
+      }
+      setCsvPreview({
+        count: imported,
+        errors: errors.length > 0 ? errors : [],
+      });
+      if (imported > 0) {
+        toast.success(`Imported ${imported} transaction${imported !== 1 ? "s" : ""}`);
+      }
+      if (errors.length > 0) {
+        toast.warning(`${errors.length} row(s) skipped`);
+      }
+    };
+    reader.readAsText(file);
+    event.target.value = "";
+  };
+
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
     const rawAmount = Number.parseFloat(form.amount);
@@ -167,12 +222,35 @@ function FinancePageContent() {
         title="Finance"
         description="Revenue, burn, runway, and transactions across Octane bets."
         actions={
-          <Button type="button" onClick={() => setDialogOpen(true)}>
-            <Plus className="size-4" />
-            Add Transaction
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-200 hover:bg-zinc-800">
+              <FileSpreadsheet className="size-4" />
+              Import CSV
+              <input
+                type="file"
+                accept=".csv,text/csv"
+                className="sr-only"
+                onChange={handleCsvFile}
+              />
+            </label>
+            <Button type="button" onClick={() => setDialogOpen(true)}>
+              <Plus className="size-4" />
+              Add Transaction
+            </Button>
+          </div>
         }
       />
+
+      {csvPreview ? (
+        <p className="text-xs text-zinc-500">
+          Last CSV import: {csvPreview.count} row
+          {csvPreview.count !== 1 ? "s" : ""}
+          {csvPreview.errors.length > 0
+            ? ` · ${csvPreview.errors.length} warning(s)`
+            : ""}
+          . Columns: date, type, project, amount, notes (parsed locally only).
+        </p>
+      ) : null}
 
       {transactions.length === 0 ? (
         <EmptyState

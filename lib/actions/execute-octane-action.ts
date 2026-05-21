@@ -133,6 +133,12 @@ export function executeApprovedOctaneAction(
         });
         return { ok: true };
       }
+      case "create_github_issue":
+        return {
+          ok: false,
+          error:
+            "GitHub issues run on the server after approval — use Approve on Actions.",
+        };
       case "link_project_resource": {
         const projectId = String(payload.projectId ?? action.projectId ?? "");
         if (!projectId) {

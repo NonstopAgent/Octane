@@ -19,6 +19,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { useGmailSignals } from "@/lib/hooks/use-gmail-signals";
 import { generateSignals } from "@/lib/signals/generate-signals";
 import {
   useOctaneStore,
@@ -329,6 +330,8 @@ export default function SignalsPage() {
   const storedSignals = useOctaneStore((s) => s.signals);
   const upsertSignals = useOctaneStore((s) => s.upsertSignals);
   const updateSignalStatus = useOctaneStore((s) => s.updateSignalStatus);
+  const { refreshGmailSignals, loading: gmailLoading, lastProvenance } =
+    useGmailSignals();
 
   const [activeTab, setActiveTab] = useState<TabKey>("all");
   const [severityFilter, setSeverityFilter] = useState<SignalSeverity | "all">("all");
@@ -336,12 +339,24 @@ export default function SignalsPage() {
 
   // ── Pure signal generation (no side effects, no store writes) ──────────────
   // Recomputes whenever workspace data changes. This is the live derived view.
-  const freshSignals = useMemo(() => {
+  const derivedSignals = useMemo(() => {
     return generateSignals({ ...workspace, signals: storedSignals });
     // storedSignals intentionally excluded from deps — we only need workspace
     // changes to re-derive. Status overrides are merged below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspace]);
+
+  const gmailSignals = useMemo(
+    () => storedSignals.filter((s) => s.source === "gmail"),
+    [storedSignals],
+  );
+
+  const freshSignals = useMemo(() => {
+    const byId = new Map<string, Signal>();
+    for (const s of derivedSignals) byId.set(s.id, s);
+    for (const s of gmailSignals) byId.set(s.id, s);
+    return [...byId.values()];
+  }, [derivedSignals, gmailSignals]);
 
   // Merge fresh signals with stored statuses so user changes (dismiss, resolve)
   // survive workspace re-derivation.
@@ -362,12 +377,14 @@ export default function SignalsPage() {
     if (mountSyncDone.current) return;
     mountSyncDone.current = true;
     upsertSignals(freshSignals);
+    void refreshGmailSignals();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // empty deps — run exactly once on mount
 
-  function handleRefresh() {
+  async function handleRefresh() {
     const derived = generateSignals({ ...workspace, signals: storedSignals });
     upsertSignals(derived);
+    await refreshGmailSignals();
     setLastRefresh(new Date());
   }
 
@@ -439,9 +456,12 @@ export default function SignalsPage() {
             variant="outline"
             size="sm"
             className="border-zinc-700 bg-zinc-900 text-zinc-300 hover:bg-zinc-800"
-            onClick={handleRefresh}
+            onClick={() => void handleRefresh()}
+            disabled={gmailLoading}
           >
-            <RefreshCw className="mr-1.5 size-3.5" />
+            <RefreshCw
+              className={cn("mr-1.5 size-3.5", gmailLoading && "animate-spin")}
+            />
             Refresh
           </Button>
         }
@@ -531,6 +551,7 @@ export default function SignalsPage() {
 
       <p className="text-[10px] text-zinc-700 text-right">
         Last refreshed {formatDistanceToNow(lastRefresh, { addSuffix: true })}
+        {lastProvenance ? ` · Gmail ${lastProvenance}` : ""}
         {" · "}
         {signals.length} total signal{signals.length !== 1 ? "s" : ""}
       </p>

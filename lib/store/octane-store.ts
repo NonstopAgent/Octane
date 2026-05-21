@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 import { executeApprovedOctaneAction } from "@/lib/actions/execute-octane-action";
+import { runGitHubIssueApproval } from "@/lib/actions/run-github-issue-approval";
 import { normalizeOctaneData } from "@/lib/data/normalize-octane-data";
 import {
   exportSnapshotData as buildSnapshot,
@@ -1595,6 +1596,11 @@ export const useOctaneStore = create<OctaneStore>()(
 
         const approved = get().octaneActions.find((a) => a.id === id);
         if (!approved) return;
+
+        if (approved.type === "create_github_issue") {
+          void runGitHubIssueApproval(get, approved);
+          return;
+        }
 
         const result = executeApprovedOctaneAction(get(), approved);
         if (result.ok) {

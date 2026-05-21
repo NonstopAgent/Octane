@@ -180,27 +180,17 @@ async function executeGitHubTool(
     }
 
     if (toolName === "create_github_issue") {
-      if (!token) {
-        return "Cannot create issue: GITHUB_TOKEN is not set. Add it to your Vercel environment variables.";
-      }
-      const { repo, title, body, labels } = input as {
+      const { repo, title, body } = input as {
         repo: string;
         title: string;
         body: string;
-        labels?: string[];
       };
-      const res = await fetch(`https://api.github.com/repos/${repo}/issues`, {
-        method: "POST",
-        headers: { ...headers, "Content-Type": "application/json" },
-        body: JSON.stringify({ title, body, labels: labels ?? [] }),
-      });
-      if (!res.ok) {
-        const err = await res.text();
-        return `Error creating issue: ${res.status} — ${err}`;
-      }
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const created = (await res.json()) as any;
-      return `Issue created: #${created.number} "${created.title}"\nURL: ${created.html_url}`;
+      return [
+        "GitHub issues are not created automatically.",
+        `Proposed: "${title}" in ${repo}.`,
+        "Ask the user to approve the matching action on /actions (or rephrase in Chat to trigger an Octane action proposal).",
+        `Draft body:\n${body}`,
+      ].join("\n");
     }
 
     if (toolName === "get_repo_status") {

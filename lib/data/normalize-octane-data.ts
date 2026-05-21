@@ -181,6 +181,7 @@ const ACTION_TYPES: OctaneActionType[] = [
   "create_task",
   "create_coding_job",
   "create_decision",
+  "create_github_issue",
   "add_entity",
   "connect_github",
   "connect_vercel",

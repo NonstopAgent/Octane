@@ -1,5 +1,6 @@
 export type SignalSource =
   | "github"
+  | "gmail"
   | "vercel"
   | "task"
   | "decision"

@@ -1,4 +1,5 @@
 import { resolveCodingRepo } from "@/lib/coding/github-repo-context";
+import { inferGithubRepoFromText } from "@/lib/integrations/infer-github-repo";
 import type { CodingJobMode } from "@/lib/types/coding-job";
 import type { OctaneAction, OctaneActionSource, OctaneActionType } from "@/lib/types/octane-action";
 import type { ProjectConnection } from "@/lib/types/project-connection";
@@ -297,6 +298,54 @@ export function parseOctaneCommand(input: ParseOctaneCommandInput): ParseOctaneC
         "Add founder note",
         "Saves a founder note linked to context after approval.",
         { title: "Note from Octane", body: body.slice(0, 500) },
+        source,
+        input.projectId,
+      ),
+    );
+  }
+
+  const createIssueIntent =
+    /\b(create|open|file|log)\s+(a\s+)?(github\s+)?(hotfix\s+)?issue\b/.test(
+      lower,
+    ) ||
+    /\bgithub\s+issue\b/.test(lower) ||
+    /\bhotfix\s+issue\b/.test(lower);
+  if (createIssueIntent) {
+    const repo =
+      inferGithubRepoFromText(text) ??
+      resolveCodingRepo({
+        text,
+        projectId: input.projectId,
+        projectConnections: input.projectConnections ?? [],
+        projects: input.projects ?? [],
+      }).repo;
+    const titleMatch =
+      text.match(/issue\s*(?::|—|-)\s*["']?([^"'\n]+)["']?/i) ??
+      text.match(
+        /(?:create|open|file|log)\s+(?:a\s+)?(?:github\s+)?(?:hotfix\s+)?issue\s+(?:for\s+\w+\s+)?["']?([^"'\n.]+)["']?/i,
+      );
+    const title =
+      titleMatch?.[1]?.trim() ??
+      (/\bhotfix\b/i.test(text) ? "Hotfix" : "New GitHub issue");
+    const body = text.slice(0, 2000);
+    if (!repo) {
+      replies.push(
+        "Specify Ajax, Nexus, or Core (or owner/repo) so Octane knows which repository to use.",
+      );
+    }
+    actions.push(
+      propose(
+        "create_github_issue",
+        repo ? `Create GitHub issue: ${title}` : `Create GitHub issue (repo required)`,
+        repo
+          ? `Opens issue in ${repo} after you approve on Actions.`
+          : "Link a repo or mention Ajax/Nexus/Core before approving.",
+        {
+          repo,
+          title,
+          body,
+          labels: /\bhotfix\b/i.test(text) ? ["bug"] : [],
+        },
         source,
         input.projectId,
       ),

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { requireApiAuth } from "@/lib/auth/require-api-auth";
+
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
@@ -92,19 +94,11 @@ async function executeAction(action: AgentAction): Promise<AgentActionResult> {
       }
 
       case "github_create_issue": {
-        const data = await githubFetch(`/repos/${action.repo}/issues`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title: action.title,
-            body: action.body,
-            labels: action.labels ?? [],
-          }),
-        });
         return {
-          success: true,
-          action: `Create issue "${action.title}" in ${action.repo}`,
-          data: { number: (data as { number: number; html_url: string }).number, url: (data as { number: number; html_url: string }).html_url },
+          success: false,
+          action: "Create GitHub issue",
+          error:
+            "Blocked: create issues only via approved Octane actions (/api/integrations/github/create-issue).",
           timestamp,
         };
       }
@@ -174,6 +168,9 @@ async function executeAction(action: AgentAction): Promise<AgentActionResult> {
 }
 
 export async function POST(req: NextRequest) {
+  const unauthorized = requireApiAuth(req);
+  if (unauthorized) return unauthorized;
+
   let body: { action: AgentAction; agentId: string };
   try {
     body = (await req.json()) as { action: AgentAction; agentId: string };
