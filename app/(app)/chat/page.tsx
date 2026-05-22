@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Bot, Send, Sparkles, Trash2, Zap } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 
@@ -249,6 +250,12 @@ function ChatPageContent() {
   const pendingCount = useOctaneStore(
     (s) => s.octaneActions.filter((a) => a.status === "pending").length,
   );
+  const pendingChatContext = useOctaneStore((s) => s.pendingChatContext);
+  const setPendingChatContext = useOctaneStore((s) => s.setPendingChatContext);
+
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const queryKey = searchParams.toString();
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -258,6 +265,17 @@ function ChatPageContent() {
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Inject signal/action context when navigated here via ?context=1
+  useEffect(() => {
+    if (searchParams.get("context") !== "1") return;
+    if (!pendingChatContext) return;
+    setInput(pendingChatContext);
+    setPendingChatContext(null);
+    router.replace("/chat");
+    setTimeout(() => textareaRef.current?.focus(), 50);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryKey]);
 
   // Build context from store
   const context = useMemo(() => {

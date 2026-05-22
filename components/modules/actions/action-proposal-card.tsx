@@ -1,11 +1,13 @@
 "use client";
 
-import { Check, X } from "lucide-react";
+import { Check, MessageSquare, X } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { OctaneAction } from "@/lib/types/octane-action";
 import { isPendingOctaneAction } from "@/lib/types/octane-action";
+import { useOctaneStore } from "@/lib/store/octane-store";
 import { cn } from "@/lib/utils";
 
 type ActionProposalCardProps = {
@@ -31,6 +33,23 @@ export function ActionProposalCard({
   const isPending = isPendingOctaneAction(action);
   const approveLabel =
     action.type === "create_github_issue" ? "Approve execution" : "Approve";
+  const router = useRouter();
+  const setPendingChatContext = useOctaneStore((s) => s.setPendingChatContext);
+
+  function handleAskAdvisor() {
+    const parts = [
+      `I need strategic guidance on this proposed action:`,
+      `**Action:** ${action.title}`,
+      `**Description:** ${action.description}`,
+      `**Source:** ${SOURCE_LABELS[action.source]}`,
+    ];
+    if (action.riskLevel) {
+      parts.push(`**Risk level:** ${action.riskLevel}`);
+    }
+    parts.push(`Should I approve or reject this? What's your recommendation?`);
+    setPendingChatContext(parts.join("\n"));
+    router.push("/chat?context=1");
+  }
 
   return (
     <div
@@ -90,6 +109,16 @@ export function ActionProposalCard({
           >
             <X className="size-3.5" />
             Reject
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="gap-1 text-zinc-400 hover:text-amber-400"
+            onClick={handleAskAdvisor}
+          >
+            <MessageSquare className="size-3.5" />
+            Ask Advisor
           </Button>
         </div>
       ) : null}

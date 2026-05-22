@@ -327,6 +327,10 @@ export interface OctaneStore extends OctanePersistedState {
     analysis: SignalTriageAnalysis,
   ) => void;
   clearResolvedSignals: () => void;
+
+  // Ephemeral — not persisted to localStorage
+  pendingChatContext: string | null;
+  setPendingChatContext: (context: string | null) => void;
 }
 
 // Bumped to v2 — clears cached seed/demo data from all existing sessions
@@ -1893,6 +1897,10 @@ export const useOctaneStore = create<OctaneStore>()(
           ),
         }));
       },
+
+      // Ephemeral — not persisted to localStorage
+      pendingChatContext: null,
+      setPendingChatContext: (context) => set({ pendingChatContext: context }),
 
       recordActivity: (input) => {
         logActivity(set, get, input);

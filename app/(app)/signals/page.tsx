@@ -10,12 +10,14 @@ import {
   CircleDot,
   Info,
   Loader2,
+  MessageSquare,
   RefreshCw,
   Sparkles,
   Zap,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -127,11 +129,13 @@ function SignalCard({
   onAcknowledge,
   onResolve,
   onDismiss,
+  onAskAdvisor,
 }: {
   signal: Signal;
   onAcknowledge: (id: string) => void;
   onResolve: (id: string) => void;
   onDismiss: (id: string) => void;
+  onAskAdvisor: (id: string) => void;
 }) {
   const cfg = SEVERITY_CONFIG[signal.severity];
   const SeverityIcon = cfg.icon;
@@ -247,6 +251,15 @@ function SignalCard({
               <Button
                 variant="ghost"
                 size="icon-sm"
+                className="size-7 text-zinc-500 hover:text-amber-400"
+                title="Ask Advisor"
+                onClick={() => onAskAdvisor(signal.id)}
+              >
+                <MessageSquare className="size-3.5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon-sm"
                 className="size-7 text-zinc-600 hover:text-zinc-400"
                 title="Dismiss"
                 onClick={() => onDismiss(signal.id)}
@@ -326,9 +339,11 @@ export default function SignalsPage() {
   );
   const proposeAction = useOctaneStore((s) => s.proposeAction);
   const octaneActions = useOctaneStore((s) => s.octaneActions);
+  const setPendingChatContext = useOctaneStore((s) => s.setPendingChatContext);
   const { refreshGmailSignals, loading: gmailLoading, lastProvenance } =
     useGmailSignals();
   const { refreshVercelSignals, loading: vercelLoading } = useVercelSignals();
+  const router = useRouter();
 
   const [activeTab, setActiveTab] = useState<TabKey>("all");
   const [severityFilter, setSeverityFilter] = useState<SignalSeverity | "all">("all");
@@ -379,6 +394,30 @@ export default function SignalsPage() {
 
   function handleDismiss(id: string) {
     triageSignal(id, "dismissed");
+  }
+
+  function handleAskAdvisor(id: string) {
+    const signal = signals.find((s) => s.id === id);
+    if (!signal) return;
+    const parts = [
+      `I need help with this signal:`,
+      `**Title:** ${signal.title}`,
+      `**Severity:** ${signal.severity}`,
+      `**Type:** ${signal.type}`,
+      `**Summary:** ${signal.summary}`,
+    ];
+    if (signal.recommendedAction) {
+      parts.push(`**Recommended action:** ${signal.recommendedAction}`);
+    }
+    if (signal.triageAnalysis) {
+      parts.push(`**Triage analysis:**`);
+      parts.push(`Root cause: ${signal.triageAnalysis.rootCauseEstimate}`);
+      parts.push(`Impact: ${signal.triageAnalysis.operationalImpact}`);
+      parts.push(`Mitigation: ${signal.triageAnalysis.structuredMitigationStep}`);
+    }
+    parts.push(`What's your strategic recommendation?`);
+    setPendingChatContext(parts.join("\n"));
+    router.push("/chat?context=1");
   }
 
   // Apply tab + severity filters
@@ -626,6 +665,7 @@ export default function SignalsPage() {
               onAcknowledge={handleAcknowledge}
               onResolve={handleResolve}
               onDismiss={handleDismiss}
+              onAskAdvisor={handleAskAdvisor}
             />
           ))}
         </div>
