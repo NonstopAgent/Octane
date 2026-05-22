@@ -54,6 +54,15 @@ interface OctaneContext {
     description: string;
   };
   gmailProvenance?: "live" | "mock" | null;
+  financeSummary?: {
+    bookValuation: number;
+    annualizedRevenueTotal: number;
+    ipAppraisalTotal: number;
+    cashAvailable: number;
+    netWorthLatest: number | null;
+    projectedNetWorth6Mo: number | null;
+    hasFinanceHazard: boolean;
+  };
 }
 
 // ─── GitHub Tool Definitions ─────────────────────────────────────────────────
@@ -321,7 +330,16 @@ function buildSystemPrompt(ctx: OctaneContext): string {
     "- Distinguish **infrastructure blockers** (Vercel deployment failures, GitHub connection errors, agent errors) from **manual work** (tasks, decisions) — fix infra first",
     "- Prioritize **active developer blockers** (blocked tasks, connection errors, agent errors) over stale backlog items",
     "- Finance signals reflect 30-day cashflow from stored transactions — negative burn rate surfaces as medium/high severity",
+    "- CSV import flags expenses above **2.5× trailing 30-day burn** (ledger anomaly); these surface as finance signals and transaction `anomaly` flags",
     "- If signals conflict with task lists, trust severity ranking: critical > high > medium > low",
+    "",
+    "## VALUATION ENGINE (Finance tab)",
+    "Octane computes portfolio valuation from the **stored transaction ledger** (no bank APIs):",
+    "- **Book valuation** = sum of annualized trailing-30-day revenue per project (×12 multiplier) + sum of manual **ipAppraisalValue** per project",
+    "- **Trailing revenue** — recognized revenue in the last 30 days, per project (Ajax, Nexus, Core, etc.)",
+    "- **ipAppraisalValue** — optional manual IP/intangible worth on each project (Project detail sheet)",
+    "- **Net worth trajectory** — cumulative ledger cash (actual line) vs **predicted** 6-month forecast from avg burn/revenue (dashed line on Finance)",
+    "- When financeSummary is in context, cite book valuation, cash, net worth, and projected 6-mo value prescriptively — recommend raising IP appraisal, accelerating revenue, or cutting burn when numbers warrant it",
     "",
     "## EXECUTIVE GUIDANCE (Ajax / Nexus)",
     "- **Ajax**: unblock revenue — Etsy/Lemon Squeezy connectivity, Review Gate throughput, Nova research quality; prescribe concrete next engineering or ops steps",
@@ -400,15 +418,34 @@ function buildSystemPrompt(ctx: OctaneContext): string {
     lines.push("");
   }
 
-  if (ctx.transactions?.length) {
+  if (ctx.financeSummary) {
+    const f = ctx.financeSummary;
+    lines.push("## FINANCES (valuation engine)");
+    lines.push(
+      `- Book valuation: $${f.bookValuation.toLocaleString()} (annualized trailing revenue $${f.annualizedRevenueTotal.toLocaleString()} + IP appraisal $${f.ipAppraisalTotal.toLocaleString()})`,
+    );
+    lines.push(`- Cash (ledger): $${f.cashAvailable.toLocaleString()}`);
+    if (f.netWorthLatest != null) {
+      lines.push(`- Net worth (cumulative ledger): $${f.netWorthLatest.toLocaleString()}`);
+    }
+    if (f.projectedNetWorth6Mo != null) {
+      lines.push(`- Projected net worth (+6 mo): $${f.projectedNetWorth6Mo.toLocaleString()}`);
+    }
+    if (f.hasFinanceHazard) {
+      lines.push("- ⚠️ Ledger hazard: CSV burn anomaly (2.5× trailing 30-day) — review Finance transactions");
+    }
+    lines.push("");
+  } else if (ctx.transactions?.length) {
     const revenue = ctx.transactions
       .filter((t) => t.type === "income" || t.type === "revenue")
-      .reduce((s, t) => s + t.amount, 0);
+      .reduce((s, t) => s + Math.abs(t.amount), 0);
     const expenses = ctx.transactions
-      .filter((t) => t.type === "expense")
-      .reduce((s, t) => s + t.amount, 0);
+      .filter((t) => t.type === "expense" || t.amount < 0)
+      .reduce((s, t) => s + Math.abs(t.amount), 0);
     lines.push("## FINANCES");
-    lines.push(`- Revenue: $${revenue.toLocaleString()} | Expenses: $${expenses.toLocaleString()} | Net: $${(revenue - expenses).toLocaleString()}`);
+    lines.push(
+      `- Revenue: $${revenue.toLocaleString()} | Expenses: $${expenses.toLocaleString()} | Net: $${(revenue - expenses).toLocaleString()}`,
+    );
     lines.push("");
   }
 

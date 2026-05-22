@@ -312,6 +312,10 @@ function normalizeProject(raw: unknown, index: number): Project | null {
     risks: safeStringArray(r.risks),
     nextActions: safeStringArray(r.nextActions),
     revenueNotes: safeOptionalString(r.revenueNotes),
+    ipAppraisalValue:
+      typeof r.ipAppraisalValue === "number" && Number.isFinite(r.ipAppraisalValue)
+        ? Math.max(0, r.ipAppraisalValue)
+        : undefined,
     isCore: r.isCore === true,
     createdAt,
     updatedAt,

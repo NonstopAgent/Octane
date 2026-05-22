@@ -29,6 +29,8 @@ export interface Project {
   risks?: string[];
   nextActions?: string[];
   revenueNotes?: string;
+  /** Manual IP / intangible appraisal for book valuation (USD). */
+  ipAppraisalValue?: number;
   /** Permanent portfolio project (Ajax, Nexus) — cannot be deleted. */
   isCore?: boolean;
   createdAt: string;

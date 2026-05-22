@@ -18,6 +18,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { parseOctaneCommand } from "@/lib/actions/parse-octane-command";
 import { detectWorkspaceDataMode } from "@/lib/data/workspace-mode";
+import { buildFinanceContextSummary } from "@/lib/finance/valuation-engine";
 import {
   buildDisplaySignals,
   selectActiveSignals,
@@ -318,6 +319,12 @@ function ChatPageContent() {
       date: t.transactionDate,
     }));
 
+    const financeSummary = buildFinanceContextSummary(
+      state.projects,
+      state.transactions,
+      storedSignals,
+    );
+
     const decisions = state.decisions.map((d) => ({
       title: d.title,
       status: d.status,
@@ -364,6 +371,7 @@ function ChatPageContent() {
       agents,
       entities,
       transactions,
+      financeSummary,
       decisions,
       signals,
       profile: state.profile

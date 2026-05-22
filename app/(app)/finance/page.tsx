@@ -2,9 +2,11 @@
 
 import { Suspense, useCallback, useMemo, useState } from "react";
 import {
+  AlertTriangle,
   Banknote,
   FileSpreadsheet,
   Flame,
+  LineChart,
   Plus,
   TrendingDown,
   TrendingUp,
@@ -15,6 +17,7 @@ import { toast } from "sonner";
 
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState, MetricCard, SectionHeader } from "@/components/modules";
+import { EquityPerformanceChart } from "@/components/modules/finance/equity-performance-chart";
 import { ForecastPanel } from "@/components/modules/finance/forecast-panel";
 import { formatStatusLabel } from "@/components/modules/badge-tones";
 import { Button } from "@/components/ui/button";
@@ -48,6 +51,11 @@ import {
   sortTransactionsByDate,
   totalRevenue,
 } from "@/lib/finance/metrics";
+import {
+  bookValuation,
+  equityPerformanceSeries,
+  summarizeFinanceHazards,
+} from "@/lib/finance/valuation-engine";
 import { useOpenFromSearchParam } from "@/lib/hooks/use-open-from-search-param";
 import { useOctaneStore } from "@/lib/store/octane-store";
 import type { TransactionType } from "@/lib/types";
@@ -77,6 +85,7 @@ export default function FinancePage() {
 function FinancePageContent() {
   const transactions = useOctaneStore((state) => state.transactions);
   const projects = useOctaneStore((state) => state.projects);
+  const signals = useOctaneStore((state) => state.signals);
   const createTransaction = useOctaneStore((state) => state.createTransaction);
   const getProjectById = useOctaneStore((state) => state.getProjectById);
 
@@ -106,6 +115,8 @@ function FinancePageContent() {
     const burn = monthlyBurn(transactions);
     const runway = runwayMonths(transactions);
     const pnl = netPnL(transactions);
+    const book = bookValuation(projects, transactions);
+    const hazards = summarizeFinanceHazards(transactions, signals);
     return {
       totalRevenue: totalRevenue(transactions),
       monthlyRevenue: monthlyRevenue(transactions),
@@ -114,8 +125,15 @@ function FinancePageContent() {
       burn,
       runway,
       cash,
+      bookValuation: book.bookValuation,
+      hazards,
     };
-  }, [transactions]);
+  }, [transactions, projects, signals]);
+
+  const equitySeries = useMemo(
+    () => equityPerformanceSeries(transactions),
+    [transactions],
+  );
 
   const projectRows = useMemo(
     () => projectPnLTable(transactions, projects),
@@ -311,24 +329,64 @@ function FinancePageContent() {
 
       {transactions.length > 0 ? (
       <>
+      {metrics.hazards.hasHazard ? (
+        <div className="flex items-start gap-2 rounded-lg border border-red-900/50 bg-red-950/25 px-4 py-3">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-red-400" />
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-red-200">
+              Ledger hazard — burn anomaly detected
+            </p>
+            <p className="mt-0.5 text-xs text-red-300/80">
+              {metrics.hazards.ledgerAnomalyCount > 0
+                ? `${metrics.hazards.ledgerAnomalyCount} transaction${metrics.hazards.ledgerAnomalyCount !== 1 ? "s" : ""} flagged above 2.5× trailing 30-day burn. `
+                : ""}
+              {metrics.hazards.activeLedgerSignals > 0
+                ? `${metrics.hazards.activeLedgerSignals} active finance signal${metrics.hazards.activeLedgerSignals !== 1 ? "s" : ""} from CSV import. `
+                : ""}
+              Review attribution in the ledger below.
+            </p>
+          </div>
+        </div>
+      ) : null}
+
+      <Card className="border-zinc-800/80 bg-zinc-900/30 overflow-hidden">
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between gap-2">
+            <CardTitle className="text-base text-zinc-100">
+              Portfolio valuation
+            </CardTitle>
+            <LineChart className="size-4 text-amber-400/80" aria-hidden />
+          </div>
+          <p className="text-xs text-zinc-500">
+            Cumulative net worth from the ledger vs 6-month cash forecast.
+          </p>
+        </CardHeader>
+        <CardContent className="pb-4">
+          <EquityPerformanceChart
+            actual={equitySeries.actual}
+            predicted={equitySeries.predicted}
+          />
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
         <MetricCard
-          title="Total Revenue"
-          value={formatCurrency(metrics.totalRevenue)}
-          icon={TrendingUp}
-          subtitle="All-time recognized revenue"
+          title="Book Valuation"
+          value={formatCurrency(metrics.bookValuation)}
+          icon={LineChart}
+          subtitle="Annualized trailing revenue + IP appraisal"
         />
         <MetricCard
           title="Monthly Revenue"
           value={formatCurrency(metrics.monthlyRevenue)}
           icon={Banknote}
-          subtitle="Current calendar month"
+          subtitle="Current calendar month (MTD)"
         />
         <MetricCard
           title="Monthly Expenses"
           value={formatCurrency(metrics.monthlyExpenses)}
           icon={TrendingDown}
-          subtitle="Current calendar month"
+          subtitle="Current calendar month (MTD)"
         />
         <MetricCard
           title="Net P&L"

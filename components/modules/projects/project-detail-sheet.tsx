@@ -81,7 +81,9 @@ export function ProjectDetailSheet({
   const createFounderNote = useOctaneStore((s) => s.createFounderNote);
   const projectConnections = useOctaneStore((s) => s.projectConnections);
   const proposeOctaneAction = useOctaneStore((s) => s.proposeOctaneAction);
+  const updateProject = useOctaneStore((s) => s.updateProject);
   const [editing, setEditing] = useState(false);
+  const [ipAppraisalDraft, setIpAppraisalDraft] = useState("");
   const [noteFormOpen, setNoteFormOpen] = useState(false);
   const [noteTitle, setNoteTitle] = useState("");
   const [noteBody, setNoteBody] = useState("");
@@ -261,6 +263,58 @@ export function ProjectDetailSheet({
                 <p className="text-sm text-zinc-300">{project.revenueNotes}</p>
               </section>
             ) : null}
+
+            <section className="space-y-2">
+              <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                IP appraisal (book valuation)
+              </h3>
+              <p className="text-xs text-zinc-600">
+                Manual intangible worth added to annualized trailing revenue on Finance.
+              </p>
+              <div className="flex items-end gap-2">
+                <div className="grid flex-1 gap-1.5">
+                  <Label htmlFor="ip-appraisal" className="text-zinc-500">
+                    USD
+                  </Label>
+                  <Input
+                    id="ip-appraisal"
+                    type="number"
+                    min={0}
+                    step={1000}
+                    placeholder="0"
+                    value={
+                      ipAppraisalDraft ||
+                      (project.ipAppraisalValue != null
+                        ? String(project.ipAppraisalValue)
+                        : "")
+                    }
+                    onChange={(event) => setIpAppraisalDraft(event.target.value)}
+                    className="border-zinc-700 bg-zinc-900"
+                  />
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="border-zinc-700"
+                  onClick={() => {
+                    if (!projectId) return;
+                    const parsed = Number.parseFloat(ipAppraisalDraft);
+                    const value =
+                      ipAppraisalDraft.trim() === ""
+                        ? undefined
+                        : Number.isFinite(parsed) && parsed >= 0
+                          ? parsed
+                          : project.ipAppraisalValue;
+                    updateProject(projectId, { ipAppraisalValue: value });
+                    setIpAppraisalDraft("");
+                    toast.success("IP appraisal updated");
+                  }}
+                >
+                  Save
+                </Button>
+              </div>
+            </section>
 
             <Separator className="bg-zinc-800/80" />
 
