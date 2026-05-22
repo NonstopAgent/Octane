@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Activity,
   AlertCircle,
@@ -14,6 +15,8 @@ import {
   GitBranch,
   GitMerge,
   GitPullRequest,
+  MessageSquare,
+  ShieldCheck,
   Sparkles,
   Zap,
 } from "lucide-react";
@@ -222,13 +225,34 @@ export default function DashboardPage() {
   const state = useOctaneStore(useShallow(selectOctanePersistedState));
   const workspace = useOctaneStore(useShallow(selectWorkspaceForSignals));
   const storedSignals = useOctaneStore((s) => s.signals);
+  const setPendingChatContext = useOctaneStore((s) => s.setPendingChatContext);
   const { refreshGmailSignals, lastProvenance } = useGmailSignals();
   const { refreshVercelSignals } = useVercelSignals();
+  const router = useRouter();
 
   useEffect(() => {
     void refreshGmailSignals();
     void refreshVercelSignals();
   }, [refreshGmailSignals, refreshVercelSignals]);
+
+  const handleDashboardAskAdvisor = useCallback(
+    (signal: Signal) => {
+      const parts = [
+        `I need strategic guidance on an active ${signal.severity} severity signal:`,
+        `**Signal:** ${signal.title}`,
+        `**Summary:** ${signal.summary}`,
+        `**Source:** ${signal.source}`,
+        `**Severity:** ${signal.severity}`,
+      ];
+      if (signal.recommendedAction) {
+        parts.push(`**Recommended action:** ${signal.recommendedAction}`);
+      }
+      parts.push(`What's your assessment and recommended response?`);
+      setPendingChatContext(parts.join("\n"));
+      router.push("/chat?context=1");
+    },
+    [setPendingChatContext, router],
+  );
 
   const openTasks = useMemo(
     () => state.tasks.filter((t) => t.status !== "done"),
@@ -289,28 +313,36 @@ export default function DashboardPage() {
         <ChevronRight className="size-4 shrink-0 text-amber-500/60" aria-hidden />
       </Link>
 
-      {/* Signal preview — top critical/high signals */}
-      {(topSignals.length > 0 || lastProvenance === "mock") && (
-        <div>
-          <div className="mb-2 flex items-center justify-between">
-            <h2 className="flex items-center gap-2 text-sm font-medium text-zinc-400">
-              <Zap className="size-3.5 text-amber-400" />
-              Signals
-              {lastProvenance === "mock" && (
-                <SandboxCommsBadge />
-              )}
-            </h2>
-            <Link href="/signals" className="flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-300">
-              View all <ChevronRight className="size-3" />
-            </Link>
+      {/* Signal preview — live telemetry strip, always visible */}
+      <div>
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="flex items-center gap-2 text-sm font-medium text-zinc-400">
+            <Zap className="size-3.5 text-amber-400" />
+            Signals
+            {lastProvenance === "mock" && <SandboxCommsBadge />}
+          </h2>
+          <Link
+            href="/signals"
+            className="flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+          >
+            View all <ChevronRight className="size-3" />
+          </Link>
+        </div>
+
+        {topSignals.length === 0 ? (
+          <div className="flex items-center gap-2.5 rounded-lg border border-zinc-800/50 bg-zinc-900/20 px-3 py-2.5">
+            <ShieldCheck className="size-3.5 shrink-0 text-emerald-500/70" />
+            <p className="text-xs text-zinc-500">
+              ▪ Portfolio Infrastructure Stable — All monitoring systems clear.
+            </p>
           </div>
+        ) : (
           <div className="space-y-1.5">
             {topSignals.map((signal) => {
               const isCritical = signal.severity === "critical";
               return (
-                <Link
+                <div
                   key={signal.id}
-                  href="/signals"
                   className={cn(
                     "flex items-start gap-3 rounded-lg border px-3 py-2.5 transition-colors",
                     isCritical
@@ -323,18 +355,34 @@ export default function DashboardPage() {
                   ) : (
                     <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-orange-400" />
                   )}
-                  <div className="min-w-0 flex-1">
-                    <p className={cn("text-xs font-medium truncate", isCritical ? "text-red-200" : "text-orange-200")}>
+                  <Link
+                    href="/signals"
+                    className="min-w-0 flex-1 transition-opacity hover:opacity-80"
+                  >
+                    <p
+                      className={cn(
+                        "truncate text-xs font-medium",
+                        isCritical ? "text-red-200" : "text-orange-200",
+                      )}
+                    >
                       {signal.title}
                     </p>
                     <p className="truncate text-[11px] text-zinc-500">{signal.summary}</p>
-                  </div>
-                </Link>
+                  </Link>
+                  <button
+                    type="button"
+                    title="Ask Advisor"
+                    onClick={() => handleDashboardAskAdvisor(signal)}
+                    className="mt-0.5 shrink-0 text-zinc-600 transition-colors hover:text-amber-400"
+                  >
+                    <MessageSquare className="size-3.5" />
+                  </button>
+                </div>
               );
             })}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {octaneScore.operationalPenaltyReasons.length > 0 && (
         <div className="rounded-lg border border-orange-900/40 bg-orange-950/10 px-4 py-2.5">

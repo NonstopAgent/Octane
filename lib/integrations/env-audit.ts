@@ -20,7 +20,11 @@ const SERVER_KEYS: { key: string; purpose: string }[] = [
   { key: "ANTHROPIC_API_KEY", purpose: "Octane AI chat, coding edits, cron briefing, signal triage" },
   { key: "NEXT_PUBLIC_APP_URL", purpose: "Absolute links in PR bodies and job docs" },
   { key: "SENTRY_WEBHOOK_SECRET", purpose: "Inbound Sentry webhook HMAC validation" },
-  { key: "SUPABASE_SERVICE_ROLE_KEY", purpose: "Durable signal_ingest_queue for Sentry webhook bridge" },
+  {
+    key: "SUPABASE_SERVICE_ROLE_KEY",
+    purpose:
+      "Durable Supabase queues: signal_ingest_queue (Sentry) and engineer_executions (Engineer dispatch)",
+  },
 ];
 
 const PUBLIC_KEYS: { key: string; purpose: string }[] = [
