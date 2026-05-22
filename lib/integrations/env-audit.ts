@@ -19,6 +19,8 @@ const SERVER_KEYS: { key: string; purpose: string }[] = [
   { key: "VERCEL_TEAM_ID", purpose: "Optional Vercel team scope" },
   { key: "ANTHROPIC_API_KEY", purpose: "Octane AI chat, coding edits, cron briefing, signal triage" },
   { key: "NEXT_PUBLIC_APP_URL", purpose: "Absolute links in PR bodies and job docs" },
+  { key: "SENTRY_WEBHOOK_SECRET", purpose: "Inbound Sentry webhook HMAC validation" },
+  { key: "SUPABASE_SERVICE_ROLE_KEY", purpose: "Durable signal_ingest_queue for Sentry webhook bridge" },
 ];
 
 const PUBLIC_KEYS: { key: string; purpose: string }[] = [

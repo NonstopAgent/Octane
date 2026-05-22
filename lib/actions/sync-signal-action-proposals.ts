@@ -1,3 +1,5 @@
+import { buildSentryHotfixActionProposal } from "@/lib/integrations/sentry-webhook";
+import type { SentryWebhookExtract } from "@/lib/integrations/sentry-webhook";
 import { actionDedupeKey } from "@/lib/types/octane-action";
 import type { OctaneActionRiskLevel } from "@/lib/types/octane-action";
 import type { OctaneStore } from "@/lib/store/octane-store";
@@ -9,8 +11,24 @@ function riskFromSeverity(severity: Signal["severity"]): OctaneActionRiskLevel {
   return "medium";
 }
 
+function isSentryErrorSignal(signal: Signal): boolean {
+  return signal.title.startsWith("[Sentry Error]");
+}
+
+function sentryExtractFromSignal(signal: Signal): SentryWebhookExtract {
+  const meta = signal.enrichedMetadata ?? {};
+  const issueTitle = signal.title.replace(/^\[Sentry Error\]\s*/i, "") || "Production exception";
+  return {
+    issueTitle,
+    culpritFile: String(meta.culpritFile ?? "unknown source file"),
+    targetProjectSlug: String(meta.targetProjectSlug ?? "octane-core"),
+    stackTraceSnippet: String(meta.stackTraceSnippet ?? signal.summary),
+    issueId: signal.relatedRecordId,
+  };
+}
+
 /**
- * Auto-propose mitigation actions for critical/high Gmail and Vercel signals.
+ * Auto-propose mitigation actions for critical/high Gmail, Vercel, and Sentry signals.
  * Dedupes on source + title while an identical proposal is still pending.
  */
 export function syncSignalActionProposals(
@@ -25,6 +43,16 @@ export function syncSignalActionProposals(
   );
 
   for (const signal of signals) {
+    if (isSentryErrorSignal(signal)) {
+      const extracted = sentryExtractFromSignal(signal);
+      const proposal = buildSentryHotfixActionProposal(extracted, signal);
+      const key = actionDedupeKey(proposal);
+      if (pendingKeys.has(key)) continue;
+      store.proposeAction(proposal);
+      pendingKeys.add(key);
+      continue;
+    }
+
     if (signal.source !== "gmail" && signal.source !== "vercel") continue;
     if (signal.severity !== "critical" && signal.severity !== "high") continue;
 

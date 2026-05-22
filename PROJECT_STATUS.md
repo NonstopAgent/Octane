@@ -4,8 +4,8 @@
 
 | Item | Value |
 |------|--------|
-| Checkpoint | **12C** — Proof-of-life, connector hardening, product clarity |
-| Base commit | `524f0af` (12B source-edit PR workflow) |
+| Checkpoint | **20B** — Sentry webhook ingest & hotfix action broker |
+| Base commit | `af2032a` (20A finance valuation) |
 | Stack | Next.js 16, React 19, Zustand persist, Tailwind 4, Supabase client |
 | Intelligence | Rule-based engines + optional Anthropic (`/chat`, coding plans/edits, cron briefing) |
 
@@ -76,9 +76,21 @@ No integration secrets use `NEXT_PUBLIC_` prefix in code.
 | Real source PR | **Skipped** | No `GITHUB_TOKEN` / `ANTHROPIC_API_KEY` locally |
 | Push to remote | **Skipped** | Per instructions |
 
+## Sentry webhook ingest (20B)
+
+| Item | Detail |
+|------|--------|
+| Webhook | `POST /api/integrations/sentry/webhook` — validates `X-Sentry-Hook-Signature` when `SENTRY_WEBHOOK_SECRET` is set; dev mode logs a warning and accepts unsigned payloads when unset |
+| Queue | **Preferred:** Supabase `signal_ingest_queue` (migration in `supabase/migrations/`) when `SUPABASE_SERVICE_ROLE_KEY` is set |
+| Fallback | In-memory server queue + `GET /api/integrations/sentry/pending` (auth cookie) — **not durable** across Vercel/serverless cold starts |
+| Client | `useSentryIngest` in app layout pulls queue → `upsertSignals` + `syncSignalActionProposals` (GitHub hotfix coding job) |
+
+**Local test:** Sign in (mock auth cookie), POST a sample Sentry JSON to `/api/integrations/sentry/webhook`, reload app or call pending drain via layout mount.
+
 ## Known limitations
 
 - OAuth for GitHub/Vercel not implemented (PAT env only)
+- Sentry ingest memory queue is process-local; production should set `SUPABASE_SERVICE_ROLE_KEY` and apply `signal_ingest_queue` migration
 - Source PR proof requires populated server env; not demonstrated in 12C QA
 - Vercel project links match by **project name** — must match Vercel dashboard under current token/team
 - Demo portfolio seed remains default until user resets or imports data
