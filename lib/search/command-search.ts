@@ -535,7 +535,7 @@ export function searchCommandIndex(
         kind: "30-day",
         item: {
           id: `30d-${i}`,
-          title: m,
+          title: m.label,
           description: `30-day · ${outlook["30DayPlan"].theme}`,
         },
       })),
@@ -543,7 +543,7 @@ export function searchCommandIndex(
         kind: "60-day",
         item: {
           id: `60d-${i}`,
-          title: m,
+          title: m.label,
           description: `60-day · ${outlook["60DayPlan"].theme}`,
         },
       })),
@@ -551,7 +551,7 @@ export function searchCommandIndex(
         kind: "90-day",
         item: {
           id: `90d-${i}`,
-          title: m,
+          title: m.label,
           description: `90-day · ${outlook["90DayPlan"].theme}`,
         },
       })),

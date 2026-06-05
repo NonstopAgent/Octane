@@ -2,6 +2,7 @@
 
 import { format } from "date-fns";
 import {
+  Activity,
   AlertCircle,
   AlertTriangle,
   Bot,
@@ -38,6 +39,7 @@ import {
   generateOctaneOutlook,
   type OutlookDomain,
   type OutlookInsight,
+  type OutlookPlanPhase,
   type OverallOutlookLabel,
 } from "@/lib/outlook/generate-octane-outlook";
 import {
@@ -206,24 +208,65 @@ function DomainCard({
   );
 }
 
-function PlanCard({
-  label,
-  plan,
-}: {
-  label: string;
-  plan: { theme: string; milestones: string[]; focusAreas: string[] };
-}) {
+function PlanCard({ label, plan }: { label: string; plan: OutlookPlanPhase }) {
+  const inFlight = plan.milestones.filter(
+    (m) => m.status === "in_flight",
+  ).length;
+
   return (
     <div className="rounded-lg border border-zinc-800/90 bg-zinc-950/40 p-4">
-      <p className="text-xs font-medium uppercase tracking-wider text-amber-400/80">
-        {label}
-      </p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-medium uppercase tracking-wider text-amber-400/80">
+          {label}
+        </p>
+        {inFlight > 0 ? (
+          <Badge
+            variant="outline"
+            className="flex items-center gap-1 border-amber-800/60 bg-amber-950/30 text-[10px] text-amber-200"
+          >
+            <Activity className="size-3" aria-hidden />
+            {inFlight} in flight
+          </Badge>
+        ) : null}
+      </div>
       <p className="mt-1 font-medium text-zinc-100">{plan.theme}</p>
       <div className="mt-3 space-y-2">
         <p className="text-[11px] font-medium text-zinc-500">Milestones</p>
-        <ul className="space-y-1 text-xs text-zinc-400">
+        <ul className="space-y-1.5 text-xs text-zinc-400">
           {plan.milestones.map((m) => (
-            <li key={m}>· {m}</li>
+            <li key={m.label}>
+              <div className="flex items-start gap-1.5">
+                <span aria-hidden>·</span>
+                <span
+                  className={cn(m.status === "in_flight" && "text-zinc-200")}
+                >
+                  {m.label}
+                </span>
+                {m.status === "in_flight" ? (
+                  <Badge
+                    variant="outline"
+                    className="ml-auto shrink-0 border-amber-800/60 bg-amber-950/30 text-[9px] uppercase tracking-wide text-amber-200"
+                  >
+                    in flight
+                  </Badge>
+                ) : null}
+              </div>
+              {m.links.length > 0 ? (
+                <ul className="ml-3.5 mt-1 space-y-0.5">
+                  {m.links.map((linkItem) => (
+                    <li
+                      key={linkItem.actionId}
+                      className="flex items-center gap-1.5 text-[11px] text-zinc-500"
+                    >
+                      <span className="rounded border border-zinc-800 bg-zinc-900/60 px-1 py-px text-[9px] uppercase tracking-wide text-zinc-400">
+                        {linkItem.source}
+                      </span>
+                      <span className="truncate">{linkItem.title}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </li>
           ))}
         </ul>
         <p className="text-[11px] font-medium text-zinc-500">Focus</p>
@@ -435,6 +478,31 @@ export default function OutlookPage() {
         description="Rule-based horizons — not financial or legal advice"
         icon={Telescope}
       >
+        {outlook.milestoneConvergence.inFlightCount > 0 ? (
+          <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-900/40 bg-amber-950/15 px-3 py-2 text-xs text-zinc-400">
+            <Activity className="mt-0.5 size-3.5 shrink-0 text-amber-400/90" aria-hidden />
+            <span>
+              <span className="font-medium text-amber-200/90">
+                {outlook.milestoneConvergence.inFlightCount} milestone
+                {outlook.milestoneConvergence.inFlightCount === 1 ? "" : "s"} in
+                flight
+              </span>{" "}
+              — backed by {outlook.milestoneConvergence.committedActionCount}{" "}
+              approved action
+              {outlook.milestoneConvergence.committedActionCount === 1
+                ? ""
+                : "s"}{" "}
+              from{" "}
+              <Link
+                href="/actions"
+                className="text-amber-400/90 hover:underline"
+              >
+                the actions queue
+              </Link>
+              .
+            </span>
+          </div>
+        ) : null}
         <div className="grid gap-4 md:grid-cols-3">
           <PlanCard label="30 days" plan={outlook["30DayPlan"]} />
           <PlanCard label="60 days" plan={outlook["60DayPlan"]} />

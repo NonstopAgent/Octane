@@ -25,6 +25,12 @@ import { computeHoldingsHealth } from "@/lib/scoring/holdings-health";
 import { computeOctaneScore } from "@/lib/scoring/octane-score";
 import type { OctanePersistedState } from "@/lib/store/octane-store";
 import type { ActivityLog, Project, Task } from "@/lib/types";
+import type {
+  OctaneAction,
+  OctaneActionSource,
+  OctaneActionStatus,
+  OctaneActionType,
+} from "@/lib/types/octane-action";
 import type { Signal } from "@/lib/types/signal";
 
 export type OutlookSeverity = "low" | "medium" | "high" | "critical";
@@ -50,10 +56,42 @@ export type OutlookDomain = {
   highlights: string[];
 };
 
+/** Whether a projected milestone has committed (approved/executed) work behind it. */
+export type OutlookMilestoneStatus = "projected" | "in_flight";
+
+/** A committed Octane action that advances a specific milestone. */
+export type OutlookMilestoneLink = {
+  actionId: string;
+  title: string;
+  source: OctaneActionSource;
+  status: OctaneActionStatus;
+};
+
+export type OutlookMilestone = {
+  label: string;
+  status: OutlookMilestoneStatus;
+  links: OutlookMilestoneLink[];
+};
+
 export type OutlookPlanPhase = {
+  theme: string;
+  milestones: OutlookMilestone[];
+  focusAreas: string[];
+};
+
+/** Internal: plan phases before action convergence (milestones are raw strings). */
+type RawPlanPhase = {
   theme: string;
   milestones: string[];
   focusAreas: string[];
+};
+
+/** Portfolio-wide rollup of how executed actions converge onto the plan. */
+export type OutlookMilestoneConvergence = {
+  /** Milestones across all horizons now backed by committed work. */
+  inFlightCount: number;
+  /** Distinct committed actions linked to at least one milestone. */
+  committedActionCount: number;
 };
 
 export type OverallOutlookLabel =
@@ -84,6 +122,7 @@ export type OctaneOutlook = {
   "30DayPlan": OutlookPlanPhase;
   "60DayPlan": OutlookPlanPhase;
   "90DayPlan": OutlookPlanPhase;
+  milestoneConvergence: OutlookMilestoneConvergence;
   signalRiskAdjustment?: SignalOutlookAdjustment;
 };
 
@@ -508,9 +547,9 @@ function buildPlanPhases(input: {
   topRisks: OutlookInsight[];
   roadmapCount: number;
 }): {
-  day30: OutlookPlanPhase;
-  day60: OutlookPlanPhase;
-  day90: OutlookPlanPhase;
+  day30: RawPlanPhase;
+  day60: RawPlanPhase;
+  day90: RawPlanPhase;
 } {
   const focus = input.recommendedFocus.slice(0, 3);
   const bets = input.projectsToDoubleDown.map((p) => p.projectName);
@@ -551,6 +590,123 @@ function buildPlanPhases(input: {
       ],
     },
   };
+}
+
+/** A committed action paired with its linked project name (if any). */
+type CommittedAction = {
+  action: OctaneAction;
+  projectName?: string;
+};
+
+/**
+ * Committed = approved (execution in flight, e.g. async GitHub dispatch) or
+ * cleanly executed. Failed executions (executed + errorMessage) are excluded —
+ * a milestone should never read as "in flight" on the back of a failed action.
+ */
+function buildCommittedActions(
+  actions: OctaneAction[],
+  projects: Project[],
+): CommittedAction[] {
+  return actions
+    .filter(
+      (a) =>
+        a.status === "approved" ||
+        (a.status === "executed" && !a.errorMessage),
+    )
+    .map((a) => ({
+      action: a,
+      projectName: a.projectId
+        ? projects.find((p) => p.id === a.projectId)?.name
+        : undefined,
+    }));
+}
+
+/**
+ * High-precision keyword → action-type rules. Only unambiguous links so a
+ * milestone never reads as in-flight on the back of unrelated work. Generic,
+ * high-frequency types like create_task are intentionally excluded.
+ */
+const MILESTONE_ACTION_KEYWORDS: {
+  keywords: string[];
+  types: OctaneActionType[];
+}[] = [
+  {
+    keywords: ["blocker", "unblock", "mitigate", "stabiliz"],
+    types: ["create_coding_job", "create_github_issue"],
+  },
+  { keywords: ["decision"], types: ["create_decision"] },
+  {
+    keywords: ["github", "issue", "ship milestone"],
+    types: ["create_github_issue"],
+  },
+];
+
+/** Resolve a raw milestone string against committed actions. */
+function convergeMilestone(
+  label: string,
+  committed: CommittedAction[],
+): OutlookMilestone {
+  const lower = label.toLowerCase();
+  const links: OutlookMilestoneLink[] = [];
+  const seen = new Set<string>();
+
+  const addLink = (c: CommittedAction) => {
+    if (seen.has(c.action.id)) return;
+    seen.add(c.action.id);
+    links.push({
+      actionId: c.action.id,
+      title: c.action.title,
+      source: c.action.source,
+      status: c.action.status,
+    });
+  };
+
+  // 1. Strong match: the action's linked project is named in the milestone.
+  for (const c of committed) {
+    if (c.projectName && lower.includes(c.projectName.toLowerCase())) {
+      addLink(c);
+    }
+  }
+
+  // 2. Precise type match for generic milestones (decisions, GitHub, blockers).
+  for (const rule of MILESTONE_ACTION_KEYWORDS) {
+    if (rule.keywords.some((k) => lower.includes(k))) {
+      for (const c of committed) {
+        if (rule.types.includes(c.action.type)) addLink(c);
+      }
+    }
+  }
+
+  return {
+    label,
+    status: links.length > 0 ? "in_flight" : "projected",
+    links: links.slice(0, 3),
+  };
+}
+
+function convergePlanPhase(
+  raw: RawPlanPhase,
+  committed: CommittedAction[],
+): OutlookPlanPhase {
+  return {
+    theme: raw.theme,
+    focusAreas: raw.focusAreas,
+    milestones: raw.milestones.map((m) => convergeMilestone(m, committed)),
+  };
+}
+
+function summarizeConvergence(
+  phases: OutlookPlanPhase[],
+): OutlookMilestoneConvergence {
+  let inFlightCount = 0;
+  const actionIds = new Set<string>();
+  for (const phase of phases) {
+    for (const milestone of phase.milestones) {
+      if (milestone.status === "in_flight") inFlightCount += 1;
+      for (const link of milestone.links) actionIds.add(link.actionId);
+    }
+  }
+  return { inFlightCount, committedActionCount: actionIds.size };
 }
 
 export function generateOctaneOutlook(
@@ -823,6 +979,19 @@ export function generateOctaneOutlook(
     ].slice(0, 4);
   }
 
+  const committedActions = buildCommittedActions(
+    state.octaneActions ?? [],
+    state.projects,
+  );
+  const day30Plan = convergePlanPhase(plans.day30, committedActions);
+  const day60Plan = convergePlanPhase(plans.day60, committedActions);
+  const day90Plan = convergePlanPhase(plans.day90, committedActions);
+  const milestoneConvergence = summarizeConvergence([
+    day30Plan,
+    day60Plan,
+    day90Plan,
+  ]);
+
   return {
     generatedAt: referenceDate.toISOString(),
     overallOutlook,
@@ -867,9 +1036,10 @@ export function generateOctaneOutlook(
         : "Holdings score flags entity, IP, or calendar gaps.",
       holdings.suggestions.slice(0, 4),
     ),
-    "30DayPlan": plans.day30,
-    "60DayPlan": plans.day60,
-    "90DayPlan": plans.day90,
+    "30DayPlan": day30Plan,
+    "60DayPlan": day60Plan,
+    "90DayPlan": day90Plan,
+    milestoneConvergence,
     signalRiskAdjustment:
       signalAdjustment.penalty > 0 ? signalAdjustment : undefined,
   };
