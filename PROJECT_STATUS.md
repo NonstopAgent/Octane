@@ -4,10 +4,24 @@
 
 | Item | Value |
 |------|--------|
-| Checkpoint | **14** — Founder money-view + auth hardening (built on Checkpoint 13 monitoring base) |
+| Checkpoint | **15** — Reality cleanup (real repos, no simulated signals) on the money-view + monitoring base |
 | Base commit | `3faaa3f` (20B Sentry webhook ingest) |
 | Stack | Next.js 16, React 19, Zustand persist, Tailwind 4, Supabase client |
 | Intelligence | Rule-based engines + optional Anthropic (`/chat`, coding plans/edits, cron briefing) |
+
+## Checkpoint 15 — Reality cleanup (2026-07-03)
+
+Founder feedback: dashboard was full of demo/sandbox fiction. Made everything on screen true.
+
+| Area | Result |
+|------|--------|
+| Repo names | Live repos are **underscores** — `NonstopAgent/Octane_Ajax`, `Octane_Nexus`, `Octane` (verified via GitHub API: hyphen `Octane-Ajax` doesn't exist; `Octane-Nexus` is a stale 2026-01 fork). Fixed every hyphen ref (dashboard hardcoded cards, seed baseline + entities, chat route, agent-monitor, portfolio-pulse, infer-github-repo, briefing default) |
+| Simulated signals | Root cause: Gmail integration returns **mock** messages (Dependabot/Stripe/Vercel) when no Gmail connected → became fake signals → spawned fake pending approvals → −31 score penalty. `use-gmail-signals` now ignores `provenance: "mock"` (no ingest, no proposals, no badge) |
+| Auto-purge | Store `merge` strips persisted `source: "gmail"` signals + the pending approvals they spawned (payload.signalId match) — clears existing browser cruft on next load, no user action |
+| Baseline | `createCorePortfolioBaseline` now seeds all 3 real projects (Core/Ajax/Nexus) with correct repo links; fixed `clearToBlank` bug that wiped projectConnections |
+| Reset button | Settings → Data Management → **Reset to real workspace** (green) → `clearToBlank` → clean 3-project workspace (wipes `ocaos` + all local junk) |
+| Honesty | "Active Builds" → "Active Projects"; hide 0% progress bars |
+| Build/deploy | `next build` exit 0; pushed `2798471`; Vercel READY |
 
 ## Checkpoint 14 — Money-view + auth hardening (2026-07-03)
 
