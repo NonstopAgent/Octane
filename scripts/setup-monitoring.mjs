@@ -18,7 +18,8 @@ import { fileURLToPath } from "url";
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const ENV_PATH = join(ROOT, ".env.local");
 const REPO = "NonstopAgent/Octane";
-const GITHUB_REPOS = ["NonstopAgent/Octane", "NonstopAgent/Octane-Nexus", "NonstopAgent/Octane-Ajax"];
+// Live repos per Vercel project links: octane→Octane, octane-nexus-6em9→Octane_Nexus, octane-ajax→Octane_Ajax
+const GITHUB_REPOS = ["NonstopAgent/Octane", "NonstopAgent/Octane_Nexus", "NonstopAgent/Octane_Ajax"];
 const VERCEL_API = "https://api.vercel.com";
 const GITHUB_API = "https://api.github.com";
 const WEBHOOK_PATH = "/api/integrations/vercel/webhook";
@@ -178,6 +179,11 @@ const PUSH_KEYS = [
   "GITHUB_WEBHOOK_SECRET",
   "SENTRY_WEBHOOK_SECRET",
   "WEBHOOK_ALERT_URL",
+  "POSTHOG_API_KEY",
+  "POSTHOG_PROJECT_ID",
+  "POSTHOG_HOST",
+  "NEXT_PUBLIC_POSTHOG_KEY",
+  "NEXT_PUBLIC_POSTHOG_HOST",
   "NEXT_PUBLIC_SUPABASE_URL",
   "NEXT_PUBLIC_SUPABASE_ANON_KEY",
 ];

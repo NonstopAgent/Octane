@@ -21,8 +21,9 @@ import { NextRequest, NextResponse } from "next/server";
 export const runtime = "nodejs";
 export const maxDuration = 120;
 
-const AJAX_REPO = "NonstopAgent/Octane-Ajax";
-const NEXUS_REPO = "NonstopAgent/Octane-Nexus";
+// Live repos (underscore names) — the hyphen variants are stale duplicates.
+const AJAX_REPO = "NonstopAgent/Octane_Ajax";
+const NEXUS_REPO = "NonstopAgent/Octane_Nexus";
 
 // ─── GitHub helpers ───────────────────────────────────────────────────────────
 
