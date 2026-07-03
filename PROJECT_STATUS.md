@@ -4,10 +4,31 @@
 
 | Item | Value |
 |------|--------|
-| Checkpoint | **20B** — Sentry webhook ingest & hotfix action broker |
-| Base commit | `af2032a` (20A finance valuation) |
+| Checkpoint | **13** — Live monitoring (webhooks, heartbeats, health score) |
+| Base commit | `3faaa3f` (20B Sentry webhook ingest) |
 | Stack | Next.js 16, React 19, Zustand persist, Tailwind 4, Supabase client |
 | Intelligence | Rule-based engines + optional Anthropic (`/chat`, coding plans/edits, cron briefing) |
+
+## Checkpoint 13 — Live monitoring (2026-07-02)
+
+| Area | Result |
+|------|--------|
+| Tokens | `GITHUB_TOKEN`, `VERCEL_TOKEN`, `ANTHROPIC_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `OCTANE_SHARED_SECRET`, `CRON_SECRET` set in `.env.local`; connectors verified live (GitHub as NonstopAgent, Vercel team-scoped) |
+| Bug fix | `vercel-client.ts` never prepended `https://api.vercel.com` — connector could never work; fixed |
+| Generic ingest | `lib/integrations/ingest-queue.ts` + `/api/integrations/ingest/pending` — one durable queue/drain for all sources (sentry, vercel, github, monitor) |
+| Vercel webhook | `/api/integrations/vercel/webhook` — deployment succeeded/error/canceled → signals; HMAC via `VERCEL_WEBHOOK_SECRET`; prod failures dispatch server-side alerts |
+| GitHub webhook | `/api/integrations/github/webhook` — push/PR/Dependabot/workflow_run → signals; HMAC via `GITHUB_WEBHOOK_SECRET`; critical/high Dependabot alerts dispatch |
+| Client ingest | `useSignalIngest` (layout) polls drain every 60s, triggers heartbeats every 5 min while app open |
+| Heartbeats | `monitor_targets` + `project_heartbeats` tables (applied); `/api/cron/heartbeat` pings prod URLs (down = critical signal + alert on up→down edge); `/api/monitor/heartbeats` 24h summary + target CRUD; 3 Octane prod apps seeded and verified UP |
+| Health score | `lib/monitor/health-score.ts` (deploy 25 · signals 25 · uptime 20 · momentum 15 · reachability 15) + `/api/monitor/health` factors + badge on project cards |
+| PostHog | `/api/integrations/posthog/usage` — 7d pageviews/visitors/exceptions, gated on `POSTHOG_API_KEY` + `POSTHOG_PROJECT_ID` |
+| Supabase health | `/api/integrations/supabase/health` via `octane_db_health()` security-definer fn (applied); verified live (11.5 MB, queue depths) |
+| Alerts | Dispatcher honors `enrichedMetadata.alertEligible`; webhook routes + heartbeat cron dispatch server-side (work with app closed) |
+| Cron | `vercel.json`: daily heartbeat 06:00 + briefing 08:00 (Hobby-plan granularity; client interval covers intraday while app open) |
+| Build | **Pass** (`npm run build`, exit 0) |
+| Push | **Skipped** per checkpoint convention |
+
+**Remaining manual setup:** paste env vars into Vercel project settings before deploying; add webhook endpoints in Vercel/GitHub UIs with matching secrets; create PostHog personal API key; optionally set `WEBHOOK_ALERT_URL` (Discord/Slack) and Sentry webhook + secret.
 
 ## 12C summary
 
@@ -105,7 +126,7 @@ No integration secrets use `NEXT_PUBLIC_` prefix in code.
 
 | Checkpoint | Focus |
 |------------|--------|
-| **13** | Deployment hardening (Vercel envs, cron, monitoring) |
+| **14** | Deploy hardening: Vercel envs set, webhooks registered, Sentry prod, PostHog key, alert channel |
 
 ## Prior checkpoints (summary)
 

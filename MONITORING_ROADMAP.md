@@ -28,7 +28,11 @@ Original steps kept for reference:
 
 Exit criteria: project cards show live deployments + repo stats; a test Sentry POST lands in Signals.
 
-## Phase 1 — Real-time instead of polling
+## Phase 1 — Real-time instead of polling ✅ BUILT 2026-07-02
+
+Vercel + GitHub webhook routes live (HMAC-gated, dev-bypass when secret unset), generic ingest queue + 60s client drain. Verified end-to-end locally. Remaining: register the webhook URLs in Vercel/GitHub UIs after deploy, point Sentry at prod.
+
+Original plan:
 
 - **Vercel deploy webhooks** → new `/api/integrations/vercel/webhook`, reuse `signal_ingest_queue` (`source='vercel'`). Failed deploy = signal within seconds.
 - **Sentry in production**: internal integration pointed at the deployed webhook URL, `SENTRY_WEBHOOK_SECRET` set.
@@ -36,17 +40,29 @@ Exit criteria: project cards show live deployments + repo stats; a test Sentry P
 
 The queue schema already supports this (`source` column) — one webhook route per provider, one shared drain.
 
-## Phase 2 — Health score + uptime
+## Phase 2 — Health score + uptime ✅ BUILT 2026-07-02
+
+Heartbeats live (3 prod apps seeded, all UP), 24h uptime summaries, health score badge on project cards. Note: Vercel Hobby crons are daily — intraday pings run every 5 min while the app is open.
+
+Original plan:
 
 - **Uptime pings**: Vercel cron hits each linked project's prod URL every 5–15 min; store status/latency in a `project_heartbeats` table; sparkline + uptime % on project cards. No third-party service.
 - **Project Health Score (0–100)** per project: deploy status (25) + open error signals (25) + uptime (20) + commit recency (15) + traffic trend (15). Dashboard sorts worst-first. This is the single biggest UX upgrade: raw stats → "what needs me."
 
-## Phase 3 — Usage + infra depth
+## Phase 3 — Usage + infra depth ✅ BUILT 2026-07-02 (PostHog needs API key)
+
+Supabase health live via `octane_db_health()`. PostHog route built, gated on `POSTHOG_API_KEY` + `POSTHOG_PROJECT_ID` (id 371612 prefilled in .env.local).
+
+Original plan:
 
 - **PostHog per project**: weekly actives, pageviews, error rate via PostHog API on each card. For a portfolio, "is anyone using this" is the most honest metric.
 - **Supabase health**: per linked project — status, DB size, and Supabase advisor findings (security/perf lints) surfaced as signals.
 
-## Phase 4 — Anomalies + delivery
+## Phase 4 — Anomalies + delivery ✅ PARTIAL 2026-07-02
+
+Delivery built: server-side critical alert dispatch from webhooks + heartbeat cron (works with app closed) once `WEBHOOK_ALERT_URL` is set; dispatcher honors `alertEligible` metadata. Staleness shows via Momentum factor in health score. Remaining: traffic-drop WoW rule (needs PostHog key + history).
+
+Original plan:
 
 - **Staleness rules**: active project, no commits 14d; traffic down >40% WoW; deploy pending >10 min.
 - **Delivery**: critical signals → `WEBHOOK_ALERT_URL` (Discord/Slack); daily digest already exists via cron briefing → GitHub issue. Only interrupt for critical; everything else waits in the briefing.
