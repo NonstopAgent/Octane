@@ -1517,11 +1517,12 @@ export const useOctaneStore = create<OctaneStore>()(
       },
 
       clearToBlank: () => {
+        // createBlankState() already seeds the 3 real projects + their GitHub
+        // repo links — do NOT override projectConnections back to empty.
         set({
           ...createBlankState(),
           connections: createDefaultConnections(),
           octaneActions: [],
-          projectConnections: [],
           agentLogs: [],
           agentRuns: [],
         });
@@ -1942,11 +1943,29 @@ export const useOctaneStore = create<OctaneStore>()(
           // No saved data — start blank. Supabase sync will hydrate on mount.
           return { ...current, ...normalizeOctaneData(createBlankState()) };
         }
+        // One-time cleanup: remove simulated "gmail" signals (no real Gmail is
+        // connected, so these are sandbox Dependabot/Stripe/Vercel noise) and any
+        // pending approvals they spawned. Keeps the dashboard reflecting real state.
+        const signalsIn = persistedState?.signals ?? [];
+        const actionsIn = persistedState?.octaneActions ?? [];
+        const gmailSignalIds = new Set(
+          signalsIn.filter((s) => s.source === "gmail").map((s) => s.id),
+        );
+        const cleanedState = {
+          ...persistedState,
+          signals: signalsIn.filter((s) => s.source !== "gmail"),
+          octaneActions: actionsIn.filter((a) => {
+            if (a.status !== "pending") return true;
+            const sid = (a.payload as { signalId?: unknown } | undefined)
+              ?.signalId;
+            return !(typeof sid === "string" && gmailSignalIds.has(sid));
+          }),
+        };
         return {
           ...current,
           ...normalizeOctaneData({
             ...current,
-            ...persistedState,
+            ...cleanedState,
           }),
         };
       },

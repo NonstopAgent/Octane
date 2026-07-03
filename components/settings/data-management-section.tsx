@@ -30,11 +30,13 @@ export function DataManagementSection({
   const importSnapshotData = useOctaneStore((state) => state.importSnapshotData);
   const clearLocalData = useOctaneStore((state) => state.clearLocalData);
   const resetToSeed = useOctaneStore((state) => state.resetToSeed);
+  const clearToBlank = useOctaneStore((state) => state.clearToBlank);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pendingImport, setPendingImport] = useState<OctaneSnapshot | null>(null);
   const [clearOpen, setClearOpen] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
+  const [realOpen, setRealOpen] = useState(false);
 
   const handleExport = useCallback(() => {
     try {
@@ -153,6 +155,18 @@ export function DataManagementSection({
             <Button
               type="button"
               size="sm"
+              className="bg-emerald-600 text-white hover:bg-emerald-500"
+              data-testid="settings-reset-real-workspace"
+              onClick={() => setRealOpen(true)}
+            >
+              <RotateCcw className="size-4" />
+              Reset to real workspace
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="border-zinc-700"
               data-testid="settings-export-snapshot"
               onClick={handleExport}
             >
@@ -211,6 +225,19 @@ export function DataManagementSection({
         description={`Replace all local data with this snapshot? ${importSummary}`}
         confirmLabel="Import"
         onConfirm={confirmImport}
+      />
+
+      <ConfirmDialog
+        open={realOpen}
+        onOpenChange={setRealOpen}
+        title="Reset to your real workspace?"
+        description="Wipes ALL local data in this browser (demo junk, test projects like “ocaos”, sandbox signals) and loads a clean workspace with just your three real projects — Octane Core, Ajax, and Nexus — wired to their GitHub repos. Cannot be undone; use Export JSON first if unsure."
+        confirmLabel="Reset to real"
+        onConfirm={() => {
+          clearToBlank();
+          setRealOpen(false);
+          toast.success("Clean workspace loaded — Core, Ajax, Nexus");
+        }}
       />
 
       <ConfirmDialog

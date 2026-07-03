@@ -31,7 +31,7 @@ export const AGENT_MONITOR_ROWS: AgentMonitorRow[] = [
     name: "Octane Ajax Operator",
     purpose:
       "Monitors Nova → Forge → Pixel pipeline activity on the Ajax repo (read-only).",
-    repo: "NonstopAgent/Octane-Ajax",
+    repo: "NonstopAgent/Octane_Ajax",
     projectId: PROJECT_IDS.ajax,
     pipelineNote: "Nova / Forge / Pixel",
     actionSources: ["github", "vercel", "gmail"],
@@ -42,7 +42,7 @@ export const AGENT_MONITOR_ROWS: AgentMonitorRow[] = [
     name: "Octane Nexus Agent",
     purpose:
       "Tracks ingestion and media signal work on the Nexus repo (read-only).",
-    repo: "NonstopAgent/Octane-Nexus",
+    repo: "NonstopAgent/Octane_Nexus",
     projectId: PROJECT_IDS.nexus,
     pipelineNote: "Ingestion & media signals",
     actionSources: ["github", "gmail"],

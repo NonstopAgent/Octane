@@ -12,7 +12,7 @@
  *   CRON_SECRET — to verify this route is called by Vercel Cron (not public)
  *
  * Optional:
- *   BRIEFING_REPO — where to post the issue (default: NonstopAgent/Octane-Ajax)
+ *   BRIEFING_REPO — where to post the issue (default: NonstopAgent/Octane_Ajax)
  */
 
 import Anthropic from "@anthropic-ai/sdk";

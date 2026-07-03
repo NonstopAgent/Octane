@@ -513,12 +513,12 @@ export default function DashboardPage() {
         </h2>
         <div className="grid gap-4 md:grid-cols-3">
           <RepoStatusCard
-            repo="NonstopAgent/Octane-Ajax"
+            repo="NonstopAgent/Octane_Ajax"
             label="Octane Ajax"
             emoji="🚀"
           />
           <RepoStatusCard
-            repo="NonstopAgent/Octane-Nexus"
+            repo="NonstopAgent/Octane_Nexus"
             label="Octane Nexus"
             emoji="🔭"
           />
@@ -584,7 +584,7 @@ export default function DashboardPage() {
         <div>
           <h2 className="mb-3 text-sm font-medium text-zinc-400 flex items-center gap-2">
             <Zap className="size-3.5 text-amber-400" />
-            Active Builds ({activeProjects.length})
+            Active Projects ({activeProjects.length})
           </h2>
           {activeProjects.length === 0 ? (
             <div className="rounded-xl border border-dashed border-zinc-800 p-6 text-center">
@@ -630,13 +630,19 @@ export default function DashboardPage() {
                         </Badge>
                       </div>
                     </div>
-                    <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-zinc-800">
-                      <div
-                        className="h-full rounded-full bg-amber-500/70"
-                        style={{ width: `${p.progress}%` }}
-                      />
-                    </div>
-                    <p className="mt-1 text-[11px] text-zinc-600">{p.progress}%</p>
+                    {p.progress > 0 ? (
+                      <>
+                        <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-zinc-800">
+                          <div
+                            className="h-full rounded-full bg-amber-500/70"
+                            style={{ width: `${p.progress}%` }}
+                          />
+                        </div>
+                        <p className="mt-1 text-[11px] text-zinc-600">
+                          {p.progress}%
+                        </p>
+                      </>
+                    ) : null}
                   </div>
                 );
               })}

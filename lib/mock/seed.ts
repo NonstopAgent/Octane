@@ -61,6 +61,20 @@ export function createCorePortfolioBaseline(
   return {
     projects: [
       {
+        id: PROJECT_IDS.core,
+        name: "Octane Core",
+        description:
+          "Founder command center — the operating system monitoring your portfolio.",
+        status: "building",
+        priority: "critical",
+        owner: "Founder",
+        progress: 0,
+        revenueStatus: "none",
+        isCore: true,
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
         id: PROJECT_IDS.ajax,
         name: "Octane Ajax",
         description:
@@ -91,11 +105,21 @@ export function createCorePortfolioBaseline(
     ],
     projectConnections: [
       {
+        id: "pconn-core-core-github",
+        projectId: PROJECT_IDS.core,
+        kind: "github",
+        label: "GitHub",
+        repo: "NonstopAgent/Octane",
+        status: "linked",
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
         id: "pconn-core-ajax-github",
         projectId: PROJECT_IDS.ajax,
         kind: "github",
         label: "GitHub",
-        repo: "NonstopAgent/Octane-Ajax",
+        repo: "NonstopAgent/Octane_Ajax",
         status: "linked",
         createdAt: now,
         updatedAt: now,
@@ -105,7 +129,7 @@ export function createCorePortfolioBaseline(
         projectId: PROJECT_IDS.nexus,
         kind: "github",
         label: "GitHub",
-        repo: "NonstopAgent/Octane-Nexus",
+        repo: "NonstopAgent/Octane_Nexus",
         status: "linked",
         createdAt: now,
         updatedAt: now,
@@ -884,7 +908,7 @@ export const seedEntities: Entity[] = [
     status: "active",
     formationDate: "2025-11-01",
     notes: "Research + signal intelligence product. Connects market data to portfolio decisions.",
-    githubRepo: "NonstopAgent/Octane-Nexus",
+    githubRepo: "NonstopAgent/Octane_Nexus",
     linkedProjectIds: [PROJECT_IDS.nexus],
     createdAt: T0,
     updatedAt: T2,
@@ -898,7 +922,7 @@ export const seedEntities: Entity[] = [
     status: "active",
     formationDate: "2025-11-01",
     notes: "Agent-powered ops platform. First pilot targeting SMB operators.",
-    githubRepo: "NonstopAgent/Octane-Ajax",
+    githubRepo: "NonstopAgent/Octane_Ajax",
     linkedProjectIds: [PROJECT_IDS.ajax],
     createdAt: T0,
     updatedAt: T3,

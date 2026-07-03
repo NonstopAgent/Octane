@@ -6,8 +6,8 @@ import {
 } from "@/lib/integrations/github-client";
 
 export const PORTFOLIO_REPOS = [
-  { anchor: "Ajax" as const, fullName: "NonstopAgent/Octane-Ajax" },
-  { anchor: "Nexus" as const, fullName: "NonstopAgent/Octane-Nexus" },
+  { anchor: "Ajax" as const, fullName: "NonstopAgent/Octane_Ajax" },
+  { anchor: "Nexus" as const, fullName: "NonstopAgent/Octane_Nexus" },
   { anchor: "Core" as const, fullName: "NonstopAgent/Octane" },
 ] as const;
 

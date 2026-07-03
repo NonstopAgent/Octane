@@ -49,6 +49,13 @@ export function useGmailSignals() {
         provenance: "live" | "mock";
         error?: string;
       };
+      // Only ingest REAL Gmail signals. "mock" provenance means no Gmail is
+      // connected — do NOT inject simulated Dependabot/Stripe/Vercel noise (or
+      // the pending-approval proposals + score penalties it would spawn).
+      if (data.provenance === "mock") {
+        setLastProvenance(null);
+        return { signals: [], provenance: "mock", error: data.error };
+      }
       const signals =
         data.signals?.length
           ? data.signals

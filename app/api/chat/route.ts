@@ -71,13 +71,13 @@ const GITHUB_TOOLS: Anthropic.Tool[] = [
   {
     name: "list_github_issues",
     description:
-      "List open GitHub issues for a repository. Use this when the user asks about issues, bugs, or open problems in Ajax or Nexus. The repos are NonstopAgent/Octane-Ajax and NonstopAgent/Octane-Nexus.",
+      "List open GitHub issues for a repository. Use this when the user asks about issues, bugs, or open problems in Ajax or Nexus. The repos are NonstopAgent/Octane_Ajax and NonstopAgent/Octane_Nexus.",
     input_schema: {
       type: "object" as const,
       properties: {
         repo: {
           type: "string",
-          description: "Repository in owner/name format, e.g. NonstopAgent/Octane-Ajax",
+          description: "Repository in owner/name format, e.g. NonstopAgent/Octane_Ajax",
         },
         state: {
           type: "string",
@@ -112,7 +112,7 @@ const GITHUB_TOOLS: Anthropic.Tool[] = [
       properties: {
         repo: {
           type: "string",
-          description: "Repository in owner/name format, e.g. NonstopAgent/Octane-Ajax",
+          description: "Repository in owner/name format, e.g. NonstopAgent/Octane_Ajax",
         },
         title: {
           type: "string",
@@ -285,7 +285,7 @@ function buildSystemPrompt(ctx: OctaneContext): string {
     "## THE PORTFOLIO",
     "Logan runs two main products under Octane Holdings Trust:",
     "",
-    "**Octane Ajax** (repo: `NonstopAgent/Octane-Ajax`, live: octane-ajax-lzu6au72b-nonstopagents-projects.vercel.app)",
+    "**Octane Ajax** (repo: `NonstopAgent/Octane_Ajax`, live: octane-ajax-lzu6au72b-nonstopagents-projects.vercel.app)",
     "Autonomous product engine: research → compilation → asset placement. Three AI agents run the pipeline:",
     "- Nova (Research): mines demand signals, competitor intel, and product ideas from market data",
     "- Forge (Creation): compiles digital products (PDFs, guides, kits) from approved concepts",
@@ -296,7 +296,7 @@ function buildSystemPrompt(ctx: OctaneContext): string {
     "Key gaps: Etsy not connected, no revenue flowing yet, product model needs evaluation vs. higher-LTV formats",
     "Logan's direction: Nova should out-research competitors; Forge/Pixel should run autonomously after review gate.",
     "",
-    "**Octane Nexus** (repo: `NonstopAgent/Octane-Nexus`)",
+    "**Octane Nexus** (repo: `NonstopAgent/Octane_Nexus`)",
     "External data and media indexing layer — ingests, normalizes, and surfaces third-party signals (research briefs, media feeds, partner content) for the portfolio. Complements Ajax's product factory with outward-facing intelligence.",
     "Status: active development; prioritize indexing quality and signal freshness over feature breadth.",
     "",

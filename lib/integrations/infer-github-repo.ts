@@ -1,7 +1,7 @@
 /** Default Octane portfolio repos when project name appears in text. */
 const PROJECT_REPO_MAP: { pattern: RegExp; repo: string }[] = [
-  { pattern: /\bajax\b/i, repo: "NonstopAgent/Octane-Ajax" },
-  { pattern: /\bnexus\b/i, repo: "NonstopAgent/Octane-Nexus" },
+  { pattern: /\bajax\b/i, repo: "NonstopAgent/Octane_Ajax" },
+  { pattern: /\bnexus\b/i, repo: "NonstopAgent/Octane_Nexus" },
   {
     pattern: /\b(octane\s+core|octane-core|core)\b/i,
     repo: "NonstopAgent/Octane",
