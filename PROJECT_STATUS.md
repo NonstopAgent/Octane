@@ -28,7 +28,9 @@
 | Build | **Pass** (`npm run build`, exit 0) |
 | Push | **Skipped** per checkpoint convention |
 
-**Remaining manual setup:** paste env vars into Vercel project settings before deploying; add webhook endpoints in Vercel/GitHub UIs with matching secrets; create PostHog personal API key; optionally set `WEBHOOK_ALERT_URL` (Discord/Slack) and Sentry webhook + secret.
+**Deployed + verified in production (2026-07-02):** master pushed → octane-lake.vercel.app deployed READY; all 12 env vars pushed via `scripts/setup-monitoring.mjs`; Vercel deploy webhook registered across all 3 Octane projects — the deploy itself fired `deployment.succeeded` into the durable queue (real delivery, HMAC-validated); forged unsigned webhook correctly rejected 401; prod heartbeat pinged all 3 apps UP from Vercel infra.
+
+**Remaining manual setup:** GitHub PAT lacks Webhooks permission (403) and Octane-Ajax repo access (404) — edit the fine-grained token (add "Webhooks: read/write", "Dependabot alerts: read-only", include all three repos), then rerun `node scripts/setup-monitoring.mjs`. PostHog: project 371612 has zero captured events — apps need posthog-js instrumentation before the usage connector matters. Optional: `WEBHOOK_ALERT_URL` (Discord/Slack) for push alerts; Sentry account webhook + secret.
 
 ## 12C summary
 
