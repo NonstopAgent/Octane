@@ -11,7 +11,11 @@ export type {
   TaskStatus,
 } from "./task";
 export type { Agent, AgentStatus } from "./agent";
-export type { Transaction, TransactionType } from "./transaction";
+export type {
+  Transaction,
+  TransactionCadence,
+  TransactionType,
+} from "./transaction";
 export type {
   Document,
   DocumentCategory,

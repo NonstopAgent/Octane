@@ -13,6 +13,7 @@ import { useProjectHealth } from "@/lib/hooks/use-project-health";
 import { cn } from "@/lib/utils";
 import type { Project } from "@/lib/types";
 
+import { ImportVercelButton } from "./import-vercel-button";
 import { ProjectCard } from "./project-card";
 import { ProjectDetailSheet } from "./project-detail-sheet";
 import { ProjectFilters, type ProjectFiltersState } from "./project-filters";
@@ -72,10 +73,13 @@ export function ProjectsView() {
         title="Projects"
         description="Portfolio view with filters, detail sheet, and persisted CRUD."
         actions={
-          <Button type="button" onClick={() => setCreateOpen(true)}>
-            <Plus className="size-4" />
-            New Project
-          </Button>
+          <div className="flex gap-2">
+            <ImportVercelButton />
+            <Button type="button" onClick={() => setCreateOpen(true)}>
+              <Plus className="size-4" />
+              New Project
+            </Button>
+          </div>
         }
       />
 

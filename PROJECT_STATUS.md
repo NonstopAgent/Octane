@@ -4,10 +4,30 @@
 
 | Item | Value |
 |------|--------|
-| Checkpoint | **13** — Live monitoring (webhooks, heartbeats, health score) |
+| Checkpoint | **14** — Founder money-view + auth hardening (built on Checkpoint 13 monitoring base) |
 | Base commit | `3faaa3f` (20B Sentry webhook ingest) |
 | Stack | Next.js 16, React 19, Zustand persist, Tailwind 4, Supabase client |
 | Intelligence | Rule-based engines + optional Anthropic (`/chat`, coding plans/edits, cron briefing) |
+
+## Checkpoint 14 — Money-view + auth hardening (2026-07-03)
+
+**Founder money-view** — the "how much did I put in, make, and spend" picture the whole app was missing.
+
+| Area | Result |
+|------|--------|
+| Money In / Money Out | New all-time section on `/finance`: **You've Put In** (capital `investment` txns), **Total Made** (revenue), **Total Spent** (all expense-type outflows), **Net Position** (revenue − expenses, excludes your capital), **Ongoing Monthly** (recurring commitments). `lib/finance/metrics.ts`: `totalInvested`, `totalExpensesAllTime`, `netPosition`, `subscriptionRows`, `recurringMonthly` |
+| Recurring model | `Transaction.recurring` + `cadence` ("monthly"/"yearly"); yearly normalized ÷12 for monthly cost |
+| Recurring UI | Add-Transaction form now has a **Recurring commitment** checkbox + cadence selector (was missing — subscriptions were untrackable from the UI) |
+| Ongoing Expenses table | Latest charge per subscription (keyed by category/notes), sorted by monthly cost |
+| CSV import | Optional `recurring` + `cadence` columns supported (required schema unchanged: date, type, project, amount, notes) |
+| Auth hardening | httpOnly signed session cookie (`lib/auth/session-secret.ts`, `mock-auth.ts`, `require-api-auth.ts`), server logout route `/api/mock-auth/logout`, `middleware.ts` gate |
+| PostHog webhook | `/api/integrations/posthog/webhook` — error/exception alerts into the signal queue |
+| Vercel import | `/api/integrations/vercel/import-candidates` + **Import from Vercel** button on Projects (pull real projects as monitor targets) |
+| Signals history | `/api/signals/history` endpoint |
+| Build | **Pass** (`next build`, exit 0 — all routes incl. `/finance` + new API routes; type-check clean) |
+| Push | **Skipped** per checkpoint convention |
+
+> Verification note: `npm run build *> log` returns a spurious exit 1 in the headless shell (broken stdout pipe under Turbopack). Run `node node_modules\next\dist\bin\next build` (or plain `npm run build` in a real terminal) — exit 0. A stale `next dev` also locks `.next` and blocks builds; stop it first.
 
 ## Checkpoint 13 — Live monitoring (2026-07-02)
 
@@ -83,6 +103,7 @@ No integration secrets use `NEXT_PUBLIC_` prefix in code.
 - **Workspace data mode** — banner + Settings clarity (seed vs live vs mixed)
 - **Octane Outlook** — simplified layout + Ask Octane (`#ask-octane`)
 - **Action approvals** — review mode default; no auto-merge/deploy
+- **Founder money-view** — capital in / revenue / spend / net position / recurring monthly burn on `/finance`
 - App shell, projects, tasks, finance, holdings, briefing, optional AI chat/cron
 - Settings: export/import, reset demo seed
 

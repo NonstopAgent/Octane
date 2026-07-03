@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { AUTH_COOKIE_NAME, AUTH_COOKIE_VALUE } from "@/lib/auth/constants";
+import { AUTH_COOKIE_NAME } from "@/lib/auth/constants";
+import { isValidSessionCookie } from "@/lib/auth/session-secret";
 import { enqueueSignalIngest } from "@/lib/integrations/ingest-queue";
 import {
   buildDownSignal,
@@ -21,7 +22,7 @@ function isAuthorized(req: NextRequest): boolean {
   const cronSecret = process.env.CRON_SECRET?.trim();
   const authHeader = req.headers.get("authorization");
   if (cronSecret && authHeader === `Bearer ${cronSecret}`) return true;
-  return req.cookies.get(AUTH_COOKIE_NAME)?.value === AUTH_COOKIE_VALUE;
+  return isValidSessionCookie(req.cookies.get(AUTH_COOKIE_NAME)?.value);
 }
 
 async function handle(req: NextRequest) {

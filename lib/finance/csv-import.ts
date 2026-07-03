@@ -2,7 +2,11 @@ import {
   isExpenseTransaction,
   projectedMonthlyBurnFromLast30Days,
 } from "@/lib/finance/metrics";
-import type { Transaction, TransactionType } from "@/lib/types";
+import type {
+  Transaction,
+  TransactionCadence,
+  TransactionType,
+} from "@/lib/types";
 
 export type CreatableTransaction = Omit<Transaction, "id" | "createdAt">;
 
@@ -29,6 +33,10 @@ export type FinanceCsvRow = {
   project: string;
   amount: number;
   notes: string;
+  /** Optional `recurring` column (yes/true/1) — flags subscriptions/retainers. */
+  recurring?: boolean;
+  /** Optional `cadence` column (monthly/yearly); defaults monthly when recurring. */
+  cadence?: TransactionCadence;
 };
 
 const REQUIRED_HEADERS = ["date", "type", "project", "amount", "notes"] as const;
@@ -81,12 +89,31 @@ export function parseFinanceCsv(text: string): {
       continue;
     }
 
+    // Optional columns (not required): recurring flag + billing cadence.
+    const getOpt = (key: string) => {
+      const idx = headerMap.get(key);
+      if (idx === undefined) return "";
+      return cells[idx]?.trim().replace(/^"|"$/g, "").toLowerCase() ?? "";
+    };
+    const recurring = ["1", "true", "yes", "y", "recurring"].includes(
+      getOpt("recurring"),
+    );
+    const cadenceRaw = getOpt("cadence");
+    const cadence: TransactionCadence =
+      cadenceRaw === "yearly" ||
+      cadenceRaw === "annual" ||
+      cadenceRaw === "annually"
+        ? "yearly"
+        : "monthly";
+
     rows.push({
       date: get("date"),
       type: get("type"),
       project: get("project"),
       amount,
       notes: get("notes"),
+      recurring: recurring || undefined,
+      cadence: recurring ? cadence : undefined,
     });
   }
 
@@ -265,6 +292,9 @@ export function importFinanceCsvRows(
         transactionDate: row.date,
         projectId,
         ...(anomaly ? { anomaly: true } : {}),
+        ...(row.recurring
+          ? { recurring: true, cadence: row.cadence ?? "monthly" }
+          : {}),
       });
       ledger.push(created);
       seen.add(key);

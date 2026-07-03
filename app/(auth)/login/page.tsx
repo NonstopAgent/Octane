@@ -54,10 +54,11 @@ export default function LoginPage() {
         }
 
         // Sign in immediately after signup (no email verification required for now)
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email: email.trim(),
-          password,
-        });
+        const { data: signInData, error: signInError } =
+          await supabase.auth.signInWithPassword({
+            email: email.trim(),
+            password,
+          });
 
         if (signInError) {
           setInfo("Account created! Check your email to confirm, then sign in.");
@@ -65,15 +66,20 @@ export default function LoginPage() {
           return;
         }
 
-        // Set session cookie — optional setup; enter with empty states
-        await fetch("/api/mock-auth/login", { method: "POST" });
+        // Set session cookie (server validates the Supabase token)
+        await fetch("/api/mock-auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ accessToken: signInData.session?.access_token }),
+        });
         router.replace("/dashboard");
         router.refresh();
       } else {
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email: email.trim(),
-          password,
-        });
+        const { data: signInData, error: signInError } =
+          await supabase.auth.signInWithPassword({
+            email: email.trim(),
+            password,
+          });
 
         if (signInError) {
           if (signInError.message.toLowerCase().includes("invalid")) {
@@ -84,8 +90,16 @@ export default function LoginPage() {
           return;
         }
 
-        // Set session cookie
-        await fetch("/api/mock-auth/login", { method: "POST" });
+        // Set session cookie (server validates the Supabase token)
+        const sessionRes = await fetch("/api/mock-auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ accessToken: signInData.session?.access_token }),
+        });
+        if (!sessionRes.ok) {
+          setError("Signed in, but session setup failed. Try again.");
+          return;
+        }
         router.replace("/dashboard");
         router.refresh();
       }

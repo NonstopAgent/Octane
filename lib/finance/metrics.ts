@@ -203,3 +203,68 @@ export function sortTransactionsByDate(
       parseISO(a.transactionDate).getTime(),
   );
 }
+
+// ─── Money in / money out (all-time) ─────────────────────────────────────────
+
+/** Capital you put into the business (all `investment` transactions). */
+export function totalInvested(transactions: Transaction[]): number {
+  return transactions
+    .filter((t) => t.type === "investment")
+    .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+}
+
+/** Everything the business has spent, all-time (expense-type outflows). */
+export function totalExpensesAllTime(transactions: Transaction[]): number {
+  return transactions
+    .filter(isExpenseTransaction)
+    .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+}
+
+/** All-time revenue minus all-time expenses (excludes your capital injections). */
+export function netPosition(transactions: Transaction[]): number {
+  return totalRevenue(transactions) - totalExpensesAllTime(transactions);
+}
+
+export type SubscriptionRow = {
+  key: string;
+  label: string;
+  monthlyAmount: number;
+  cadence: "monthly" | "yearly";
+  lastCharged: string;
+  projectId?: string;
+};
+
+/**
+ * Ongoing commitments — latest occurrence per subscription (keyed by
+ * category/notes), normalized to a monthly amount (yearly ÷ 12).
+ */
+export function subscriptionRows(transactions: Transaction[]): SubscriptionRow[] {
+  const recurring = sortTransactionsByDate(
+    transactions.filter((t) => t.recurring && isExpenseTransaction(t)),
+  );
+  const byKey = new Map<string, SubscriptionRow>();
+  for (const t of recurring) {
+    const label = t.category?.trim() || t.notes?.trim() || "Subscription";
+    const key = label.toLowerCase();
+    if (byKey.has(key)) continue; // list is date-desc; first hit = latest charge
+    const cadence = t.cadence === "yearly" ? "yearly" : "monthly";
+    const amount = Math.abs(t.amount);
+    byKey.set(key, {
+      key,
+      label,
+      monthlyAmount: cadence === "yearly" ? amount / 12 : amount,
+      cadence,
+      lastCharged: t.transactionDate,
+      projectId: t.projectId,
+    });
+  }
+  return [...byKey.values()].sort((a, b) => b.monthlyAmount - a.monthlyAmount);
+}
+
+/** Total ongoing monthly commitment from recurring expenses. */
+export function recurringMonthly(transactions: Transaction[]): number {
+  return subscriptionRows(transactions).reduce(
+    (sum, row) => sum + row.monthlyAmount,
+    0,
+  );
+}

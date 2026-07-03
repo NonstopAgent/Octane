@@ -20,6 +20,8 @@ export function setAuthSession() {
 export function clearAuthSession() {
   document.cookie = `${AUTH_COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax`;
   localStorage.removeItem(AUTH_STORAGE_KEY);
+  // Session cookie is httpOnly — clear it server-side too.
+  void fetch("/api/mock-auth/logout", { method: "POST" }).catch(() => {});
 }
 
 export function isAuthenticatedClient() {

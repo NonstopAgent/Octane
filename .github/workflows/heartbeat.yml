@@ -1,0 +1,19 @@
+name: Uptime heartbeat
+
+# Vercel Hobby crons are daily — this gives true 24/7 uptime monitoring.
+# Requires repo secret OCTANE_CRON_SECRET (same value as CRON_SECRET in Vercel env).
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Run heartbeat sweep
+        run: |
+          curl -fsS -X POST \
+            -H "Authorization: Bearer ${{ secrets.OCTANE_CRON_SECRET }}" \
+            https://octane-lake.vercel.app/api/cron/heartbeat

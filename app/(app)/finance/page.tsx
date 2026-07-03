@@ -7,7 +7,9 @@ import {
   FileSpreadsheet,
   Flame,
   LineChart,
+  PiggyBank,
   Plus,
+  Repeat,
   TrendingDown,
   TrendingUp,
   Wallet,
@@ -46,9 +48,14 @@ import {
   monthlyExpenses,
   monthlyRevenue,
   netPnL,
+  netPosition,
   projectPnLTable,
+  recurringMonthly,
   runwayMonths,
   sortTransactionsByDate,
+  subscriptionRows,
+  totalExpensesAllTime,
+  totalInvested,
   totalRevenue,
 } from "@/lib/finance/metrics";
 import {
@@ -58,7 +65,7 @@ import {
 } from "@/lib/finance/valuation-engine";
 import { useOpenFromSearchParam } from "@/lib/hooks/use-open-from-search-param";
 import { useOctaneStore } from "@/lib/store/octane-store";
-import type { TransactionType } from "@/lib/types";
+import type { TransactionCadence, TransactionType } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const TRANSACTION_TYPES: TransactionType[] = [
@@ -108,6 +115,8 @@ function FinancePageContent() {
     notes: "",
     transactionDate: format(new Date(), "yyyy-MM-dd"),
     projectId: "",
+    recurring: false,
+    cadence: "monthly" as TransactionCadence,
   });
 
   const metrics = useMemo(() => {
@@ -119,6 +128,10 @@ function FinancePageContent() {
     const hazards = summarizeFinanceHazards(transactions, signals);
     return {
       totalRevenue: totalRevenue(transactions),
+      totalInvested: totalInvested(transactions),
+      totalSpent: totalExpensesAllTime(transactions),
+      netPosition: netPosition(transactions),
+      recurringMonthly: recurringMonthly(transactions),
       monthlyRevenue: monthlyRevenue(transactions),
       monthlyExpenses: monthlyExpenses(transactions),
       netPnL: pnl,
@@ -129,6 +142,11 @@ function FinancePageContent() {
       hazards,
     };
   }, [transactions, projects, signals]);
+
+  const subscriptions = useMemo(
+    () => subscriptionRows(transactions),
+    [transactions],
+  );
 
   const equitySeries = useMemo(
     () => equityPerformanceSeries(transactions),
@@ -158,6 +176,8 @@ function FinancePageContent() {
       notes: "",
       transactionDate: format(new Date(), "yyyy-MM-dd"),
       projectId: "",
+      recurring: false,
+      cadence: "monthly",
     });
   };
 
@@ -268,8 +288,12 @@ function FinancePageContent() {
       notes: form.notes || undefined,
       transactionDate: form.transactionDate,
       projectId: form.projectId || undefined,
+      recurring: form.recurring || undefined,
+      cadence: form.recurring ? form.cadence : undefined,
     });
-    toast.success("Transaction saved");
+    toast.success(
+      form.recurring ? "Recurring transaction saved" : "Transaction saved",
+    );
     setDialogOpen(false);
     resetForm();
   };
@@ -311,7 +335,8 @@ function FinancePageContent() {
           {csvPreview.errors.length > 0
             ? ` · ${csvPreview.errors.length} warning(s)`
             : ""}
-          . Columns: date, type, project, amount, notes (parsed locally only).
+          . Columns: date, type, project, amount, notes (+ optional recurring,
+          cadence) — parsed locally only.
         </p>
       ) : null}
 
@@ -348,6 +373,101 @@ function FinancePageContent() {
           </div>
         </div>
       ) : null}
+
+      <section className="space-y-4">
+        <SectionHeader
+          title="Money In / Money Out"
+          description="All-time picture: what you've put in, what the business made, and what it costs to keep running."
+        />
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          <MetricCard
+            title="You've Put In"
+            value={formatCurrency(metrics.totalInvested)}
+            icon={PiggyBank}
+            subtitle="Capital invested (all-time)"
+          />
+          <MetricCard
+            title="Total Made"
+            value={formatCurrency(metrics.totalRevenue)}
+            icon={TrendingUp}
+            subtitle="Revenue (all-time)"
+          />
+          <MetricCard
+            title="Total Spent"
+            value={formatCurrency(metrics.totalSpent)}
+            icon={TrendingDown}
+            subtitle="Expenses (all-time)"
+          />
+          <MetricCard
+            title="Net Position"
+            value={formatCurrency(metrics.netPosition)}
+            icon={Wallet}
+            trend={{
+              label:
+                metrics.netPosition >= 0
+                  ? "Business is net positive"
+                  : "Made less than spent",
+              direction:
+                metrics.netPosition > 0
+                  ? "up"
+                  : metrics.netPosition < 0
+                    ? "down"
+                    : "neutral",
+            }}
+          />
+          <MetricCard
+            title="Ongoing Monthly"
+            value={formatCurrency(metrics.recurringMonthly)}
+            icon={Repeat}
+            subtitle={`${subscriptions.length} recurring commitment${subscriptions.length === 1 ? "" : "s"}`}
+          />
+        </div>
+
+        {subscriptions.length > 0 ? (
+          <Card className="border-zinc-800/80 bg-zinc-900/30 overflow-x-auto">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base text-zinc-100">
+                Ongoing expenses
+              </CardTitle>
+              <p className="text-xs text-zinc-500">
+                Latest charge per subscription, normalized to monthly (yearly ÷ 12).
+                Mark a transaction as recurring to track it here.
+              </p>
+            </CardHeader>
+            <CardContent className="p-0">
+              <table className={tableClass}>
+                <thead>
+                  <tr>
+                    <th>Commitment</th>
+                    <th>Cadence</th>
+                    <th>Last charged</th>
+                    <th className="text-right">Monthly cost</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {subscriptions.map((row) => (
+                    <tr key={row.key}>
+                      <td className="font-medium text-zinc-200">{row.label}</td>
+                      <td className="text-zinc-400">
+                        {row.cadence === "yearly" ? "Yearly" : "Monthly"}
+                      </td>
+                      <td className="text-zinc-400">{row.lastCharged}</td>
+                      <td className="text-right font-medium text-red-400">
+                        {formatCurrency(row.monthlyAmount)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
+        ) : (
+          <p className="text-xs text-zinc-600">
+            Tip: check “Recurring” when adding subscriptions (Vercel, Supabase,
+            Anthropic API, domains…) and they’ll show up here as ongoing monthly cost.
+          </p>
+        )}
+      </section>
 
       <Card className="border-zinc-800/80 bg-zinc-900/30 overflow-hidden">
         <CardHeader className="pb-2">
@@ -685,6 +805,53 @@ function FinancePageContent() {
                 }
                 className="border-zinc-700 bg-zinc-900"
               />
+            </div>
+            <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 p-3">
+              <label
+                htmlFor="txn-recurring"
+                className="flex cursor-pointer items-start gap-2.5"
+              >
+                <input
+                  id="txn-recurring"
+                  type="checkbox"
+                  checked={form.recurring}
+                  onChange={(event) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      recurring: event.target.checked,
+                    }))
+                  }
+                  className="mt-0.5 size-4 shrink-0 rounded border-zinc-700 bg-zinc-900 accent-amber-500"
+                />
+                <span className="min-w-0">
+                  <span className="block text-sm font-medium text-zinc-100">
+                    Recurring commitment
+                  </span>
+                  <span className="block text-xs text-zinc-500">
+                    Subscriptions & retainers (Vercel, Supabase, Anthropic API,
+                    domains…). Shows up under Ongoing Expenses as monthly cost.
+                  </span>
+                </span>
+              </label>
+              {form.recurring ? (
+                <div className="mt-3 grid gap-2">
+                  <Label htmlFor="txn-cadence">Billing cadence</Label>
+                  <select
+                    id="txn-cadence"
+                    className="h-8 w-full rounded-lg border border-zinc-700 bg-zinc-900 px-2 text-sm text-zinc-100"
+                    value={form.cadence}
+                    onChange={(event) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        cadence: event.target.value as TransactionCadence,
+                      }))
+                    }
+                  >
+                    <option value="monthly">Monthly</option>
+                    <option value="yearly">Yearly (normalized to ÷12)</option>
+                  </select>
+                </div>
+              ) : null}
             </div>
             <DialogFooter className="border-zinc-800/80 bg-zinc-900/40 sm:justify-end">
               <Button

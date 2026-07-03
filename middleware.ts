@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-import { AUTH_COOKIE_NAME, AUTH_COOKIE_VALUE } from "@/lib/auth/constants";
+import { AUTH_COOKIE_NAME } from "@/lib/auth/constants";
+import { isValidSessionCookie } from "@/lib/auth/session-secret";
 import { appRoutePrefixes } from "@/lib/nav";
 
 function isAuthenticated(request: NextRequest) {
-  return request.cookies.get(AUTH_COOKIE_NAME)?.value === AUTH_COOKIE_VALUE;
+  return isValidSessionCookie(request.cookies.get(AUTH_COOKIE_NAME)?.value);
 }
 
 function isProtectedAppPath(pathname: string) {
