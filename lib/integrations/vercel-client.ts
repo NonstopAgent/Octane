@@ -44,7 +44,7 @@ type VercelFetchResult<T> = {
 async function vercelGet<T>(path: string): Promise<VercelFetchResult<T>> {
   const token = vercelToken();
   if (!token) return { data: null };
-  const res = await fetchWithTimeout(withTeam(path), {
+  const res = await fetchWithTimeout(`${VERCEL_API}${withTeam(path)}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) {
