@@ -62,6 +62,14 @@ function isFinanceRunwaySignal(signal: Signal): boolean {
 function isAlertEligibleSignal(signal: Signal): boolean {
   if (signal.status === "resolved" || signal.status === "dismissed") return false;
 
+  // Webhook/monitor parsers mark alert-worthy signals explicitly.
+  if (
+    signal.enrichedMetadata?.alertEligible === true &&
+    (signal.severity === "critical" || signal.severity === "high")
+  ) {
+    return true;
+  }
+
   if (
     signal.source === "vercel" &&
     signal.type === "deployment" &&

@@ -10,17 +10,20 @@ import {
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
+import type { ProjectHealth } from "@/lib/hooks/use-project-health";
 import type { Project } from "@/lib/types";
 
+import { ProjectHealthBadge } from "./project-health-badge";
 import { formatRevenueStatus, formatUpdatedAt } from "./project-utils";
 
 type ProjectCardProps = {
   project: Project;
   onClick: () => void;
   layout: "grid" | "list";
+  health?: ProjectHealth;
 };
 
-export function ProjectCard({ project, onClick, layout }: ProjectCardProps) {
+export function ProjectCard({ project, onClick, layout, health }: ProjectCardProps) {
   const isList = layout === "list";
 
   return (
@@ -43,6 +46,7 @@ export function ProjectCard({ project, onClick, layout }: ProjectCardProps) {
         <div className="flex flex-wrap items-start justify-between gap-2">
           <CardTitle className="text-zinc-50">{project.name || "Untitled project"}</CardTitle>
           <div className="flex flex-wrap gap-1.5">
+            <ProjectHealthBadge health={health} />
             <StatusBadge domain="project" status={project.status} />
             <PriorityBadge priority={project.priority} />
           </div>

@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/modules";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { useOctaneStore } from "@/lib/store/octane-store";
+import { useProjectHealth } from "@/lib/hooks/use-project-health";
 import { cn } from "@/lib/utils";
 import type { Project } from "@/lib/types";
 
@@ -20,6 +21,7 @@ import { useOpenFromSearchParam } from "@/lib/hooks/use-open-from-search-param";
 
 export function ProjectsView() {
   const projects = useOctaneStore((s) => s.projects);
+  const { health } = useProjectHealth();
   const [filters, setFilters] = useState<ProjectFiltersState>({
     search: "",
     status: "all",
@@ -150,6 +152,7 @@ export function ProjectsView() {
               key={project.id}
               project={project}
               layout={layout}
+              health={health[project.id]}
               onClick={() => openProject(project)}
             />
           ))}

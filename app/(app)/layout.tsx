@@ -8,12 +8,12 @@ import { AppTopbar } from "@/components/layout/app-topbar";
 import { WorkspaceModeBanner } from "@/components/layout/workspace-mode-banner";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { normalizeOctaneData } from "@/lib/data/normalize-octane-data";
-import { useSentryIngest } from "@/lib/hooks/use-sentry-ingest";
+import { useSignalIngest } from "@/lib/hooks/use-signal-ingest";
 import { loadFromSupabase } from "@/lib/supabase/sync";
 import { useOctaneStore } from "@/lib/store/octane-store";
 
-function SentryIngestProvider({ children }: { children: React.ReactNode }) {
-  useSentryIngest();
+function SignalIngestProvider({ children }: { children: React.ReactNode }) {
+  useSignalIngest();
   return <>{children}</>;
 }
 
@@ -100,7 +100,7 @@ function DataSyncProvider({ children }: { children: React.ReactNode }) {
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <DataSyncProvider>
-      <SentryIngestProvider>
+      <SignalIngestProvider>
       <div className="min-h-screen bg-transparent">
         <div className="flex items-center px-4 pt-3 md:hidden">
           <AppSidebar />
@@ -116,7 +116,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </div>
-      </SentryIngestProvider>
+      </SignalIngestProvider>
     </DataSyncProvider>
   );
 }

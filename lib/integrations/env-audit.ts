@@ -20,10 +20,16 @@ const SERVER_KEYS: { key: string; purpose: string }[] = [
   { key: "ANTHROPIC_API_KEY", purpose: "Octane AI chat, coding edits, cron briefing, signal triage" },
   { key: "NEXT_PUBLIC_APP_URL", purpose: "Absolute links in PR bodies and job docs" },
   { key: "SENTRY_WEBHOOK_SECRET", purpose: "Inbound Sentry webhook HMAC validation" },
+  { key: "VERCEL_WEBHOOK_SECRET", purpose: "Inbound Vercel deployment webhook HMAC validation" },
+  { key: "GITHUB_WEBHOOK_SECRET", purpose: "Inbound GitHub webhook HMAC validation" },
+  { key: "CRON_SECRET", purpose: "Vercel cron auth (briefing, heartbeat)" },
+  { key: "WEBHOOK_ALERT_URL", purpose: "Outbound critical alert webhook (Slack/Discord-compatible)" },
+  { key: "POSTHOG_API_KEY", purpose: "PostHog usage stats (personal API key, read scope)" },
+  { key: "POSTHOG_PROJECT_ID", purpose: "PostHog project for usage stats" },
   {
     key: "SUPABASE_SERVICE_ROLE_KEY",
     purpose:
-      "Durable Supabase queues: signal_ingest_queue (Sentry) and engineer_executions (Engineer dispatch)",
+      "Durable Supabase queues, uptime heartbeats, and DB health (signal_ingest_queue, engineer_executions, monitor_targets)",
   },
 ];
 
