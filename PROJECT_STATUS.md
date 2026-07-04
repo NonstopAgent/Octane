@@ -4,10 +4,23 @@
 
 | Item | Value |
 |------|--------|
-| Checkpoint | **16** — Automation: live GitHub signals + Plaid bank feed (on the reality-cleanup base) |
+| Checkpoint | **17** — Company Context: one editable brain the AI reads (on the automation base) |
 | Base commit | `3faaa3f` (20B Sentry webhook ingest) |
 | Stack | Next.js 16, React 19, Zustand persist, Tailwind 4, Supabase client |
 | Intelligence | Rule-based engines + optional Anthropic (`/chat`, coding plans/edits, cron briefing) |
+
+## Checkpoint 17 — Company Context: one brain for the AI (2026-07-04)
+
+Founder ask: make sure the AI knows everything about Octane, all the businesses, the idea, and future plans.
+
+| Area | Result |
+|------|--------|
+| Problem | Rich company knowledge (Ajax = autonomous product factory w/ Nova/Forge/Pixel agents + Etsy; Nexus = indexing layer; Logan's direction) was **hardcoded in the chat route only** — the brief + triage never saw it, and it wasn't editable |
+| Company Context module | `lib/company/company-context.ts` (isomorphic `defaultCompanyContext()`) — the businesses, strategy, and a **Vision & Future Plans** section, extracted + organized from the chat route's real content |
+| Editable store | `lib/store/company-store.ts` (persisted `octane-company-context`) — single editable source of truth |
+| Wired into AI | Chat `buildSystemPrompt` now injects the editable context (replacing the hardcoded/stale block); brief route takes `companyContext` and grounds the brief in it; chat + CeoBrief clients pass it. Verified live: brief cites Ajax PRs, Etsy as the revenue unlock, Nova→Forge→Pixel, deprioritizes stale Nexus |
+| Editor | Settings → **Company Context (what the AI knows)** — textarea, Save, Reset to default. Founder keeps Vision & Future Plans current |
+| Build/deploy | `next build` exit 0; pushed `cc51b7e` |
 
 ## Checkpoint 16 — Automation: live signals + Plaid (2026-07-04)
 
