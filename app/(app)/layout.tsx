@@ -9,6 +9,7 @@ import { WorkspaceModeBanner } from "@/components/layout/workspace-mode-banner";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { normalizeOctaneData } from "@/lib/data/normalize-octane-data";
 import { useSignalIngest } from "@/lib/hooks/use-signal-ingest";
+import { useSignalActionProposals } from "@/lib/hooks/use-signal-action-proposals";
 import { loadFromSupabase, enableSyncDeletes } from "@/lib/supabase/sync";
 import { mergeById } from "@/lib/supabase/merge";
 import { useAutoSync } from "@/lib/hooks/use-auto-sync";
@@ -18,6 +19,8 @@ import { useOctaneStore } from "@/lib/store/octane-store";
 
 function SignalIngestProvider({ children }: { children: React.ReactNode }) {
   useSignalIngest();
+  // Watch derived + live signals and auto-propose approvable actions.
+  useSignalActionProposals();
   return <>{children}</>;
 }
 

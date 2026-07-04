@@ -1,7 +1,10 @@
 import { buildSentryHotfixActionProposal } from "@/lib/integrations/sentry-webhook";
 import type { SentryWebhookExtract } from "@/lib/integrations/sentry-webhook";
 import { actionDedupeKey } from "@/lib/types/octane-action";
-import type { OctaneActionRiskLevel } from "@/lib/types/octane-action";
+import type {
+  OctaneActionRiskLevel,
+  OctaneActionSource,
+} from "@/lib/types/octane-action";
 import type { OctaneStore } from "@/lib/store/octane-store";
 import type { Signal } from "@/lib/types/signal";
 
@@ -11,13 +14,46 @@ function riskFromSeverity(severity: Signal["severity"]): OctaneActionRiskLevel {
   return "medium";
 }
 
+/** Map a signal source onto the constrained action-source enum. */
+function actionSourceFromSignal(source: Signal["source"]): OctaneActionSource {
+  if (source === "github" || source === "gmail" || source === "vercel") {
+    return source;
+  }
+  return "system";
+}
+
+/**
+ * Signal sources we never auto-propose from:
+ * - "action": the "N actions awaiting approval" signal would recurse.
+ * - "system"/"manual": housekeeping, not real work.
+ */
+const SKIP_SOURCES = new Set<Signal["source"]>(["action", "system", "manual"]);
+
+/** Informational signal types that don't warrant a task. */
+const SKIP_TYPES = new Set<Signal["type"]>(["progress", "note", "system"]);
+
+/** External live sources whose urgency should flow through to action risk. */
+const EXTERNAL_URGENT = new Set<Signal["source"]>(["gmail", "vercel"]);
+
+const SEVERITY_RANK: Record<Signal["severity"], number> = {
+  critical: 3,
+  high: 2,
+  medium: 1,
+  low: 0,
+};
+
+/** Keep the queue focused — hard caps so proposals never flood Actions. */
+const MAX_PENDING_SIGNAL_ACTIONS = 12;
+const MAX_NEW_PER_PASS = 6;
+
 function isSentryErrorSignal(signal: Signal): boolean {
   return signal.title.startsWith("[Sentry Error]");
 }
 
 function sentryExtractFromSignal(signal: Signal): SentryWebhookExtract {
   const meta = signal.enrichedMetadata ?? {};
-  const issueTitle = signal.title.replace(/^\[Sentry Error\]\s*/i, "") || "Production exception";
+  const issueTitle =
+    signal.title.replace(/^\[Sentry Error\]\s*/i, "") || "Production exception";
   return {
     issueTitle,
     culpritFile: String(meta.culpritFile ?? "unknown source file"),
@@ -28,56 +64,106 @@ function sentryExtractFromSignal(signal: Signal): SentryWebhookExtract {
 }
 
 /**
- * Auto-propose mitigation actions for critical/high Gmail, Vercel, and Sentry signals.
- * Dedupes on source + title while an identical proposal is still pending.
+ * Auto-propose approvable actions from live + derived signals so the Actions
+ * queue (and, on approval, Tasks) populate themselves.
+ *
+ * Curation rules keep this useful, not noisy:
+ * - Only untriaged (status "new"), medium/high/critical, actionable signals.
+ * - Sentry keeps its dedicated hotfix-coding-job path.
+ * - Dedupe by signalId across every non-rejected action — a signal is proposed
+ *   exactly once, and never re-proposed after approve/execute (loop-proof).
+ * - Routine internal work is proposed at "medium" risk so it never dents the
+ *   operational score; only external urgent (gmail/vercel) signals carry their
+ *   real high/critical risk.
+ * - Hard caps bound how many land per pass and in total.
  */
 export function syncSignalActionProposals(
   get: () => OctaneStore,
   signals: Signal[],
 ): void {
   const store = get();
+  const actions = store.octaneActions;
+
   const pendingKeys = new Set(
-    store.octaneActions
+    actions
       .filter((a) => a.status === "pending")
       .map((a) => actionDedupeKey(a)),
   );
 
-  for (const signal of signals) {
+  // Signal ids already covered by a non-rejected action (pending/approved/executed).
+  const coveredSignalIds = new Set<string>();
+  let pendingSignalActionCount = 0;
+  for (const a of actions) {
+    const sid =
+      typeof a.payload?.signalId === "string"
+        ? (a.payload.signalId as string)
+        : undefined;
+    if (!sid) continue;
+    if (a.status !== "rejected") coveredSignalIds.add(sid);
+    if (a.status === "pending") pendingSignalActionCount += 1;
+  }
+
+  // Most urgent first so caps favor what matters.
+  const ordered = [...signals].sort(
+    (a, b) => SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity],
+  );
+
+  let created = 0;
+  for (const signal of ordered) {
+    if (created >= MAX_NEW_PER_PASS) break;
+    if (pendingSignalActionCount + created >= MAX_PENDING_SIGNAL_ACTIONS) break;
+
+    // Sentry production errors → dedicated hotfix coding-job proposal.
     if (isSentryErrorSignal(signal)) {
-      const extracted = sentryExtractFromSignal(signal);
-      const proposal = buildSentryHotfixActionProposal(extracted, signal);
+      const proposal = buildSentryHotfixActionProposal(
+        sentryExtractFromSignal(signal),
+        signal,
+      );
       const key = actionDedupeKey(proposal);
       if (pendingKeys.has(key)) continue;
       store.proposeAction(proposal);
       pendingKeys.add(key);
+      created += 1;
       continue;
     }
 
-    if (signal.source !== "gmail" && signal.source !== "vercel") continue;
-    if (signal.severity !== "critical" && signal.severity !== "high") continue;
+    // Curation gate.
+    if (signal.status !== "new") continue;
+    if (SKIP_SOURCES.has(signal.source)) continue;
+    if (SKIP_TYPES.has(signal.type)) continue;
+    if (signal.severity === "low") continue;
+    if (coveredSignalIds.has(signal.id)) continue;
 
-    const title = `Mitigate: ${signal.title}`;
-    const source = signal.source;
-    const key = `${source}:${title}`;
-    if (pendingKeys.has(key)) continue;
+    const source = actionSourceFromSignal(signal.source);
+    const title = signal.title;
+    const dupKey = `${source}:${title}`;
+    if (pendingKeys.has(dupKey)) continue;
 
-    const mitigation =
+    const nextStep =
       signal.recommendedAction?.trim() ||
-      "Review signal in Signals, triage, and approve a follow-up task or GitHub issue.";
+      "Review this in Signals, triage it, and take the next step.";
+
+    const riskLevel: OctaneActionRiskLevel = EXTERNAL_URGENT.has(signal.source)
+      ? riskFromSeverity(signal.severity)
+      : "medium";
 
     store.proposeAction({
       type: "create_task",
       title,
-      description: `${signal.summary}\n\nMitigation: ${mitigation}`,
+      description: `${signal.summary}\n\nNext step: ${nextStep}`,
       payload: {
         signalId: signal.id,
-        mitigation,
-        title: title.replace(/^Mitigate:\s*/i, ""),
+        mitigation: nextStep,
+        title,
+        severity: signal.severity,
       },
       source,
-      riskLevel: riskFromSeverity(signal.severity),
+      riskLevel,
       projectId: signal.projectId,
     });
-    pendingKeys.add(key);
+
+    pendingKeys.add(dupKey);
+    coveredSignalIds.add(signal.id);
+    created += 1;
   }
 }

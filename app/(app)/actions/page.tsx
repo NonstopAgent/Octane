@@ -37,7 +37,7 @@ const RISK_ORDER: OctaneActionRiskLevel[] = [
 const SOURCE_HEADINGS: Record<OctaneActionSource, string> = {
   vercel: "Vercel deployments",
   gmail: "Gmail risk",
-  system: "Triage synthesis",
+  system: "Octane watch",
   github: "GitHub",
   advisor: "Ask Octane / Chat",
   manual: "Manual & ops",
@@ -182,7 +182,7 @@ export default function ActionsPage() {
             <EmptyState
               icon={ClipboardList}
               title="No pending approvals"
-              description="Critical Vercel or Gmail signals auto-propose mitigations here. Ask Octane can propose tasks and GitHub issues."
+              description="Octane watches your projects and money and auto-proposes the next task here — a stale repo, a blocked task, a deploy failure, negative cashflow. Approve one and it becomes a task. Nothing runs until you say so."
             />
           ) : (
             <div className="space-y-8">
