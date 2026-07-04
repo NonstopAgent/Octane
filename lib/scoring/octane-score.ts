@@ -47,27 +47,30 @@ export function computeOctaneScore(
   const blockedTasks = tasks.filter((t) => t.status === "blocked");
   const totalTasks = tasks.length;
 
+  // Empty categories score NEUTRAL (not flattering) — no data ≠ healthy.
   const taskCompletion =
     totalTasks === 0
-      ? 85
+      ? 60
       : clampScore((doneTasks.length / totalTasks) * 100);
 
   const blockedComponent =
     openTasks.length === 0
-      ? 100
+      ? totalTasks === 0
+        ? 60
+        : 100
       : clampScore(100 - (blockedTasks.length / openTasks.length) * 100);
 
   const staleProjects = state.projects.filter((p) => isProjectStale(p, today));
   const staleComponent =
     state.projects.length === 0
-      ? 90
+      ? 60
       : clampScore(
           100 - (staleProjects.length / state.projects.length) * 100,
         );
 
   const monthlyRev = getMonthlyRevenue(state.transactions, referenceDate);
   const monthlyExp = getMonthlyExpenses(state.transactions, referenceDate);
-  let revenueComponent = 100;
+  let revenueComponent = 55; // no financial activity yet — neutral, not proven
   if (monthlyExp > 0 && monthlyRev === 0) revenueComponent = 40;
   else if (monthlyExp > monthlyRev) revenueComponent = 55;
   else if (monthlyRev > 0) revenueComponent = 90;
@@ -75,7 +78,7 @@ export function computeOctaneScore(
   const agentErrors = state.agents.filter((a) => a.status === "error");
   const agentComponent =
     state.agents.length === 0
-      ? 90
+      ? 70
       : clampScore(
           100 - (agentErrors.length / state.agents.length) * 100,
         );
@@ -88,7 +91,7 @@ export function computeOctaneScore(
   );
   const decisionComponent =
     state.decisions.length === 0
-      ? 85
+      ? 65
       : clampScore(100 - (decisionsDue.length / state.decisions.length) * 80);
 
   const docsNeedReview = state.documents.filter(
@@ -96,7 +99,7 @@ export function computeOctaneScore(
   );
   const documentComponent =
     state.documents.length === 0
-      ? 90
+      ? 70
       : clampScore(
           100 - (docsNeedReview.length / state.documents.length) * 100,
         );
@@ -143,6 +146,16 @@ export function computeOctaneScore(
   const suggestions: string[] = [];
   for (const reason of penalties.reasons) {
     suggestions.push(reason);
+  }
+
+  const sparseData =
+    tasks.length === 0 &&
+    (state.transactions?.length ?? 0) === 0 &&
+    state.decisions.length === 0;
+  if (sparseData) {
+    suggestions.push(
+      "Score is provisional — log real tasks, finance, and decisions for a true read.",
+    );
   }
   if (blockedTasks.length > 0) {
     suggestions.push(
