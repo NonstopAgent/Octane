@@ -23,6 +23,7 @@ import {
 import { formatDistanceToNow } from "date-fns";
 import { useShallow } from "zustand/react/shallow";
 
+import { CeoBrief } from "@/components/modules/ceo-brief";
 import { DashboardCodingCards } from "@/components/modules/coding/dashboard-coding-cards";
 import { DashboardIntegrationHealth } from "@/components/modules/connections/dashboard-integration-health";
 import { PageHeader } from "@/components/layout/page-header";
@@ -299,6 +300,8 @@ export default function DashboardPage() {
         title={`${greeting}, ${profileName}`}
         description="Live status across Octane Ajax, Nexus, and your open work."
       />
+
+      <CeoBrief />
 
       <Link
         href="/outlook#ask-octane"
