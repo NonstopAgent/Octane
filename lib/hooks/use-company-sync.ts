@@ -37,6 +37,12 @@ export function useCompanySync() {
         }
       } catch {
         // ignore — local cache is the fallback
+      } finally {
+        // Back up the current context on load so the brain persists even if it's
+        // never edited this session (subscribe only fires on change).
+        void pushCompanyContext(useCompanyStore.getState().context).catch(
+          () => {},
+        );
       }
     }
     void loadOnce();
