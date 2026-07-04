@@ -118,7 +118,7 @@ export function AppTopbar() {
 
   return (
     <>
-      <header className="sticky top-0 z-20 flex h-16 items-center gap-2 border-b border-zinc-800/80 bg-zinc-950/70 px-3 backdrop-blur sm:gap-3 sm:px-4">
+      <header className="sticky top-0 z-20 flex h-16 items-center gap-2 border-b border-white/10 bg-[oklch(0.16_0.02_282_/_0.55)] px-3 backdrop-blur-xl sm:gap-3 sm:px-4">
         <div className="min-w-0 flex-1 sm:max-w-md">
           <button
             type="button"

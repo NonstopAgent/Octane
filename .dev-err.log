@@ -1,0 +1,58 @@
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+Persisting failed: Unable to write SST file 00000297.sst
+
+Caused by:
+    The system cannot find the path specified. (os error 3)
+⨯ Error: ENOENT: no such file or directory, open 'C:\Users\Logan A\Downloads\Octane\octane-core\.next\dev\server\app\api\integrations\ingest\pending\[__metadata_id__]\route\app-paths-manifest.json'
+    at ignore-listed frames {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\Logan A\\Downloads\\Octane\\octane-core\\.next\\dev\\server\\app\\api\\integrations\\ingest\\pending\\[__metadata_id__]\\route\\app-paths-manifest.json'
+}
+⨯ Error: ENOENT: no such file or directory, open 'C:\Users\Logan A\Downloads\Octane\octane-core\.next\dev\static\development\_buildManifest.js.tmp.snpldq3vl'
+    at ignore-listed frames {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\Logan A\\Downloads\\Octane\\octane-core\\.next\\dev\\static\\development\\_buildManifest.js.tmp.snpldq3vl'
+}
+Error: ENOENT: no such file or directory, open 'C:\Users\Logan A\Downloads\Octane\octane-core\.next\dev\server\app\api\integrations\ingest\pending\[__metadata_id__]\route\app-paths-manifest.json'
+    at ignore-listed frames {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\Logan A\\Downloads\\Octane\\octane-core\\.next\\dev\\server\\app\\api\\integrations\\ingest\\pending\\[__metadata_id__]\\route\\app-paths-manifest.json'
+}
+⨯ Error: Cannot find module '../chunks/ssr/[turbopack]_runtime.js'
+Require stack:
+- C:\Users\Logan A\Downloads\Octane\octane-core\.next\dev\server\pages\_document.js
+- C:\Users\Logan A\Downloads\Octane\octane-core\node_modules\next\dist\server\require.js
+- C:\Users\Logan A\Downloads\Octane\octane-core\node_modules\next\dist\server\load-components.js
+- C:\Users\Logan A\Downloads\Octane\octane-core\node_modules\next\dist\build\utils.js
+- C:\Users\Logan A\Downloads\Octane\octane-core\node_modules\next\dist\server\lib\router-utils\setup-dev-bundler.js
+- C:\Users\Logan A\Downloads\Octane\octane-core\node_modules\next\dist\server\lib\router-server.js
+- C:\Users\Logan A\Downloads\Octane\octane-core\node_modules\next\dist\server\lib\start-server.js
+    at Object.<anonymous> (C:\Users\Logan A\Downloads\Octane\octane-core\.next\dev\server\pages\_document.js:1:7) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'C:\\Users\\Logan A\\Downloads\\Octane\\octane-core\\.next\\dev\\server\\pages\\_document.js',
+    'C:\\Users\\Logan A\\Downloads\\Octane\\octane-core\\node_modules\\next\\dist\\server\\require.js',
+    'C:\\Users\\Logan A\\Downloads\\Octane\\octane-core\\node_modules\\next\\dist\\server\\load-components.js',
+    'C:\\Users\\Logan A\\Downloads\\Octane\\octane-core\\node_modules\\next\\dist\\build\\utils.js',
+    'C:\\Users\\Logan A\\Downloads\\Octane\\octane-core\\node_modules\\next\\dist\\server\\lib\\router-utils\\setup-dev-bundler.js',
+    'C:\\Users\\Logan A\\Downloads\\Octane\\octane-core\\node_modules\\next\\dist\\server\\lib\\router-server.js',
+    'C:\\Users\\Logan A\\Downloads\\Octane\\octane-core\\node_modules\\next\\dist\\server\\lib\\start-server.js'
+  ]
+}
+Error: ENOENT: no such file or directory, open 'C:\Users\Logan A\Downloads\Octane\octane-core\.next\dev\routes-manifest.json'
+    at ignore-listed frames {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'C:\\Users\\Logan A\\Downloads\\Octane\\octane-core\\.next\\dev\\routes-manifest.json'
+}
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Persisting failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)
+Compaction failed: Another write batch or compaction is already active (Only a single write operations is allowed at a time)

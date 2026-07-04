@@ -28,7 +28,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
     <nav className="space-y-4">
       {sections.map((section) => (
         <div key={section}>
-          <p className="mb-1 px-3 text-[9px] font-medium uppercase tracking-widest text-zinc-600">
+          <p className="mb-1 px-3 text-[9px] font-medium uppercase tracking-widest text-zinc-500">
             {NAV_SECTION_LABELS[section]}
           </p>
           <div className="space-y-0.5">
@@ -42,10 +42,10 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
                   href={item.href}
                   onClick={onNavigate}
                   className={cn(
-                    "flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors",
+                    "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-all",
                     isActive
-                      ? "bg-zinc-700/50 text-zinc-50"
-                      : "text-zinc-400 hover:bg-zinc-800/70 hover:text-zinc-100",
+                      ? "bg-gradient-to-r from-violet-500/25 via-fuchsia-500/10 to-transparent font-medium text-white ring-1 ring-inset ring-white/10"
+                      : "text-zinc-400 hover:bg-white/5 hover:text-white",
                   )}
                 >
                   <Icon className="size-4 shrink-0" />
@@ -63,12 +63,12 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
 export function AppSidebar() {
   return (
     <>
-      <aside className="hidden h-[calc(100vh-4rem)] w-64 shrink-0 overflow-y-auto border-r border-zinc-800/80 bg-zinc-950/70 p-4 md:block">
+      <aside className="hidden h-[calc(100vh-4rem)] w-64 shrink-0 overflow-y-auto border-r border-white/10 bg-white/[0.02] p-4 backdrop-blur-2xl md:block">
         <div className="mb-4 px-2">
-          <p className="text-xs uppercase tracking-[0.2em] text-zinc-400">Octane Core</p>
-          <p className="text-lg font-semibold text-zinc-100">Command Center</p>
+          <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">Octane Core</p>
+          <p className="text-lg font-semibold text-gradient">Command Center</p>
         </div>
-        <Separator className="mb-4 bg-zinc-800" />
+        <Separator className="mb-4 bg-white/10" />
         <NavLinks />
       </aside>
 
@@ -78,12 +78,12 @@ export function AppSidebar() {
             <Menu className="size-4" />
             <span className="sr-only">Open navigation</span>
           </SheetTrigger>
-          <SheetContent side="left" className="overflow-y-auto border-zinc-800 bg-zinc-950 p-4">
+          <SheetContent side="left" className="overflow-y-auto border-white/10 bg-[oklch(0.16_0.02_282)] p-4">
             <div className="mb-4 px-2">
-              <p className="text-xs uppercase tracking-[0.2em] text-zinc-400">Octane Core</p>
-              <p className="text-lg font-semibold text-zinc-100">Command Center</p>
+              <p className="text-[10px] uppercase tracking-[0.22em] text-zinc-500">Octane Core</p>
+              <p className="text-lg font-semibold text-gradient">Command Center</p>
             </div>
-            <Separator className="mb-4 bg-zinc-800" />
+            <Separator className="mb-4 bg-white/10" />
             <NavLinks />
           </SheetContent>
         </Sheet>

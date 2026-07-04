@@ -46,7 +46,7 @@ function BriefBody({ text }: { text: string }) {
           return (
             <p
               key={i}
-              className="pt-1.5 text-[11px] font-semibold uppercase tracking-wider text-amber-400/80"
+              className="pt-1.5 text-[11px] font-semibold uppercase tracking-wider text-amber-400"
             >
               {header[1]}
             </p>
@@ -200,9 +200,9 @@ export function CeoBrief() {
   if (!mounted) return null;
 
   return (
-    <div className="rounded-xl border border-amber-900/30 bg-gradient-to-b from-amber-950/20 to-zinc-900/20 p-4">
+    <div className="glass glow-violet rounded-2xl p-5">
       <div className="mb-2 flex items-center justify-between">
-        <h2 className="flex items-center gap-2 text-sm font-medium text-amber-100">
+        <h2 className="flex items-center gap-2 text-sm font-medium text-foreground">
           <Sparkles className="size-4 text-amber-400" />
           Octane&apos;s read on today
         </h2>

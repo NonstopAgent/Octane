@@ -6,7 +6,12 @@ import { ErrorBoundary } from "@/components/error-boundary";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+    <ThemeProvider
+      attribute="class"
+      defaultTheme="dark"
+      forcedTheme="dark"
+      enableSystem={false}
+    >
       <ErrorBoundary>{children}</ErrorBoundary>
     </ThemeProvider>
   );

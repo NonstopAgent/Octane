@@ -374,6 +374,7 @@ export default function DashboardPage() {
   return (
     <div className="space-y-8 pb-12">
       <PageHeader
+        gradientTitle
         title={`${greeting}, ${profileName}`}
         description="Live status across Octane Ajax, Nexus, and your open work."
       />
@@ -382,18 +383,18 @@ export default function DashboardPage() {
 
       <Link
         href="/outlook#ask-octane"
-        className="flex items-center justify-between gap-3 rounded-xl border border-amber-900/30 bg-amber-950/15 px-4 py-3 transition-colors hover:border-amber-800/50 hover:bg-amber-950/25"
+        className="glass flex items-center justify-between gap-3 rounded-2xl px-4 py-3 transition-all hover:ring-1 hover:ring-inset hover:ring-violet-400/30"
       >
         <div className="flex min-w-0 flex-1 items-center gap-3">
-          <Sparkles className="size-4 shrink-0 text-amber-400/90" aria-hidden />
+          <Sparkles className="size-4 shrink-0 text-amber-400" aria-hidden />
           <div className="min-w-0">
-            <p className="text-sm font-medium text-amber-100">Ask Octane</p>
-            <p className="text-xs text-amber-300/55">
+            <p className="text-sm font-medium text-foreground">Ask Octane</p>
+            <p className="text-xs text-zinc-400">
               Executive questions on risks, focus, and portfolio outlook
             </p>
           </div>
         </div>
-        <ChevronRight className="size-4 shrink-0 text-amber-500/60" aria-hidden />
+        <ChevronRight className="size-4 shrink-0 text-zinc-400" aria-hidden />
       </Link>
 
       {/* Signal preview — live telemetry strip, always visible */}
@@ -444,15 +445,15 @@ export default function DashboardPage() {
                   >
                     <p
                       className={cn(
-                        "truncate text-xs font-medium",
-                        isCritical ? "text-red-200" : "text-orange-200",
+                        "truncate text-xs font-semibold",
+                        isCritical ? "text-red-300" : "text-orange-300",
                       )}
                     >
                       {signal.title}
                     </p>
-                    <p className="truncate text-[11px] text-zinc-500">{signal.summary}</p>
+                    <p className="truncate text-[11px] text-zinc-400">{signal.summary}</p>
                     {signal.recommendedAction ? (
-                      <p className="mt-0.5 truncate text-[11px] text-amber-400/70">
+                      <p className="mt-0.5 truncate text-[11px] text-amber-400">
                         → {signal.recommendedAction}
                       </p>
                     ) : null}
@@ -482,7 +483,7 @@ export default function DashboardPage() {
 
       {octaneScore.operationalPenaltyReasons.length > 0 && (
         <div className="rounded-lg border border-orange-900/40 bg-orange-950/10 px-4 py-2.5">
-          <p className="text-xs text-orange-200/90 font-medium mb-1">
+          <p className="text-xs text-orange-300 font-semibold mb-1">
             Score adjusted (−{octaneScore.breakdown.operationalPenalty} operational)
           </p>
           <p className="text-[11px] text-zinc-500 truncate">

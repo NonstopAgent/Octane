@@ -120,7 +120,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <div className="flex min-h-screen flex-1 flex-col">
             <WorkspaceModeBanner />
             <AppTopbar />
-            <main className="flex-1 p-4 sm:p-6">{children}</main>
+            <main className="mx-auto w-full max-w-[1440px] flex-1 px-5 py-6 sm:px-8 sm:py-8 lg:px-10">
+              {children}
+            </main>
           </div>
         </div>
       </div>
