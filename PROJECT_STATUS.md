@@ -4,10 +4,23 @@
 
 | Item | Value |
 |------|--------|
-| Checkpoint | **17** — Company Context: one editable brain the AI reads (on the automation base) |
+| Checkpoint | **18** — Aladdin reinforcement: judgment layer + durable auto-save (on the Company Context base) |
 | Base commit | `3faaa3f` (20B Sentry webhook ingest) |
 | Stack | Next.js 16, React 19, Zustand persist, Tailwind 4, Supabase client |
 | Intelligence | Rule-based engines + optional Anthropic (`/chat`, coding plans/edits, cron briefing) |
+
+## Checkpoint 18 — Aladdin reinforcement: judgment + durability (2026-07-04)
+
+Founder vision (explicit): Octane is his Aladdin — never for sale; learns the business + his decisions; advises now, takes over the business in a few years.
+
+| Area | Result |
+|------|--------|
+| Judgment layer | The AI barely saw decisions (title/status only). Now the full `Decision` (reasoning, options considered, final decision, expected outcome) flows into chat + brief. Added a **"Your long-term job"** instruction: learn Logan's judgment from his Decision Log, reason from precedent, become his Aladdin. **Verified live**: asked a novel question, the AI recognized "the Ajax pattern," reasoned from his past decision, and decided in his style ("Launch now, migrate later") |
+| Durability audit | Supabase tables exist (decisions/tasks/projects/transactions/profiles → 200); load-on-mount works; but push was **setup-only** — post-setup changes lived only in the browser. And it only runs with a real Supabase session (the app has been on mock-auth → localStorage) |
+| Auto-save | `lib/hooks/use-auto-sync.ts` — debounced push of every change to Supabase, mounted in the app layout. Inert/safe without a session; the instant real Supabase auth exists, everything persists automatically |
+| Build/deploy | `next build` exit 0; pushed `8bb5d5e`; Vercel READY |
+
+**The remaining foundation (needs Logan):** real Supabase auth. The app gates on a mock-auth cookie, so there's likely no Supabase user → sync/auto-save are inert and data is still browser-local. Wiring real Supabase login (careful, replaces/augments mock-auth) is the true durability unlock — the prerequisite for "years of accumulated data." Also not yet cloud-persisted: `companyContext` + Plaid stores (separate stores; need a `company_context` table + sync).
 
 ## Checkpoint 17 — Company Context: one brain for the AI (2026-07-04)
 
