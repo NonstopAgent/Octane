@@ -100,7 +100,7 @@ function RepoStatusCard({
     : null;
 
   return (
-    <Card className="border-zinc-800/80 bg-zinc-900/40">
+    <Card className="glass rounded-2xl border-0">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2 text-zinc-100 text-base">
@@ -223,65 +223,98 @@ function RepoStatusCard({
   );
 }
 
-// ─── Stat tile ────────────────────────────────────────────────────────────────
+// ─── Layout primitives ────────────────────────────────────────────────────────
 
-function StatTile({
+/** Unified glass panel with a consistent header — the single card system. */
+function Panel({
+  title,
+  icon: Icon,
+  iconClass = "text-zinc-400",
+  action,
+  className,
+  children,
+}: {
+  title: string;
+  icon?: React.ComponentType<{ className?: string }>;
+  iconClass?: string;
+  action?: ReactNode;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className={cn("glass rounded-2xl p-5", className)}>
+      <div className="mb-4 flex items-center justify-between gap-2">
+        <h2 className="flex items-center gap-2 text-[13px] font-semibold text-zinc-200">
+          {Icon ? <Icon className={cn("size-4", iconClass)} /> : null}
+          {title}
+        </h2>
+        {action}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+const METRIC_TONES: Record<string, string> = {
+  none: "text-zinc-50",
+  red: "text-red-300",
+  amber: "text-amber-300",
+  orange: "text-orange-300",
+  violet: "text-violet-300",
+};
+
+/** Compact metric used inside the "At a glance" cluster. */
+function Metric({
   href,
   value,
   label,
-  accent = "none",
-  sub,
+  tone = "none",
 }: {
   href?: string;
   value: ReactNode;
   label: string;
-  accent?: "none" | "red" | "amber" | "orange";
-  sub?: ReactNode;
+  tone?: keyof typeof METRIC_TONES;
 }) {
-  const tone =
-    accent === "red"
-      ? "border-red-900/50 bg-red-950/20"
-      : accent === "amber"
-        ? "border-amber-900/50 bg-amber-950/15"
-        : accent === "orange"
-          ? "border-orange-900/40 bg-orange-950/15"
-          : "border-zinc-800/70 bg-zinc-900/40";
-  const valueTone =
-    accent === "red"
-      ? "text-red-400"
-      : accent === "amber"
-        ? "text-amber-400"
-        : accent === "orange"
-          ? "text-orange-400"
-          : "text-zinc-100";
-  const className = cn(
-    "block rounded-xl border px-4 py-3.5 transition-colors",
-    tone,
-    href && "hover:border-zinc-600 hover:bg-zinc-900/70",
-  );
-  const body = (
-    <>
-      <p
-        className={cn(
-          "text-2xl font-semibold tracking-tight tabular-nums",
-          valueTone,
-        )}
-      >
+  const inner = (
+    <div className="h-full rounded-xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-3 transition-colors hover:bg-white/[0.05]">
+      <p className={cn("text-2xl font-semibold tabular-nums tracking-tight", METRIC_TONES[tone])}>
         {value}
       </p>
-      <p className="mt-1 text-[10px] font-medium uppercase tracking-wider text-zinc-500">
+      <p className="mt-0.5 text-[10px] font-medium uppercase tracking-wider text-zinc-500">
         {label}
       </p>
-      {sub}
-    </>
+    </div>
   );
   return href ? (
-    <Link href={href} className={className}>
-      {body}
+    <Link href={href} className="block">
+      {inner}
     </Link>
   ) : (
-    <div className={className}>{body}</div>
+    inner
   );
+}
+
+/** Header KPI pill. */
+function HeaderStat({
+  href,
+  value,
+  label,
+  tone = "text-zinc-50",
+}: {
+  href?: string;
+  value: ReactNode;
+  label: string;
+  tone?: string;
+}) {
+  const inner = (
+    <div className="glass min-w-[86px] rounded-xl px-4 py-2 text-center transition-all hover:ring-1 hover:ring-inset hover:ring-white/15">
+      <p className={cn("text-xl font-semibold tabular-nums leading-tight", tone)}>{value}</p>
+      <p className="mt-0.5 text-[9px] font-medium uppercase tracking-wider text-zinc-500">
+        {label}
+      </p>
+    </div>
+  );
+  return href ? <Link href={href}>{inner}</Link> : inner;
 }
 
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
@@ -367,51 +400,119 @@ export default function DashboardPage() {
 
   const octaneScore = useMemo(() => computeOctaneScore(state), [state]);
 
+  const pendingApprovals = state.octaneActions.filter(
+    (a) => a.status === "pending",
+  ).length;
+  const connectedCount = state.connections.filter(
+    (c) => c.status === "connected",
+  ).length;
+  const missingLinkCount = state.projects.filter(
+    (p) => !state.projectConnections.some((pc) => pc.projectId === p.id),
+  ).length;
+
   const profileName = state.profile?.name ?? "Logan";
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
   return (
-    <div className="space-y-8 pb-12">
-      <PageHeader
-        gradientTitle
-        title={`${greeting}, ${profileName}`}
-        description="Live status across Octane Ajax, Nexus, and your open work."
-      />
-
-      <CeoBrief />
-
-      <Link
-        href="/outlook#ask-octane"
-        className="glass flex items-center justify-between gap-3 rounded-2xl px-4 py-3 transition-all hover:ring-1 hover:ring-inset hover:ring-violet-400/30"
-      >
-        <div className="flex min-w-0 flex-1 items-center gap-3">
-          <Sparkles className="size-4 shrink-0 text-amber-400" aria-hidden />
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-foreground">Ask Octane</p>
-            <p className="text-xs text-zinc-400">
-              Executive questions on risks, focus, and portfolio outlook
-            </p>
-          </div>
+    <div className="space-y-6 pb-16">
+      {/* Header row */}
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <h1 className="text-gradient text-[2rem] font-semibold leading-tight tracking-tight">
+            {greeting}, {profileName}
+          </h1>
+          <p className="mt-1.5 text-sm text-zinc-400">
+            Live status across Octane Ajax, Nexus, and your open work.
+          </p>
         </div>
-        <ChevronRight className="size-4 shrink-0 text-zinc-400" aria-hidden />
-      </Link>
+        <div className="grid grid-cols-3 gap-2.5 sm:flex">
+          <HeaderStat
+            href="/briefing"
+            value={octaneScore.score}
+            label="Score"
+            tone={octaneScore.score < 60 ? "text-orange-300" : "text-zinc-50"}
+          />
+          <HeaderStat
+            href="/actions"
+            value={pendingApprovals}
+            label="Pending"
+            tone={pendingApprovals > 0 ? "text-violet-300" : "text-zinc-50"}
+          />
+          <HeaderStat href="/tasks" value={openTasks.length} label="Open" />
+        </div>
+      </div>
 
-      {/* Signal preview — live telemetry strip, always visible */}
-      <div>
-        <div className="mb-2 flex items-center justify-between">
-          <h2 className="flex items-center gap-2 text-sm font-medium text-zinc-400">
-            <Zap className="size-3.5 text-amber-400" />
-            Signals
-            {lastProvenance === "mock" && <SandboxCommsBadge />}
-          </h2>
+      {/* Hero: brief + command-score rail */}
+      <div className="grid gap-5 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <CeoBrief />
+        </div>
+        <div className="flex flex-col gap-5">
+          <Panel title="Command score" icon={Activity} iconClass="text-violet-300">
+            <div className="flex items-end gap-2">
+              <span className="text-gradient text-5xl font-semibold leading-none tabular-nums">
+                {octaneScore.score}
+              </span>
+              <span className="mb-1 text-xs text-zinc-500">/ 100</span>
+            </div>
+            <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-amber-400 via-fuchsia-400 to-violet-400"
+                style={{ width: `${octaneScore.score}%` }}
+              />
+            </div>
+            {octaneScore.operationalPenaltyReasons.length > 0 ? (
+              <p className="mt-3 text-[11px] leading-relaxed text-orange-300">
+                −{octaneScore.breakdown.operationalPenalty} operational ·{" "}
+                <span className="text-zinc-500">
+                  {octaneScore.operationalPenaltyReasons[0]}
+                </span>
+              </p>
+            ) : (
+              <p className="mt-3 text-[11px] text-zinc-500">
+                No operational drag on the score.
+              </p>
+            )}
+          </Panel>
+
           <Link
-            href="/signals"
-            className="flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+            href="/outlook#ask-octane"
+            className="glass rounded-2xl p-5 transition-all hover:ring-1 hover:ring-inset hover:ring-violet-400/30"
           >
-            View all <ChevronRight className="size-3" />
+            <p className="flex items-center gap-2 text-sm font-semibold text-zinc-100">
+              <Sparkles className="size-4 text-amber-400" aria-hidden />
+              Ask Octane
+            </p>
+            <p className="mt-1 text-xs text-zinc-400">
+              Executive questions on risks, focus, and portfolio outlook.
+            </p>
+            <span className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-violet-300">
+              Open advisor <ChevronRight className="size-3.5" />
+            </span>
           </Link>
         </div>
+      </div>
+
+      {/* Signals + at-a-glance */}
+      <div className="grid gap-5 lg:grid-cols-3">
+        <Panel
+          className="lg:col-span-2"
+          title="Signals"
+          icon={Zap}
+          iconClass="text-amber-400"
+          action={
+            <div className="flex items-center gap-2">
+              {lastProvenance === "mock" && <SandboxCommsBadge />}
+              <Link
+                href="/signals"
+                className="flex items-center gap-1 text-xs text-zinc-400 transition-colors hover:text-zinc-100"
+              >
+                View all <ChevronRight className="size-3" />
+              </Link>
+            </div>
+          }
+        >
 
         {topSignals.length === 0 ? (
           <div className="flex items-center gap-2.5 rounded-lg border border-zinc-800/50 bg-zinc-900/20 px-3 py-2.5">
@@ -479,96 +580,54 @@ export default function DashboardPage() {
             })}
           </div>
         )}
-      </div>
+        </Panel>
 
-      {octaneScore.operationalPenaltyReasons.length > 0 && (
-        <div className="rounded-lg border border-orange-900/40 bg-orange-950/10 px-4 py-2.5">
-          <p className="text-xs text-orange-300 font-semibold mb-1">
-            Score adjusted (−{octaneScore.breakdown.operationalPenalty} operational)
-          </p>
-          <p className="text-[11px] text-zinc-500 truncate">
-            {octaneScore.operationalPenaltyReasons[0]}
-          </p>
-        </div>
-      )}
-
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile
-          href="/briefing"
-          value={octaneScore.score}
-          label="Octane score"
-          accent={octaneScore.score < 60 ? "orange" : "none"}
-          sub={
-            octaneScore.breakdown.operationalPenalty > 0 ? (
-              <p className="mt-0.5 text-[10px] font-medium text-orange-400/80">
-                −{octaneScore.breakdown.operationalPenalty} operational
-              </p>
-            ) : null
-          }
-        />
-        <StatTile
-          href="/actions"
-          value={
-            state.octaneActions.filter((a) => a.status === "pending").length
-          }
-          label="Pending approvals"
-        />
-        <StatTile
-          href="/connections"
-          value={
-            <>
-              {state.connections.filter((c) => c.status === "connected").length}
-              <span className="text-sm font-normal text-zinc-500">
-                /{state.connections.length}
-              </span>
-            </>
-          }
-          label="Connected services"
-        />
-        <StatTile
-          href="/projects"
-          value={
-            state.projects.filter(
-              (p) =>
-                !state.projectConnections.some((pc) => pc.projectId === p.id),
-            ).length
-          }
-          label="Projects missing links"
-        />
-      </div>
-
-      {/* Quick stats */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatTile
-          value={criticalTasks.length}
-          label="Critical tasks"
-          accent={criticalTasks.length > 0 ? "red" : "none"}
-        />
-        <StatTile
-          value={blockedTasks.length}
-          label="Blocked tasks"
-          accent={blockedTasks.length > 0 ? "amber" : "none"}
-        />
-        <StatTile value={openTasks.length} label="Open tasks" />
-        <StatTile value={state.agents.length} label="Active agents" />
-      </div>
-
-      <div>
-        <h2 className="mb-3 flex items-center gap-2 text-sm font-medium text-zinc-400">
-          <Activity className="size-3.5 text-emerald-400" />
-          Integration health
-        </h2>
-        <DashboardIntegrationHealth />
+        <Panel title="At a glance" icon={Activity} iconClass="text-emerald-400">
+          <div className="grid grid-cols-2 gap-2.5">
+            <Metric
+              href="/actions"
+              value={pendingApprovals}
+              label="Pending approvals"
+              tone={pendingApprovals > 0 ? "violet" : "none"}
+            />
+            <Metric href="/tasks" value={openTasks.length} label="Open tasks" />
+            <Metric
+              value={criticalTasks.length}
+              label="Critical"
+              tone={criticalTasks.length > 0 ? "red" : "none"}
+            />
+            <Metric
+              value={blockedTasks.length}
+              label="Blocked"
+              tone={blockedTasks.length > 0 ? "amber" : "none"}
+            />
+            <Metric
+              href="/connections"
+              value={
+                <>
+                  {connectedCount}
+                  <span className="text-sm font-normal text-zinc-500">
+                    /{state.connections.length}
+                  </span>
+                </>
+              }
+              label="Connected"
+            />
+            <Metric href="/projects" value={missingLinkCount} label="Missing links" />
+          </div>
+        </Panel>
       </div>
 
       <DashboardCodingCards />
 
-      {/* Live repo status — the core of the dashboard */}
+      {/* Portfolio */}
       <div>
-        <h2 className="mb-3 text-sm font-medium text-zinc-400 flex items-center gap-2">
-          <Activity className="size-3.5 text-emerald-400" />
-          Live Repo Status
-        </h2>
+        <div className="mb-3 flex items-center gap-2 px-1">
+          <GitBranch className="size-4 text-violet-300" />
+          <h2 className="text-[13px] font-semibold text-zinc-200">
+            Portfolio · Live repo status
+          </h2>
+        </div>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <RepoStatusCard
             repo="NonstopAgent/Octane_Ajax"
@@ -642,13 +701,12 @@ export default function DashboardPage() {
       )}
 
       {/* Active projects + agents */}
-      <div className="grid gap-4 md:grid-cols-2">
-        {/* Projects */}
-        <div>
-          <h2 className="mb-3 text-sm font-medium text-zinc-400 flex items-center gap-2">
-            <Zap className="size-3.5 text-amber-400" />
-            Active Projects ({activeProjects.length})
-          </h2>
+      <div className="grid gap-5 lg:grid-cols-3">
+        <Panel
+          title={`Active projects (${activeProjects.length})`}
+          icon={Zap}
+          iconClass="text-amber-400"
+        >
           {activeProjects.length === 0 ? (
             <div className="rounded-xl border border-dashed border-zinc-800 p-6 text-center">
               <p className="text-sm text-zinc-600">No active projects yet.</p>
@@ -711,14 +769,9 @@ export default function DashboardPage() {
               })}
             </div>
           )}
-        </div>
+        </Panel>
 
-        {/* Agents */}
-        <div>
-          <h2 className="mb-3 text-sm font-medium text-zinc-400 flex items-center gap-2">
-            <Bot className="size-3.5 text-purple-400" />
-            Agents
-          </h2>
+        <Panel title="Agents" icon={Bot} iconClass="text-violet-300">
           {state.agents.length === 0 ? (
             <div className="rounded-xl border border-dashed border-zinc-800 p-6 text-center">
               <p className="text-sm text-zinc-600">No agents configured yet.</p>
@@ -765,9 +818,12 @@ export default function DashboardPage() {
               ))}
             </div>
           )}
-        </div>
-      </div>
+        </Panel>
 
+        <Panel title="Integrations" icon={Activity} iconClass="text-emerald-400">
+          <DashboardIntegrationHealth />
+        </Panel>
+      </div>
     </div>
   );
 }
