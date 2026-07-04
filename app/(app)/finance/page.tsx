@@ -19,6 +19,7 @@ import { toast } from "sonner";
 
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState, MetricCard, SectionHeader } from "@/components/modules";
+import { BankConnect } from "@/components/modules/finance/bank-connect";
 import { EquityPerformanceChart } from "@/components/modules/finance/equity-performance-chart";
 import { ForecastPanel } from "@/components/modules/finance/forecast-panel";
 import { formatStatusLabel } from "@/components/modules/badge-tones";
@@ -339,6 +340,8 @@ function FinancePageContent() {
           cadence) — parsed locally only.
         </p>
       ) : null}
+
+      <BankConnect />
 
       {transactions.length === 0 ? (
         <EmptyState
