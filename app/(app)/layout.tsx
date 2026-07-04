@@ -71,6 +71,7 @@ function DataSyncProvider({ children }: { children: React.ReactNode }) {
             documents: mergeById(current.documents, synced.documents),
             founderNotes: mergeById(current.founderNotes, synced.founderNotes),
             roadmapItems: mergeById(current.roadmapItems, synced.roadmapItems),
+            inboxItems: mergeById(current.inboxItems, synced.inboxItems),
             connections: current.connections,
             octaneActions: current.octaneActions,
             projectConnections: current.projectConnections,

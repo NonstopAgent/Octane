@@ -192,6 +192,28 @@ export async function pushToSupabase(
       );
     }
 
+    // Inbox items (idea capture)
+    if (state.inboxItems?.length) {
+      ops.push(
+        client
+          .from("inbox_items")
+          .upsert(
+            state.inboxItems.map((i) => ({
+              id: i.id,
+              user_id: uid,
+              title: i.title,
+              status: i.status,
+              type: i.type,
+              data: i,
+              updated_at: i.updatedAt,
+              created_at: i.createdAt,
+            })),
+            { onConflict: "id" },
+          )
+          .then((r: { error: { message: string } | null }) => r),
+      );
+    }
+
     // Documents
     if (state.documents?.length) {
       ops.push(
@@ -281,6 +303,7 @@ export interface SyncedState {
   documents: OctanePersistedState["documents"];
   founderNotes: OctanePersistedState["founderNotes"];
   roadmapItems: OctanePersistedState["roadmapItems"];
+  inboxItems: OctanePersistedState["inboxItems"];
   isEmpty: boolean;
 }
 
@@ -309,6 +332,7 @@ export async function loadFromSupabase(): Promise<LoadFromSupabaseResult> {
       documentsRes,
       notesRes,
       roadmapRes,
+      inboxRes,
     ] = (await Promise.all([
       client.from("profiles").select("data").eq("user_id", uid).single(),
       client.from("entities").select("data").eq("user_id", uid),
@@ -320,6 +344,7 @@ export async function loadFromSupabase(): Promise<LoadFromSupabaseResult> {
       client.from("documents").select("data").eq("user_id", uid),
       client.from("founder_notes").select("data").eq("user_id", uid),
       client.from("roadmap_items").select("data").eq("user_id", uid),
+      client.from("inbox_items").select("data").eq("user_id", uid),
     ])) as SupabaseRowResponse[];
 
     const tableErrors = [
@@ -333,11 +358,12 @@ export async function loadFromSupabase(): Promise<LoadFromSupabaseResult> {
       documentsRes,
       notesRes,
       roadmapRes,
+      inboxRes,
     ]
       .map((res) => res.error?.message)
       .filter((msg): msg is string => Boolean(msg));
 
-    if (tableErrors.length === 10) {
+    if (tableErrors.length === 11) {
       const error = tableErrors[0] ?? "Supabase sync failed";
       console.error("[sync] Load failed:", error);
       return { ok: false, error };
@@ -361,6 +387,7 @@ export async function loadFromSupabase(): Promise<LoadFromSupabaseResult> {
     const documents = unwrap(documentsRes);
     const founderNotes = unwrap(notesRes);
     const roadmapItems = unwrap(roadmapRes);
+    const inboxItems = unwrap(inboxRes);
 
     const isEmpty =
       !profile &&
@@ -383,6 +410,7 @@ export async function loadFromSupabase(): Promise<LoadFromSupabaseResult> {
         documents: documents as OctanePersistedState["documents"],
         founderNotes: founderNotes as OctanePersistedState["founderNotes"],
         roadmapItems: roadmapItems as OctanePersistedState["roadmapItems"],
+        inboxItems: inboxItems as OctanePersistedState["inboxItems"],
         isEmpty,
       },
     };
