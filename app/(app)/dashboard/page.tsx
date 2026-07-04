@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useState, useMemo, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -223,6 +223,67 @@ function RepoStatusCard({
   );
 }
 
+// ─── Stat tile ────────────────────────────────────────────────────────────────
+
+function StatTile({
+  href,
+  value,
+  label,
+  accent = "none",
+  sub,
+}: {
+  href?: string;
+  value: ReactNode;
+  label: string;
+  accent?: "none" | "red" | "amber" | "orange";
+  sub?: ReactNode;
+}) {
+  const tone =
+    accent === "red"
+      ? "border-red-900/50 bg-red-950/20"
+      : accent === "amber"
+        ? "border-amber-900/50 bg-amber-950/15"
+        : accent === "orange"
+          ? "border-orange-900/40 bg-orange-950/15"
+          : "border-zinc-800/70 bg-zinc-900/40";
+  const valueTone =
+    accent === "red"
+      ? "text-red-400"
+      : accent === "amber"
+        ? "text-amber-400"
+        : accent === "orange"
+          ? "text-orange-400"
+          : "text-zinc-100";
+  const className = cn(
+    "block rounded-xl border px-4 py-3.5 transition-colors",
+    tone,
+    href && "hover:border-zinc-600 hover:bg-zinc-900/70",
+  );
+  const body = (
+    <>
+      <p
+        className={cn(
+          "text-2xl font-semibold tracking-tight tabular-nums",
+          valueTone,
+        )}
+      >
+        {value}
+      </p>
+      <p className="mt-1 text-[10px] font-medium uppercase tracking-wider text-zinc-500">
+        {label}
+      </p>
+      {sub}
+    </>
+  );
+  return href ? (
+    <Link href={href} className={className}>
+      {body}
+    </Link>
+  ) : (
+    <div className={className}>{body}</div>
+  );
+}
+
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
@@ -431,103 +492,64 @@ export default function DashboardPage() {
       )}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Link
+        <StatTile
           href="/briefing"
-          className={cn(
-            "rounded-xl border px-4 py-3 hover:border-amber-800/40",
-            octaneScore.breakdown.operationalPenalty > 0
-              ? "border-orange-900/40 bg-orange-950/15"
-              : "border-zinc-800/80 bg-zinc-900/30",
-          )}
-        >
-          <p
-            className={cn(
-              "text-lg font-bold",
-              octaneScore.score < 60 ? "text-orange-400" : "text-zinc-100",
-            )}
-          >
-            {octaneScore.score}
-          </p>
-          <p className="mt-0.5 text-[11px] text-zinc-500">
-            Octane score
-            {octaneScore.breakdown.operationalPenalty > 0
-              ? ` (−${octaneScore.breakdown.operationalPenalty})`
-              : ""}
-          </p>
-        </Link>
-        <Link
+          value={octaneScore.score}
+          label="Octane score"
+          accent={octaneScore.score < 60 ? "orange" : "none"}
+          sub={
+            octaneScore.breakdown.operationalPenalty > 0 ? (
+              <p className="mt-0.5 text-[10px] font-medium text-orange-400/80">
+                −{octaneScore.breakdown.operationalPenalty} operational
+              </p>
+            ) : null
+          }
+        />
+        <StatTile
           href="/actions"
-          className="rounded-xl border border-zinc-800/80 bg-zinc-900/30 px-4 py-3 hover:border-amber-800/40"
-        >
-          <p className="text-lg font-bold text-zinc-100">
-            {state.octaneActions.filter((a) => a.status === "pending").length}
-          </p>
-          <p className="mt-0.5 text-[11px] text-zinc-500">Pending approvals</p>
-        </Link>
-        <Link
+          value={
+            state.octaneActions.filter((a) => a.status === "pending").length
+          }
+          label="Pending approvals"
+        />
+        <StatTile
           href="/connections"
-          className="rounded-xl border border-zinc-800/80 bg-zinc-900/30 px-4 py-3 hover:border-amber-800/40"
-        >
-          <p className="text-lg font-bold text-zinc-100">
-            {state.connections.filter((c) => c.status === "connected").length}
-            <span className="text-sm font-normal text-zinc-500">
-              /{state.connections.length}
-            </span>
-          </p>
-          <p className="mt-0.5 text-[11px] text-zinc-500">Connected services</p>
-        </Link>
-        <Link
+          value={
+            <>
+              {state.connections.filter((c) => c.status === "connected").length}
+              <span className="text-sm font-normal text-zinc-500">
+                /{state.connections.length}
+              </span>
+            </>
+          }
+          label="Connected services"
+        />
+        <StatTile
           href="/projects"
-          className="rounded-xl border border-zinc-800/80 bg-zinc-900/30 px-4 py-3 hover:border-amber-800/40"
-        >
-          <p className="text-lg font-bold text-zinc-100">
-            {state.projects.filter(
+          value={
+            state.projects.filter(
               (p) =>
                 !state.projectConnections.some((pc) => pc.projectId === p.id),
-            ).length}
-          </p>
-          <p className="mt-0.5 text-[11px] text-zinc-500">Projects missing links</p>
-        </Link>
+            ).length
+          }
+          label="Projects missing links"
+        />
       </div>
 
       {/* Quick stats */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div className={cn(
-          "rounded-xl border px-4 py-3",
-          criticalTasks.length > 0
-            ? "border-red-900/50 bg-red-950/20"
-            : "border-zinc-800/80 bg-zinc-900/30"
-        )}>
-          <p className={cn(
-            "text-2xl font-bold",
-            criticalTasks.length > 0 ? "text-red-400" : "text-zinc-100"
-          )}>
-            {criticalTasks.length}
-          </p>
-          <p className="mt-0.5 text-[11px] text-zinc-500">Critical tasks</p>
-        </div>
-        <div className={cn(
-          "rounded-xl border px-4 py-3",
-          blockedTasks.length > 0
-            ? "border-amber-900/50 bg-amber-950/20"
-            : "border-zinc-800/80 bg-zinc-900/30"
-        )}>
-          <p className={cn(
-            "text-2xl font-bold",
-            blockedTasks.length > 0 ? "text-amber-400" : "text-zinc-100"
-          )}>
-            {blockedTasks.length}
-          </p>
-          <p className="mt-0.5 text-[11px] text-zinc-500">Blocked tasks</p>
-        </div>
-        <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/30 px-4 py-3">
-          <p className="text-2xl font-bold text-zinc-100">{openTasks.length}</p>
-          <p className="mt-0.5 text-[11px] text-zinc-500">Open tasks</p>
-        </div>
-        <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/30 px-4 py-3">
-          <p className="text-2xl font-bold text-zinc-100">{state.agents.length}</p>
-          <p className="mt-0.5 text-[11px] text-zinc-500">Active agents</p>
-        </div>
+        <StatTile
+          value={criticalTasks.length}
+          label="Critical tasks"
+          accent={criticalTasks.length > 0 ? "red" : "none"}
+        />
+        <StatTile
+          value={blockedTasks.length}
+          label="Blocked tasks"
+          accent={blockedTasks.length > 0 ? "amber" : "none"}
+        />
+        <StatTile value={openTasks.length} label="Open tasks" />
+        <StatTile value={state.agents.length} label="Active agents" />
       </div>
 
       <div>
