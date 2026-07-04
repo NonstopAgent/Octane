@@ -29,7 +29,7 @@ function isTriaged(status: Signal["status"]): boolean {
   return TRIAGED_STATUSES.has(status);
 }
 
-const LIVE_INGEST_SOURCES: Signal["source"][] = ["gmail", "vercel"];
+const LIVE_INGEST_SOURCES: Signal["source"][] = ["gmail", "vercel", "github"];
 
 /**
  * Merge freshly derived signals with live-ingest rows (Gmail, Vercel) and persisted triage status.

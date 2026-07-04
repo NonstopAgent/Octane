@@ -26,6 +26,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { SandboxCommsBadge } from "@/components/modules/signals/sandbox-comms-badge";
 import { useGmailSignals } from "@/lib/hooks/use-gmail-signals";
 import { useVercelSignals } from "@/lib/hooks/use-vercel-signals";
+import { useGithubSignals } from "@/lib/hooks/use-github-signals";
 import { proposeTriageMitigationIfNew } from "@/lib/signals/propose-triage-mitigation";
 import {
   buildDisplaySignals,
@@ -343,6 +344,7 @@ export default function SignalsPage() {
   const { refreshGmailSignals, loading: gmailLoading, lastProvenance } =
     useGmailSignals();
   const { refreshVercelSignals, loading: vercelLoading } = useVercelSignals();
+  const { refreshGithubSignals, loading: githubLoading } = useGithubSignals();
   const router = useRouter();
 
   const [activeTab, setActiveTab] = useState<TabKey>("all");
@@ -366,13 +368,18 @@ export default function SignalsPage() {
     upsertSignals(mergeSignalsForUpsert(derived, storedSignals));
     void refreshGmailSignals();
     void refreshVercelSignals();
+    void refreshGithubSignals();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function handleRefresh() {
     const derived = buildDisplaySignals(workspace, storedSignals);
     upsertSignals(mergeSignalsForUpsert(derived, storedSignals));
-    await Promise.all([refreshGmailSignals(), refreshVercelSignals()]);
+    await Promise.all([
+      refreshGmailSignals(),
+      refreshVercelSignals(),
+      refreshGithubSignals(),
+    ]);
     setLastRefresh(new Date());
   }
 
@@ -557,12 +564,13 @@ export default function SignalsPage() {
               size="sm"
               className="border-zinc-700 bg-zinc-900 text-zinc-300 hover:bg-zinc-800"
               onClick={() => void handleRefresh()}
-              disabled={gmailLoading || vercelLoading}
+              disabled={gmailLoading || vercelLoading || githubLoading}
             >
               <RefreshCw
                 className={cn(
                   "mr-1.5 size-3.5",
-                  (gmailLoading || vercelLoading) && "animate-spin",
+                  (gmailLoading || vercelLoading || githubLoading) &&
+                    "animate-spin",
                 )}
               />
               Refresh

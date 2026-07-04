@@ -31,6 +31,7 @@ import { Badge } from "@/components/ui/badge";
 import { SandboxCommsBadge } from "@/components/modules/signals/sandbox-comms-badge";
 import { useGmailSignals } from "@/lib/hooks/use-gmail-signals";
 import { useVercelSignals } from "@/lib/hooks/use-vercel-signals";
+import { useGithubSignals } from "@/lib/hooks/use-github-signals";
 import {
   buildDisplaySignals,
   selectActiveSignals,
@@ -228,12 +229,14 @@ export default function DashboardPage() {
   const setPendingChatContext = useOctaneStore((s) => s.setPendingChatContext);
   const { refreshGmailSignals, lastProvenance } = useGmailSignals();
   const { refreshVercelSignals } = useVercelSignals();
+  const { refreshGithubSignals } = useGithubSignals();
   const router = useRouter();
 
   useEffect(() => {
     void refreshGmailSignals();
     void refreshVercelSignals();
-  }, [refreshGmailSignals, refreshVercelSignals]);
+    void refreshGithubSignals();
+  }, [refreshGmailSignals, refreshVercelSignals, refreshGithubSignals]);
 
   const handleDashboardAskAdvisor = useCallback(
     (signal: Signal) => {
@@ -279,9 +282,9 @@ export default function DashboardPage() {
     );
     const ORDER = ["critical", "high", "medium", "low"] as const;
     return all
-      .filter((s) => s.severity === "critical" || s.severity === "high")
+      .filter((s) => s.severity !== "low")
       .sort((a, b) => ORDER.indexOf(a.severity) - ORDER.indexOf(b.severity))
-      .slice(0, 4);
+      .slice(0, 5);
   }, [workspace, storedSignals]);
 
   const octaneScore = useMemo(() => computeOctaneScore(state), [state]);
@@ -368,6 +371,11 @@ export default function DashboardPage() {
                       {signal.title}
                     </p>
                     <p className="truncate text-[11px] text-zinc-500">{signal.summary}</p>
+                    {signal.recommendedAction ? (
+                      <p className="mt-0.5 truncate text-[11px] text-amber-400/70">
+                        → {signal.recommendedAction}
+                      </p>
+                    ) : null}
                   </Link>
                   <button
                     type="button"
