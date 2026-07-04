@@ -13,6 +13,7 @@ import { loadFromSupabase, enableSyncDeletes } from "@/lib/supabase/sync";
 import { mergeById } from "@/lib/supabase/merge";
 import { useAutoSync } from "@/lib/hooks/use-auto-sync";
 import { useCompanySync } from "@/lib/hooks/use-company-sync";
+import { useConnectionReconcile } from "@/lib/hooks/use-connection-reconcile";
 import { useOctaneStore } from "@/lib/store/octane-store";
 
 function SignalIngestProvider({ children }: { children: React.ReactNode }) {
@@ -29,6 +30,9 @@ function DataSyncProvider({ children }: { children: React.ReactNode }) {
   useAutoSync();
   // Same for the company context (the AI's brain) — separate store + table.
   useCompanySync();
+  // Flip placeholder connection records to reality (GitHub/Vercel/Anthropic are
+  // wired via env) so signals + the AI brief stop saying "not connected".
+  useConnectionReconcile();
 
   useEffect(() => {
     if (syncedRef.current) return;
