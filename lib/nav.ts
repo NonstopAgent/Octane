@@ -1,11 +1,9 @@
 import type { LucideIcon } from "lucide-react";
 import {
-  Bot,
   CalendarDays,
   CheckSquare,
   ClipboardList,
   FolderKanban,
-  Landmark,
   LayoutDashboard,
   Settings,
   Wallet,
@@ -40,9 +38,7 @@ export const mainNavItems: NavItem[] = [
   { title: "Dashboard",  href: "/dashboard", icon: LayoutDashboard, section: "executive" },
   { title: "Today",      href: "/today",     icon: CalendarDays,    section: "executive" },
   // ── Portfolio ───────────────────────────────────────────
-  { title: "Holdings",   href: "/holdings",  icon: Landmark,        section: "portfolio" },
   { title: "Projects",   href: "/projects",  icon: FolderKanban,    section: "portfolio" },
-  { title: "Agents",     href: "/agents",    icon: Bot,             section: "portfolio" },
   { title: "Signals",    href: "/signals",   icon: Zap,             section: "portfolio" },
   // ── Operations ─────────────────────────────────────────
   { title: "Tasks",      href: "/tasks",     icon: CheckSquare,     section: "operations" },

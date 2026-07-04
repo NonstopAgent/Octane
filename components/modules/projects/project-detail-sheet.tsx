@@ -3,10 +3,10 @@
 import { useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import Link from "next/link";
-import { Landmark, Link2, NotebookPen, Pencil, Plus } from "lucide-react";
+import { Landmark, Link2, NotebookPen, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
-import { PriorityBadge, StatusBadge } from "@/components/modules";
+import { ConfirmDialog, PriorityBadge, StatusBadge } from "@/components/modules";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -82,7 +82,9 @@ export function ProjectDetailSheet({
   const projectConnections = useOctaneStore((s) => s.projectConnections);
   const proposeOctaneAction = useOctaneStore((s) => s.proposeOctaneAction);
   const updateProject = useOctaneStore((s) => s.updateProject);
+  const deleteProject = useOctaneStore((s) => s.deleteProject);
   const [editing, setEditing] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [ipAppraisalDraft, setIpAppraisalDraft] = useState("");
   const [noteFormOpen, setNoteFormOpen] = useState(false);
   const [noteTitle, setNoteTitle] = useState("");
@@ -170,6 +172,7 @@ export function ProjectDetailSheet({
   }
 
   return (
+    <>
     <Sheet
       open={open}
       onOpenChange={(next) => {
@@ -195,19 +198,30 @@ export function ProjectDetailSheet({
             </div>
           </div>
           {!editing ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="mt-2 w-fit"
-              onClick={() => {
-                setEditing(true);
-                onEditRequest?.();
-              }}
-            >
-              <Pencil className="size-3.5" />
-              Edit
-            </Button>
+            <div className="mt-2 flex w-fit gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setEditing(true);
+                  onEditRequest?.();
+                }}
+              >
+                <Pencil className="size-3.5" />
+                Edit
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="border-red-900/50 text-red-300 hover:text-red-200"
+                onClick={() => setConfirmDelete(true)}
+              >
+                <Trash2 className="size-3.5" />
+                Delete
+              </Button>
+            </div>
           ) : null}
         </SheetHeader>
 
@@ -618,5 +632,19 @@ export function ProjectDetailSheet({
         )}
       </SheetContent>
     </Sheet>
+    <ConfirmDialog
+      open={confirmDelete}
+      onOpenChange={setConfirmDelete}
+      title="Delete project?"
+      description={`Remove "${project.name}" and stop tracking it. This can't be undone.`}
+      confirmLabel="Delete"
+      onConfirm={() => {
+        if (projectId) deleteProject(projectId);
+        setConfirmDelete(false);
+        onOpenChange(false);
+        toast.success("Project deleted");
+      }}
+    />
+    </>
   );
 }
