@@ -19,7 +19,8 @@ Founder feedback: too much manual input; no signals; wants Plaid + "run like a C
 | Dashboard priorities | Signals panel now shows medium+ real signals with each signal's recommended action inline (proactive "what needs you") |
 | Plaid bank feed | `lib/integrations/plaid-client.ts` + `/api/plaid/{link-token,exchange,transactions}` (sync loop). Isolated `plaid-store`. Finance `BankConnect`: connect bank via Plaid Link → tag each txn **Business** (imports to ledger, auto expense/revenue by sign) or **Personal** (skip). Gated on `PLAID_CLIENT_ID`/`PLAID_SECRET`/`PLAID_ENV` with in-app setup prompt; sandbox works instantly |
 | AI CEO brief | `/api/brief` synthesizes real state (Octane score, finance totals, live signals, priorities, decisions) into a forward-looking brief via Anthropic `claude-opus-4-6` (key + model verified live) with a rule-based fallback. `CeoBrief` card at top of dashboard, cached per-day + Refresh. This also proves the Anthropic key works (was never exercised before) |
-| Build/deploy | `next build` exit 0; pushed `e043d93` (signals) + `029752b` (Plaid) + `900cff2` (brief); all Vercel READY |
+| Signal → task | One-click **Create task** on each signal (dashboard cards + Signals page) turns the recommended action into a ready-to-work Task and marks the signal acknowledged. `lib/signals/signal-to-task.ts`. Closes the loop: detect → recommend → act. (4th CEO pillar) |
+| Build/deploy | `next build` exit 0; pushed `e043d93` (signals) + `029752b` (Plaid) + `900cff2` (brief) + `4f640ac` (signal→task); all Vercel READY |
 
 **Needs Logan:** free Plaid keys (dashboard.plaid.com → Keys) added to Vercel env + `.env.local` (placeholders added) to light up the bank feed. Sandbox test login: user_good / pass_good. Real bank data needs Plaid Development/Production access.
 
