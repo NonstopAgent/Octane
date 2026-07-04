@@ -332,6 +332,11 @@ function ChatPageContent() {
       status: d.status,
       category: d.category,
       summary: d.summary,
+      reasoning: d.reasoning,
+      optionsConsidered: d.optionsConsidered,
+      finalDecision: d.finalDecision,
+      expectedOutcome: d.expectedOutcome,
+      reviewDate: d.reviewDate,
     }));
 
     const displaySignals = buildDisplaySignals(workspace, storedSignals);

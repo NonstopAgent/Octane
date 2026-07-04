@@ -10,6 +10,7 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 import { normalizeOctaneData } from "@/lib/data/normalize-octane-data";
 import { useSignalIngest } from "@/lib/hooks/use-signal-ingest";
 import { loadFromSupabase } from "@/lib/supabase/sync";
+import { useAutoSync } from "@/lib/hooks/use-auto-sync";
 import { useOctaneStore } from "@/lib/store/octane-store";
 
 function SignalIngestProvider({ children }: { children: React.ReactNode }) {
@@ -20,6 +21,10 @@ function SignalIngestProvider({ children }: { children: React.ReactNode }) {
 function DataSyncProvider({ children }: { children: React.ReactNode }) {
   const syncedRef = useRef(false);
   const syncErrorToastShown = useRef(false);
+
+  // Durable auto-save: push every change to Supabase (debounced; inert until a
+  // real Supabase session exists). The load-on-mount below handles hydration.
+  useAutoSync();
 
   useEffect(() => {
     if (syncedRef.current) return;

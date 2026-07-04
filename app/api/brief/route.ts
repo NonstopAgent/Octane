@@ -35,11 +35,19 @@ interface BriefInput {
   topThreeMoves?: string[];
   moneyWatch?: string[];
   decisionsDue?: string[];
+  decisions?: {
+    title: string;
+    category: string;
+    status: string;
+    finalDecision?: string;
+    reasoning?: string;
+    expectedOutcome?: string;
+  }[];
   signals?: BriefSignal[];
   projects?: { name: string; status: string }[];
 }
 
-const SYSTEM = `You are Octane — a solo founder's AI chief of staff and CEO co-pilot. The founder (Logan) runs a small software portfolio: Octane Core (the command-center app), Octane Ajax, and Octane Nexus. You are given the founder's Company Context (the vision, each business, strategy, and future plans) — treat it as the source of truth about the business and ground the brief in it.
+const SYSTEM = `You are Octane — a solo founder's AI chief of staff and CEO co-pilot. The founder (Logan) runs a small software portfolio: Octane Core (the command-center app), Octane Ajax, and Octane Nexus. You are given the founder's Company Context (the vision, each business, strategy, and future plans) — treat it as the source of truth about the business and ground the brief in it. You also get a sample of his Decision Log (past decisions with reasoning) — keep your recommendation consistent with how Logan actually decides, and reference a past decision as precedent when it fits.
 
 You are given TODAY'S REAL state as JSON. Write a tight, forward-looking daily brief that reads like a sharp operator, not a chatbot. Use this exact structure with these markdown headers:
 

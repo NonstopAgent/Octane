@@ -39,7 +39,17 @@ interface OctaneContext {
   agents?: { name: string; status: string; purpose: string }[];
   entities?: { name: string; type: string; status: string; tagline?: string }[];
   transactions?: { type: string; amount: number; description: string; date: string }[];
-  decisions?: { title: string; status: string; category: string; summary: string }[];
+  decisions?: {
+    title: string;
+    status: string;
+    category: string;
+    summary: string;
+    reasoning?: string;
+    optionsConsidered?: string[];
+    finalDecision?: string;
+    expectedOutcome?: string;
+    reviewDate?: string;
+  }[];
   signals?: {
     title: string;
     summary: string;
@@ -285,6 +295,9 @@ function buildSystemPrompt(ctx: OctaneContext): string {
     "## WHO YOU ARE",
     "You combine the judgment of a senior CTO, COO, and strategic advisor. You know everything about the portfolio — code repos, tasks, projects, finances, decisions, and agents. You don't hedge, you don't add disclaimers, and you never say 'I'm just an AI.' You give direct, specific, actionable advice.",
     "",
+    "## YOUR LONG-TERM JOB",
+    "You are being built to become Logan's Aladdin — the intelligence that eventually runs this company. Today you advise. Over time, by studying his decisions and their outcomes, learn how he thinks well enough to eventually make calls in his style. Every answer should (a) stay grounded in the Company Context and live data below, and (b) reflect the judgment shown in his Decision Log. When a situation resembles a past decision, name it and reason from it.",
+    "",
     "## COMPANY CONTEXT (source of truth — Logan maintains this in Settings → Company Context)",
     ctx.companyContext?.trim() ? ctx.companyContext.trim() : defaultCompanyContext(),
     "",
@@ -432,14 +445,20 @@ function buildSystemPrompt(ctx: OctaneContext): string {
   }
 
   if (ctx.decisions?.length) {
-    const pending = ctx.decisions.filter((d) => d.status === "pending" || d.status === "open" || d.status === "active");
-    if (pending.length > 0) {
-      lines.push(`## PENDING DECISIONS (${pending.length})`);
-      pending.slice(0, 6).forEach((d) => {
-        lines.push(`- [${d.category}] **${d.title}**: ${d.summary}`);
-      });
+    lines.push(`## DECISION LOG — how Logan thinks (${ctx.decisions.length})`);
+    lines.push(
+      "Logan's real decisions with his reasoning. This is the clearest signal of how he weighs trade-offs — study it and align your advice with his demonstrated judgment.",
+    );
+    ctx.decisions.slice(0, 12).forEach((d) => {
       lines.push("");
-    }
+      lines.push(`- [${d.category}] **${d.title}** (${d.status})`);
+      if (d.finalDecision) lines.push(`  Chose: ${d.finalDecision}`);
+      if (d.reasoning) lines.push(`  Why: ${d.reasoning}`);
+      if (d.optionsConsidered?.length)
+        lines.push(`  Options weighed: ${d.optionsConsidered.join("; ")}`);
+      if (d.expectedOutcome) lines.push(`  Expected: ${d.expectedOutcome}`);
+    });
+    lines.push("");
   }
 
   if (ctx.signals?.length) {

@@ -133,6 +133,14 @@ export function CeoBrief() {
       topThreeMoves: briefing.topThreeMoves,
       moneyWatch: briefing.moneyWatch,
       decisionsDue: briefing.decisionQueue.map((d) => d.decision.title),
+      decisions: (state.decisions ?? []).slice(0, 8).map((d) => ({
+        title: d.title,
+        category: d.category,
+        status: d.status,
+        finalDecision: d.finalDecision,
+        reasoning: d.reasoning,
+        expectedOutcome: d.expectedOutcome,
+      })),
       signals: active,
       projects: (state.projects ?? []).map((p) => ({
         name: p.name,
