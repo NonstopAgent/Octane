@@ -10,7 +10,9 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 import { normalizeOctaneData } from "@/lib/data/normalize-octane-data";
 import { useSignalIngest } from "@/lib/hooks/use-signal-ingest";
 import { loadFromSupabase } from "@/lib/supabase/sync";
+import { mergeById } from "@/lib/supabase/merge";
 import { useAutoSync } from "@/lib/hooks/use-auto-sync";
+import { useCompanySync } from "@/lib/hooks/use-company-sync";
 import { useOctaneStore } from "@/lib/store/octane-store";
 
 function SignalIngestProvider({ children }: { children: React.ReactNode }) {
@@ -25,6 +27,8 @@ function DataSyncProvider({ children }: { children: React.ReactNode }) {
   // Durable auto-save: push every change to Supabase (debounced; inert until a
   // real Supabase session exists). The load-on-mount below handles hydration.
   useAutoSync();
+  // Same for the company context (the AI's brain) — separate store + table.
+  useCompanySync();
 
   useEffect(() => {
     if (syncedRef.current) return;
@@ -52,32 +56,21 @@ function DataSyncProvider({ children }: { children: React.ReactNode }) {
 
         // Hydrate Zustand with Supabase data (normalized — safe for /projects etc.)
         const current = useOctaneStore.getState();
+        // Non-destructive merge (union by id, newer updatedAt wins) so a sparse
+        // or stale cloud never wipes local work.
         const normalized = normalizeOctaneData(
           {
             ...current,
             profile: synced.profile ?? current.profile,
-            entities:
-              synced.entities.length > 0 ? synced.entities : current.entities,
-            projects:
-              synced.projects.length > 0 ? synced.projects : current.projects,
-            tasks: synced.tasks.length > 0 ? synced.tasks : current.tasks,
-            agents: synced.agents.length > 0 ? synced.agents : current.agents,
-            transactions:
-              synced.transactions.length > 0
-                ? synced.transactions
-                : current.transactions,
-            decisions:
-              synced.decisions.length > 0 ? synced.decisions : current.decisions,
-            documents:
-              synced.documents.length > 0 ? synced.documents : current.documents,
-            founderNotes:
-              synced.founderNotes.length > 0
-                ? synced.founderNotes
-                : current.founderNotes,
-            roadmapItems:
-              synced.roadmapItems.length > 0
-                ? synced.roadmapItems
-                : current.roadmapItems,
+            entities: mergeById(current.entities, synced.entities),
+            projects: mergeById(current.projects, synced.projects),
+            tasks: mergeById(current.tasks, synced.tasks),
+            agents: mergeById(current.agents, synced.agents),
+            transactions: mergeById(current.transactions, synced.transactions),
+            decisions: mergeById(current.decisions, synced.decisions),
+            documents: mergeById(current.documents, synced.documents),
+            founderNotes: mergeById(current.founderNotes, synced.founderNotes),
+            roadmapItems: mergeById(current.roadmapItems, synced.roadmapItems),
             connections: current.connections,
             octaneActions: current.octaneActions,
             projectConnections: current.projectConnections,
