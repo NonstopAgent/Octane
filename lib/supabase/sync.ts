@@ -28,6 +28,37 @@ async function currentUserId(): Promise<string | null> {
   return user?.id ?? null;
 }
 
+/**
+ * Delete propagation is OFF until the initial cloud load has merged into the
+ * local store this session — so we never delete cloud rows that simply haven't
+ * been loaded locally yet. The layout calls enableSyncDeletes() after a
+ * successful loadFromSupabase().
+ */
+let deletesEnabled = false;
+export function enableSyncDeletes() {
+  deletesEnabled = true;
+}
+
+/** Delete cloud rows for this user that no longer exist locally (by id). */
+async function deleteRemovedRows(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  client: any,
+  uid: string,
+  table: string,
+  items: { id: string }[] | undefined,
+): Promise<void> {
+  // Never wipe a whole collection: if local is empty, skip (guards against a
+  // pre-hydration or corrupted state deleting everything in the cloud).
+  if (!items || items.length === 0) return;
+  const ids = items.map((i) => i.id).filter(Boolean);
+  if (ids.length === 0 || ids.length > 300) return;
+  await client
+    .from(table)
+    .delete()
+    .eq("user_id", uid)
+    .not("id", "in", `(${ids.join(",")})`);
+}
+
 // ─── PUSH: local store → Supabase ───────────────────────────────────────────
 
 export async function pushToSupabase(
@@ -279,6 +310,26 @@ export async function pushToSupabase(
     if (firstError?.error) {
       console.error("[sync] Push error:", firstError.error.message);
       return { ok: false, error: firstError.error.message };
+    }
+
+    // Propagate deletes: remove cloud rows that were deleted locally.
+    if (deletesEnabled) {
+      try {
+        await Promise.all([
+          deleteRemovedRows(client, uid, "projects", state.projects),
+          deleteRemovedRows(client, uid, "tasks", state.tasks),
+          deleteRemovedRows(client, uid, "decisions", state.decisions),
+          deleteRemovedRows(client, uid, "transactions", state.transactions),
+          deleteRemovedRows(client, uid, "inbox_items", state.inboxItems),
+          deleteRemovedRows(client, uid, "roadmap_items", state.roadmapItems),
+          deleteRemovedRows(client, uid, "founder_notes", state.founderNotes),
+          deleteRemovedRows(client, uid, "documents", state.documents),
+          deleteRemovedRows(client, uid, "entities", state.entities),
+          deleteRemovedRows(client, uid, "agents", state.agents),
+        ]);
+      } catch {
+        // best-effort — deletions retry on the next push
+      }
     }
 
     recordSupabaseSyncSuccess();

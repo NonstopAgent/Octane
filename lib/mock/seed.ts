@@ -36,6 +36,7 @@ export const PROJECT_IDS = {
   nexus: "proj-octane-nexus",
   capitalLab: "proj-octane-capital-lab",
   core: "proj-octane-core",
+  hedgefund: "proj-hedgefund",
 } as const;
 
 export const ENTITY_IDS = {
@@ -102,6 +103,20 @@ export function createCorePortfolioBaseline(
         createdAt: now,
         updatedAt: now,
       },
+      {
+        id: PROJECT_IDS.hedgefund,
+        name: "HedgeFund",
+        description:
+          "Quant / systematic trading bet — its own repo (NonstopAgent/HedgeFund) and Supabase.",
+        status: "building",
+        priority: "high",
+        owner: "Founder",
+        progress: 0,
+        revenueStatus: "none",
+        isCore: true,
+        createdAt: now,
+        updatedAt: now,
+      },
     ],
     projectConnections: [
       {
@@ -130,6 +145,16 @@ export function createCorePortfolioBaseline(
         kind: "github",
         label: "GitHub",
         repo: "NonstopAgent/Octane_Nexus",
+        status: "linked",
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: "pconn-core-hedgefund-github",
+        projectId: PROJECT_IDS.hedgefund,
+        kind: "github",
+        label: "GitHub",
+        repo: "NonstopAgent/HedgeFund",
         status: "linked",
         createdAt: now,
         updatedAt: now,

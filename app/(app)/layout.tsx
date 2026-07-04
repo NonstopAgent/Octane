@@ -9,7 +9,7 @@ import { WorkspaceModeBanner } from "@/components/layout/workspace-mode-banner";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { normalizeOctaneData } from "@/lib/data/normalize-octane-data";
 import { useSignalIngest } from "@/lib/hooks/use-signal-ingest";
-import { loadFromSupabase } from "@/lib/supabase/sync";
+import { loadFromSupabase, enableSyncDeletes } from "@/lib/supabase/sync";
 import { mergeById } from "@/lib/supabase/merge";
 import { useAutoSync } from "@/lib/hooks/use-auto-sync";
 import { useCompanySync } from "@/lib/hooks/use-company-sync";
@@ -79,6 +79,8 @@ function DataSyncProvider({ children }: { children: React.ReactNode }) {
           current.profile,
         );
         useOctaneStore.setState(normalized);
+        // Cloud data is now merged into local — safe to let deletes propagate.
+        enableSyncDeletes();
       } catch (err) {
         console.warn("[layout] Sync error (using local cache):", err);
         if (!syncErrorToastShown.current) {

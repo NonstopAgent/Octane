@@ -10,6 +10,7 @@ const CANONICAL_REPOS: RepoTarget[] = [
   { repo: "NonstopAgent/Octane", label: "Octane Core" },
   { repo: "NonstopAgent/Octane_Ajax", label: "Octane Ajax" },
   { repo: "NonstopAgent/Octane_Nexus", label: "Octane Nexus" },
+  { repo: "NonstopAgent/HedgeFund", label: "HedgeFund" },
 ];
 
 type RepoTarget = { repo: string; label: string; projectId?: string };

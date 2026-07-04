@@ -546,7 +546,7 @@ export default function DashboardPage() {
           <Activity className="size-3.5 text-emerald-400" />
           Live Repo Status
         </h2>
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <RepoStatusCard
             repo="NonstopAgent/Octane_Ajax"
             label="Octane Ajax"
@@ -561,6 +561,11 @@ export default function DashboardPage() {
             repo="NonstopAgent/Octane"
             label="Octane Core"
             emoji="⚡"
+          />
+          <RepoStatusCard
+            repo="NonstopAgent/HedgeFund"
+            label="HedgeFund"
+            emoji="📈"
           />
         </div>
       </div>
