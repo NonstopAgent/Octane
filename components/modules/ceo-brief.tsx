@@ -22,6 +22,7 @@ import {
   selectOctanePersistedState,
   useOctaneStore,
 } from "@/lib/store/octane-store";
+import { useCompanyStore } from "@/lib/store/company-store";
 
 const CACHE_KEY = "octane-ceo-brief";
 const SEVERITY_ORDER = ["critical", "high", "medium", "low"] as const;
@@ -89,6 +90,7 @@ export function CeoBrief() {
   const state = useOctaneStore(useShallow(selectOctanePersistedState));
   const workspace = useOctaneStore(useShallow(selectWorkspaceForSignals));
   const storedSignals = useOctaneStore((s) => s.signals);
+  const companyContext = useCompanyStore((s) => s.context);
 
   const [mounted, setMounted] = useState(false);
   const [brief, setBrief] = useState<string | null>(null);
@@ -116,6 +118,7 @@ export function CeoBrief() {
         recommendedAction: s.recommendedAction,
       }));
     return {
+      companyContext,
       score: score.score,
       scorePenalty: score.breakdown.operationalPenalty,
       cash: briefing.cashSnapshot,
@@ -136,7 +139,7 @@ export function CeoBrief() {
         status: p.status,
       })),
     };
-  }, [state, workspace, storedSignals]);
+  }, [state, workspace, storedSignals, companyContext]);
 
   const generate = useCallback(async () => {
     setLoading(true);

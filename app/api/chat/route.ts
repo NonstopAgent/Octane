@@ -1,6 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 
+import { defaultCompanyContext } from "@/lib/company/company-context";
+
 export const runtime = "nodejs";
 export const maxDuration = 120;
 
@@ -31,6 +33,7 @@ function isExecutiveSummaryRequest(body: PostBody): body is ExecutiveSummaryRequ
 }
 
 interface OctaneContext {
+  companyContext?: string;
   projects?: { name: string; status: string; priority: string; progress: number }[];
   tasks?: { title: string; status: string; priority: string; projectName: string }[];
   agents?: { name: string; status: string; purpose: string }[];
@@ -282,25 +285,8 @@ function buildSystemPrompt(ctx: OctaneContext): string {
     "## WHO YOU ARE",
     "You combine the judgment of a senior CTO, COO, and strategic advisor. You know everything about the portfolio — code repos, tasks, projects, finances, decisions, and agents. You don't hedge, you don't add disclaimers, and you never say 'I'm just an AI.' You give direct, specific, actionable advice.",
     "",
-    "## THE PORTFOLIO",
-    "Logan runs two main products under Octane Holdings Trust:",
-    "",
-    "**Octane Ajax** (repo: `NonstopAgent/Octane_Ajax`, live: octane-ajax-lzu6au72b-nonstopagents-projects.vercel.app)",
-    "Autonomous product engine: research → compilation → asset placement. Three AI agents run the pipeline:",
-    "- Nova (Research): mines demand signals, competitor intel, and product ideas from market data",
-    "- Forge (Creation): compiles digital products (PDFs, guides, kits) from approved concepts",
-    "- Pixel (Marketing): generates promo copy and placement assets for distribution channels",
-    "Pipeline: Research Lab → Design Press → Review Gate (Logan approves/rejects) → Media Studio → Storefront",
-    "Sales channels: Etsy (OAuth not yet connected), Lemon Squeezy (API key not set), Gumroad",
-    "Current status: pipeline operational, agents idle, Etsy shop being set up, first product at $9.99 in review",
-    "Key gaps: Etsy not connected, no revenue flowing yet, product model needs evaluation vs. higher-LTV formats",
-    "Logan's direction: Nova should out-research competitors; Forge/Pixel should run autonomously after review gate.",
-    "",
-    "**Octane Nexus** (repo: `NonstopAgent/Octane_Nexus`)",
-    "External data and media indexing layer — ingests, normalizes, and surfaces third-party signals (research briefs, media feeds, partner content) for the portfolio. Complements Ajax's product factory with outward-facing intelligence.",
-    "Status: active development; prioritize indexing quality and signal freshness over feature breadth.",
-    "",
-    "**Octane Core** (this app, repo: `NonstopAgent/Octane`) — the founder OS. Tracks tasks, projects, finances, decisions, agents, and the Universal Signal ledger. You run inside it. Logan uses it to manage and monitor Ajax, Nexus, and live integrations.",
+    "## COMPANY CONTEXT (source of truth — Logan maintains this in Settings → Company Context)",
+    ctx.companyContext?.trim() ? ctx.companyContext.trim() : defaultCompanyContext(),
     "",
     "## WHAT YOU CAN DO",
     "You have real tools — use them without being asked:",
@@ -346,12 +332,8 @@ function buildSystemPrompt(ctx: OctaneContext): string {
     "- **Nexus**: prioritize indexing freshness and partner-signal quality over new surface area",
     "- **Core**: use Octane score, runway, and signal ledger to sequence work — one prescriptive recommendation per answer when possible",
     "",
-    "## LOGAN'S DIRECTION",
-    "1. Ajax and Nexus should run themselves with minimal manual work from Logan",
-    "2. Nova needs to research competitors and generate product ideas that will actually sell — not just generic PDFs",
-    "3. Octane (this app) should be the control center: monitor, flag problems, and act on them",
-    "4. No setup wizards, no fake data, no placeholder content — everything should be real or clearly empty",
-    "5. Logan is the only user. Be direct, skip the preamble, and give specific actionable answers",
+    "## HOW TO RESPOND",
+    "Ground every answer in the Company Context above and the live data below. Be direct, skip the preamble, and give one specific prescriptive recommendation. Logan is the only user. Never invent data or plans not present here — if something isn't in the Company Context or live data, say so plainly.",
     "",
   ];
 

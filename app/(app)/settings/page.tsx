@@ -17,6 +17,7 @@ import {
   LAST_SUPABASE_SYNC_AT_KEY,
 } from "@/lib/supabase/sync-meta";
 import { WorkspaceDataSourcesSection } from "@/components/settings/workspace-data-sources-section";
+import { CompanyContextSection } from "@/components/settings/company-context-section";
 import { KeyboardShortcutsSection } from "@/components/settings/keyboard-shortcuts-section";
 import { selectEntityOwnershipStats } from "@/components/settings/entity-ownership";
 import { Badge } from "@/components/ui/badge";
@@ -279,6 +280,8 @@ function SettingsPageContent() {
           </CardContent>
         </Card>
       </section>
+
+      <CompanyContextSection />
 
       <section className="space-y-4">
         <SectionHeader

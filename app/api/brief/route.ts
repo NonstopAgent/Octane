@@ -16,6 +16,7 @@ interface BriefSignal {
 }
 
 interface BriefInput {
+  companyContext?: string;
   score?: number;
   scorePenalty?: number;
   cash?: {
@@ -38,7 +39,7 @@ interface BriefInput {
   projects?: { name: string; status: string }[];
 }
 
-const SYSTEM = `You are Octane — a solo founder's AI chief of staff and CEO co-pilot. The founder (Logan) runs a small software portfolio: Octane Core (the command-center app), Octane Ajax, and Octane Nexus.
+const SYSTEM = `You are Octane — a solo founder's AI chief of staff and CEO co-pilot. The founder (Logan) runs a small software portfolio: Octane Core (the command-center app), Octane Ajax, and Octane Nexus. You are given the founder's Company Context (the vision, each business, strategy, and future plans) — treat it as the source of truth about the business and ground the brief in it.
 
 You are given TODAY'S REAL state as JSON. Write a tight, forward-looking daily brief that reads like a sharp operator, not a chatbot. Use this exact structure with these markdown headers:
 
@@ -120,19 +121,22 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const { companyContext, ...rest } = input;
+    const userContent = [
+      companyContext?.trim()
+        ? `COMPANY CONTEXT (source of truth):\n${companyContext.trim()}\n`
+        : "",
+      `TODAY'S REAL STATE (JSON):\n${JSON.stringify(rest)}`,
+      "\nWrite the brief.",
+    ]
+      .filter(Boolean)
+      .join("\n");
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const response = await client.messages.create({
       model: MODEL,
       max_tokens: 700,
       system: SYSTEM,
-      messages: [
-        {
-          role: "user",
-          content: `Here is today's real Octane state as JSON. Write the brief.\n\n${JSON.stringify(
-            input,
-          )}`,
-        },
-      ],
+      messages: [{ role: "user", content: userContent }],
     });
     const text = response.content
       .filter((b): b is Anthropic.TextBlock => b.type === "text")

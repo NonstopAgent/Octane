@@ -28,6 +28,7 @@ import {
   selectOctanePersistedState,
   useOctaneStore,
 } from "@/lib/store/octane-store";
+import { useCompanyStore } from "@/lib/store/company-store";
 import { cn } from "@/lib/utils";
 import type { ChatMessage } from "@/app/api/chat/route";
 
@@ -247,6 +248,7 @@ function ChatPageContent() {
   const state = useOctaneStore(useShallow(selectOctanePersistedState));
   const workspace = useOctaneStore(useShallow(selectWorkspaceForSignals));
   const storedSignals = useOctaneStore((s) => s.signals);
+  const companyContext = useCompanyStore((s) => s.context);
   const proposeOctaneActions = useOctaneStore((s) => s.proposeOctaneActions);
   const pendingCount = useOctaneStore(
     (s) => s.octaneActions.filter((a) => a.status === "pending").length,
@@ -366,6 +368,7 @@ function ChatPageContent() {
     });
 
     return {
+      companyContext,
       projects,
       tasks,
       agents,
@@ -385,7 +388,7 @@ function ChatPageContent() {
       },
       gmailProvenance,
     };
-  }, [state, entityFilter, workspace, storedSignals]);
+  }, [state, entityFilter, workspace, storedSignals, companyContext]);
 
   // Entity options for filter
   const entityOptions = useMemo(() => {
