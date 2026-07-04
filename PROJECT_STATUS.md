@@ -4,10 +4,24 @@
 
 | Item | Value |
 |------|--------|
-| Checkpoint | **19** — Cloud persistence hardening: safe merge + Company Context table (auth already real) |
+| Checkpoint | **20** — Idea system: durable Octane inbox → Notion library (zero-setup bridge) |
 | Base commit | `3faaa3f` (20B Sentry webhook ingest) |
 | Stack | Next.js 16, React 19, Zustand persist, Tailwind 4, Supabase client |
 | Intelligence | Rule-based engines + optional Anthropic (`/chat`, coding plans/edits, cron briefing) |
+
+## Checkpoint 20 — Idea system: Octane inbox → Notion library (2026-07-04)
+
+Directive: "Send to Octane with Notion as the deeper library." Capture fast in Octane, archive deep in Notion — zero new tokens (uses existing connections).
+
+| Area | Result |
+|------|--------|
+| Capture | Octane's existing Inbox (`InboxItem`, type "idea" default, convert-to-task/decision/note) is the fast capture surface — no rebuild needed |
+| Durability | Added `inbox_items` to the Supabase sync (new RLS table + push/pull + safe merge) so ideas persist to the cloud like everything else |
+| Notion library | Created **"Octane Idea Library"** database in Logan's Notion (Idea/Status/Type/Project/Source/**Octane ID** dedupe key/Captured/Details) + a starter "How this library works" page. DB: app.notion.com/p/a235addd1a594b39954946ab7555b28a; data source `2578df62-f09d-4b59-b3dc-b337ec1d0643` |
+| Bridge (zero setup) | Scheduled task `octane-ideas-to-notion` (daily 7 AM) reads new ideas from Supabase (`inbox_items`) via the Supabase MCP and files them into the Notion library via the Notion MCP, deduped by Octane ID — no Notion token for Logan to manage |
+| Build/deploy | `next build` exit 0; pushed `5488bc3`; Vercel READY |
+
+**Note:** scheduled task is best-effort (runs while the app is open / on next launch); recommend Logan clicks "Run now" once to pre-approve the Supabase + Notion tools. Logan can also ask me to sync ideas → Notion on demand anytime.
 
 ## Checkpoint 19 — Cloud persistence hardening (2026-07-04)
 
