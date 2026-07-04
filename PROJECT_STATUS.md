@@ -4,10 +4,23 @@
 
 | Item | Value |
 |------|--------|
-| Checkpoint | **18** — Aladdin reinforcement: judgment layer + durable auto-save (on the Company Context base) |
+| Checkpoint | **19** — Cloud persistence hardening: safe merge + Company Context table (auth already real) |
 | Base commit | `3faaa3f` (20B Sentry webhook ingest) |
 | Stack | Next.js 16, React 19, Zustand persist, Tailwind 4, Supabase client |
 | Intelligence | Rule-based engines + optional Anthropic (`/chat`, coding plans/edits, cron briefing) |
+
+## Checkpoint 19 — Cloud persistence hardening (2026-07-04)
+
+Task: "wire real auth + cloud persistence." Finding: auth is **already real** — `lilchulo2006@gmail.com` exists + is email-confirmed (since 2026-05-19), and `/api/mock-auth/login` validates the Supabase access token server-side in production before issuing the gate cookie. The gap was persistence, not auth.
+
+| Area | Result |
+|------|--------|
+| Cloud data audit | Supabase `Octane` project (`xrkqywmkbqqaadmfgqfc`) had only profiles=1, projects=1, everything else 0 → confirms push was setup-only; post-setup work never synced (CP18 auto-save fixes going forward) |
+| **Data-loss hazard fixed** | Load-on-mount replaced local collections with cloud wholesale (`synced.X.length>0 ? synced : current`) — with sparse cloud + now-live auto-save this could wipe + then persist the loss. Replaced with `mergeById` (union by id, newer `updatedAt` wins) in the app layout |
+| Company Context durability | Created `company_context` table (RLS, per-user) via Supabase migration; `company-sync.ts` push/pull + `useCompanySync` (load-on-mount adopt-if-newer, debounced push), mounted in layout |
+| Build/deploy | `next build` exit 0; pushed `5322e51`; Vercel READY |
+
+**Verification needs Logan (participatory):** open octane-lake.vercel.app logged in, add/edit something — then cloud row counts (tasks/decisions/transactions) should jump from 0. That confirms end-to-end durability (can't be verified without his session). **Not yet synced:** Plaid store (separate; lower priority — bank data re-syncs from Plaid).
 
 ## Checkpoint 18 — Aladdin reinforcement: judgment + durability (2026-07-04)
 
