@@ -18,7 +18,8 @@ Founder feedback: too much manual input; no signals; wants Plaid + "run like a C
 | Live GitHub signals | `/api/github/signals` reads real repo state for the 3 repos → real Signals (source `github`): stale pushes (>21d med / >45d high), open PRs awaiting review, failing CI on default branch, open Dependabot alerts. Hooks (`use-github-signals`) on dashboard + Signals page; `github` added to `LIVE_INGEST_SOURCES`. Verified against GitHub API: e.g. Nexus "no push in 71 days" (high), Ajax "2 open PRs". Zero manual input |
 | Dashboard priorities | Signals panel now shows medium+ real signals with each signal's recommended action inline (proactive "what needs you") |
 | Plaid bank feed | `lib/integrations/plaid-client.ts` + `/api/plaid/{link-token,exchange,transactions}` (sync loop). Isolated `plaid-store`. Finance `BankConnect`: connect bank via Plaid Link → tag each txn **Business** (imports to ledger, auto expense/revenue by sign) or **Personal** (skip). Gated on `PLAID_CLIENT_ID`/`PLAID_SECRET`/`PLAID_ENV` with in-app setup prompt; sandbox works instantly |
-| Build/deploy | `next build` exit 0; pushed `e043d93` (signals) + `029752b` (Plaid); both Vercel READY |
+| AI CEO brief | `/api/brief` synthesizes real state (Octane score, finance totals, live signals, priorities, decisions) into a forward-looking brief via Anthropic `claude-opus-4-6` (key + model verified live) with a rule-based fallback. `CeoBrief` card at top of dashboard, cached per-day + Refresh. This also proves the Anthropic key works (was never exercised before) |
+| Build/deploy | `next build` exit 0; pushed `e043d93` (signals) + `029752b` (Plaid) + `900cff2` (brief); all Vercel READY |
 
 **Needs Logan:** free Plaid keys (dashboard.plaid.com → Keys) added to Vercel env + `.env.local` (placeholders added) to light up the bank feed. Sandbox test login: user_good / pass_good. Real bank data needs Plaid Development/Production access.
 
