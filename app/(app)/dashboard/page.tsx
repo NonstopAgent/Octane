@@ -21,6 +21,7 @@ import {
   Zap,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { toast } from "sonner";
 import { useShallow } from "zustand/react/shallow";
 
 import { CeoBrief } from "@/components/modules/ceo-brief";
@@ -38,6 +39,7 @@ import {
   selectActiveSignals,
   selectWorkspaceForSignals,
 } from "@/lib/signals/workspace-signals";
+import { taskDraftFromSignal } from "@/lib/signals/signal-to-task";
 import { computeOctaneScore } from "@/lib/scoring/octane-score";
 import {
   selectOctanePersistedState,
@@ -228,6 +230,8 @@ export default function DashboardPage() {
   const workspace = useOctaneStore(useShallow(selectWorkspaceForSignals));
   const storedSignals = useOctaneStore((s) => s.signals);
   const setPendingChatContext = useOctaneStore((s) => s.setPendingChatContext);
+  const createTask = useOctaneStore((s) => s.createTask);
+  const updateSignalStatus = useOctaneStore((s) => s.updateSignalStatus);
   const { refreshGmailSignals, lastProvenance } = useGmailSignals();
   const { refreshVercelSignals } = useVercelSignals();
   const { refreshGithubSignals } = useGithubSignals();
@@ -256,6 +260,18 @@ export default function DashboardPage() {
       router.push("/chat?context=1");
     },
     [setPendingChatContext, router],
+  );
+
+  const handleCreateTaskFromSignal = useCallback(
+    (signal: Signal) => {
+      const draft = taskDraftFromSignal(signal);
+      const task = createTask(draft);
+      updateSignalStatus(signal.id, "acknowledged");
+      toast.success(`Task created: ${task.title}`, {
+        description: "Added to Tasks — marked this signal acknowledged.",
+      });
+    },
+    [createTask, updateSignalStatus],
   );
 
   const openTasks = useMemo(
@@ -380,6 +396,14 @@ export default function DashboardPage() {
                       </p>
                     ) : null}
                   </Link>
+                  <button
+                    type="button"
+                    title="Create a task from this"
+                    onClick={() => handleCreateTaskFromSignal(signal)}
+                    className="mt-0.5 shrink-0 text-zinc-600 transition-colors hover:text-emerald-400"
+                  >
+                    <CheckSquare className="size-3.5" />
+                  </button>
                   <button
                     type="button"
                     title="Ask Advisor"

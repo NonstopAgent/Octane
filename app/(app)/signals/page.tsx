@@ -9,6 +9,7 @@ import {
   ChevronRight,
   CircleDot,
   Info,
+  ListPlus,
   Loader2,
   MessageSquare,
   RefreshCw,
@@ -27,7 +28,9 @@ import { SandboxCommsBadge } from "@/components/modules/signals/sandbox-comms-ba
 import { useGmailSignals } from "@/lib/hooks/use-gmail-signals";
 import { useVercelSignals } from "@/lib/hooks/use-vercel-signals";
 import { useGithubSignals } from "@/lib/hooks/use-github-signals";
+import { taskDraftFromSignal } from "@/lib/signals/signal-to-task";
 import { proposeTriageMitigationIfNew } from "@/lib/signals/propose-triage-mitigation";
+import { toast } from "sonner";
 import {
   buildDisplaySignals,
   mergeSignalsForUpsert,
@@ -131,12 +134,14 @@ function SignalCard({
   onResolve,
   onDismiss,
   onAskAdvisor,
+  onCreateTask,
 }: {
   signal: Signal;
   onAcknowledge: (id: string) => void;
   onResolve: (id: string) => void;
   onDismiss: (id: string) => void;
   onAskAdvisor: (id: string) => void;
+  onCreateTask: (signal: Signal) => void;
 }) {
   const cfg = SEVERITY_CONFIG[signal.severity];
   const SeverityIcon = cfg.icon;
@@ -252,6 +257,15 @@ function SignalCard({
               <Button
                 variant="ghost"
                 size="icon-sm"
+                className="size-7 text-zinc-500 hover:text-emerald-400"
+                title="Create a task from this"
+                onClick={() => onCreateTask(signal)}
+              >
+                <ListPlus className="size-3.5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon-sm"
                 className="size-7 text-zinc-500 hover:text-amber-400"
                 title="Ask Advisor"
                 onClick={() => onAskAdvisor(signal.id)}
@@ -335,6 +349,7 @@ export default function SignalsPage() {
   const storedSignals = useOctaneStore((s) => s.signals);
   const upsertSignals = useOctaneStore((s) => s.upsertSignals);
   const updateSignalStatus = useOctaneStore((s) => s.updateSignalStatus);
+  const createTask = useOctaneStore((s) => s.createTask);
   const attachSignalTriageAnalysis = useOctaneStore(
     (s) => s.attachSignalTriageAnalysis,
   );
@@ -389,6 +404,15 @@ export default function SignalsPage() {
       upsertSignals([signal]);
     }
     updateSignalStatus(id, status);
+  }
+
+  function handleCreateTask(signal: Signal) {
+    const draft = taskDraftFromSignal(signal);
+    const task = createTask(draft);
+    updateSignalStatus(signal.id, "acknowledged");
+    toast.success(`Task created: ${task.title}`, {
+      description: "Added to Tasks — marked this signal acknowledged.",
+    });
   }
 
   function handleAcknowledge(id: string) {
@@ -674,6 +698,7 @@ export default function SignalsPage() {
               onResolve={handleResolve}
               onDismiss={handleDismiss}
               onAskAdvisor={handleAskAdvisor}
+              onCreateTask={handleCreateTask}
             />
           ))}
         </div>
