@@ -28,6 +28,7 @@ import { CeoBrief } from "@/components/modules/ceo-brief";
 import { DashboardCodingCards } from "@/components/modules/coding/dashboard-coding-cards";
 import { DashboardIntegrationHealth } from "@/components/modules/connections/dashboard-integration-health";
 import { PageHeader } from "@/components/layout/page-header";
+import { Panel } from "@/components/layout/panel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SandboxCommsBadge } from "@/components/modules/signals/sandbox-comms-badge";
@@ -100,7 +101,7 @@ function RepoStatusCard({
     : null;
 
   return (
-    <Card className="glass rounded-2xl border-0">
+    <Card>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2 text-zinc-100 text-base">
@@ -224,36 +225,6 @@ function RepoStatusCard({
 }
 
 // ─── Layout primitives ────────────────────────────────────────────────────────
-
-/** Unified glass panel with a consistent header — the single card system. */
-function Panel({
-  title,
-  icon: Icon,
-  iconClass = "text-zinc-400",
-  action,
-  className,
-  children,
-}: {
-  title: string;
-  icon?: React.ComponentType<{ className?: string }>;
-  iconClass?: string;
-  action?: ReactNode;
-  className?: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className={cn("glass rounded-2xl p-5", className)}>
-      <div className="mb-4 flex items-center justify-between gap-2">
-        <h2 className="flex items-center gap-2 text-[13px] font-semibold text-zinc-200">
-          {Icon ? <Icon className={cn("size-4", iconClass)} /> : null}
-          {title}
-        </h2>
-        {action}
-      </div>
-      {children}
-    </section>
-  );
-}
 
 const METRIC_TONES: Record<string, string> = {
   none: "text-zinc-50",
