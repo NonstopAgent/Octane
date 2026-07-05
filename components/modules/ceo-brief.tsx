@@ -146,6 +146,13 @@ export function CeoBrief() {
         name: p.name,
         status: p.status,
       })),
+      // Octane Core's OWN action-proposal queue (suggested tasks awaiting
+      // Logan's approval on /actions) — NOT Ajax products. Labeled so the AI
+      // describes them accurately instead of inventing an Ajax pipeline.
+      pendingActions: (state.octaneActions ?? [])
+        .filter((a) => a.status === "pending")
+        .slice(0, 8)
+        .map((a) => a.title),
     };
   }, [state, workspace, storedSignals, companyContext]);
 

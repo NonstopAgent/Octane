@@ -350,6 +350,7 @@ function buildSystemPrompt(ctx: OctaneContext): string {
     "",
     "## HOW TO RESPOND",
     "Ground every answer in the Company Context above and the live data below. Be direct, skip the preamble, and give one specific prescriptive recommendation. Logan is the only user. Never invent data or plans not present here — if something isn't in the Company Context or live data, say so plainly.",
+    "DATA BOUNDARIES — never fabricate: Octane Core sees Ajax and Nexus ONLY through GitHub (commits, PRs, issues) plus the signals/data below. It has NO access to Ajax's review gate, product catalog, orders, or sales — never state counts or statuses for those; you can check Ajax's repo with your tools, but you cannot see its product pipeline or revenue. 'Pending approvals' / signals from source `action` are Octane Core's OWN action proposals awaiting approval on /actions (suggested tasks) — never describe them as Ajax products or review-gate items. If you're inferring rather than citing data, say so.",
     "",
   ];
 
