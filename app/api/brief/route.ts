@@ -6,7 +6,7 @@ import { requireApiAuth } from "@/lib/auth/require-api-auth";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const MODEL = "claude-opus-4-6";
+const MODEL = "claude-opus-4-8";
 
 interface BriefSignal {
   title: string;
@@ -47,16 +47,18 @@ interface BriefInput {
   projects?: { name: string; status: string }[];
 }
 
-const SYSTEM = `You are Octane — a solo founder's AI chief of staff and CEO co-pilot. The founder (Logan) runs a small software portfolio: Octane Core (the command-center app), Octane Ajax, and Octane Nexus. You are given the founder's Company Context (the vision, each business, strategy, and future plans) — treat it as the source of truth about the business and ground the brief in it. You also get a sample of his Decision Log (past decisions with reasoning) — keep your recommendation consistent with how Logan actually decides, and reference a past decision as precedent when it fits.
+const SYSTEM = `You are Octane — Logan's AI chief of staff and CEO co-pilot for his solo software portfolio (Octane Core, Octane Ajax, Octane Nexus, HedgeFund). The founder's Company Context (vision, each business, strategy, and the PRIORITIZATION FRAMEWORK) is your source of truth — ground the brief in it, and follow the framework's ranking when you decide what matters. You also get a sample of his Decision Log — keep your call consistent with how Logan actually decides, and cite a past decision as precedent when it fits.
 
-You are given TODAY'S REAL state as JSON. Write a tight, forward-looking daily brief that reads like a sharp operator, not a chatbot. Use this exact structure with these markdown headers:
+Your #1 job: tell Logan THE ONE PLAY that matters most right now, and — when the data supports it — what to STOP or defer. Be opinionated. He spreads himself thin (especially polishing Core, which is comfortable) while Ajax, the revenue engine, sits at $0. Protect his focus. Revenue beats infrastructure; a real sale beats another feature.
 
-**Where things stand** — one punchy line.
-**Focus today** — the single most important thing to do and why (be specific, name the project/repo).
-**Watch** — 2 to 4 short bullets: real risks and opportunities from the data.
-**What I'd do** — one concrete, forward-looking recommendation or decision.
+You get TODAY'S REAL state as JSON. Write a tight, decisive brief — a sharp operator, not a chatbot. Use exactly these markdown headers:
 
-Rules: Be direct and specific. Cite the real numbers, repos, and signals from the input. Never invent data that isn't in the input. No hedging, no filler, no "as an AI". Keep it under 180 words total. If the data is sparse, say what to set up next to make Octane more useful.`;
+**The play** — the single highest-leverage action right now. Name it concretely (project/repo/step) and give the one-line why. This is the headline; make it a real call, not a menu.
+**Where things stand** — one punchy line on overall state (score, money, momentum).
+**Watch** — 2 to 4 short bullets: the real risks and openings from the data.
+**Stop / defer** — one line naming what NOT to spend time on right now, to protect focus. Omit only if nothing qualifies.
+
+Rules: Be direct and specific. Cite the real numbers, repos, and signals from the input. Never invent data not in the input. No hedging, no filler, no "as an AI." Under ~180 words. If the data is genuinely sparse, the play is what to set up so Octane can guide him — but still make one clear call.`;
 
 function currency(n: number | undefined): string {
   if (typeof n !== "number") return "—";
@@ -75,14 +77,17 @@ function ruleBasedBrief(input: BriefInput): string {
     input.scorePenalty && input.scorePenalty > 0
       ? ` (−${input.scorePenalty} from open risks)`
       : "";
-  lines.push("**Where things stand**");
-  lines.push(`Octane score ${score}${penaltyNote}.`);
+
+  const play =
+    input.topThreeMoves?.[0] ??
+    input.priorities?.[0] ??
+    "Get Octane Ajax to its first real sale — connect a live channel and push a product through the Review Gate.";
+  lines.push("**The play**");
+  lines.push(play);
   lines.push("");
 
-  const focus =
-    input.topThreeMoves?.[0] ?? input.priorities?.[0] ?? "Ship the next milestone.";
-  lines.push("**Focus today**");
-  lines.push(focus);
+  lines.push("**Where things stand**");
+  lines.push(`Octane score ${score}${penaltyNote}.`);
   lines.push("");
 
   const watch: string[] = [];
@@ -95,22 +100,71 @@ function ruleBasedBrief(input: BriefInput): string {
   lines.push(...watch);
   lines.push("");
 
-  lines.push("**What I'd do**");
+  lines.push("**Stop / defer**");
   const rev = input.cash?.monthlyRevenue ?? 0;
   const exp = input.cash?.monthlyExpenses ?? 0;
-  if (input.decisionsDue && input.decisionsDue.length > 0) {
-    lines.push(`Resolve the open decision: ${input.decisionsDue[0]}.`);
-  } else if (exp > rev) {
+  if (exp > rev && rev === 0) {
     lines.push(
-      `Burn (${currency(exp)}/mo) is above revenue (${currency(rev)}/mo) — either land revenue on Ajax or cut a recurring cost this week.`,
+      `Anything that isn't Ajax revenue. Burn is ${currency(exp)}/mo against $0 in — don't add Core/Nexus scope until a sale lands.`,
     );
   } else if (input.topThreeMoves && input.topThreeMoves[1]) {
-    lines.push(`After the focus item, ${input.topThreeMoves[1].toLowerCase()}`);
+    lines.push(`Hold off on: ${input.topThreeMoves[1].toLowerCase()} — after the play, not before.`);
   } else {
-    lines.push("Pick the one bet with the clearest path to revenue and push it forward.");
+    lines.push("Core polish and Nexus features — park them until Ajax has revenue.");
   }
 
   return lines.join("\n");
+}
+
+/** Canonical repos, ordered by strategic priority (Ajax first). */
+const CANONICAL_REPOS: { repo: string; label: string }[] = [
+  { repo: "NonstopAgent/Octane_Ajax", label: "Ajax (revenue engine, $0 so far)" },
+  { repo: "NonstopAgent/Octane", label: "Core (this app)" },
+  { repo: "NonstopAgent/Octane_Nexus", label: "Nexus" },
+  { repo: "NonstopAgent/HedgeFund", label: "HedgeFund" },
+];
+
+/**
+ * Where did Logan's effort go this week? Commit counts per repo (last 7d),
+ * best-effort — lets the brief catch "heads-down on Core while Ajax sits idle."
+ */
+async function fetchRecentEffort(): Promise<string> {
+  const token = process.env.GITHUB_TOKEN;
+  if (!token) return "";
+  const since = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
+  const headers: Record<string, string> = {
+    Accept: "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28",
+    "User-Agent": "OctaneCore/1.0",
+    Authorization: `Bearer ${token}`,
+  };
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 6000);
+  try {
+    const results = await Promise.allSettled(
+      CANONICAL_REPOS.map(async ({ repo, label }) => {
+        const res = await fetch(
+          `https://api.github.com/repos/${repo}/commits?since=${since}&per_page=40`,
+          { headers, signal: ctrl.signal },
+        );
+        if (!res.ok) return `${label}: activity unknown`;
+        const commits = (await res.json()) as unknown[];
+        const n = Array.isArray(commits) ? commits.length : 0;
+        return `${label}: ${n} commit${n === 1 ? "" : "s"} in last 7d`;
+      }),
+    );
+    const lines = results
+      .map((r) => (r.status === "fulfilled" ? r.value : null))
+      .filter((v): v is string => Boolean(v));
+    if (lines.length === 0) return "";
+    return `RECENT EFFORT (commits per repo, last 7 days — use this to catch where Logan's time is going vs. where revenue is; Ajax at $0 means Core-heavy weeks are a red flag):\n${lines
+      .map((l) => `- ${l}`)
+      .join("\n")}\n`;
+  } catch {
+    return "";
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -130,10 +184,12 @@ export async function POST(request: NextRequest) {
 
   try {
     const { companyContext, ...rest } = input;
+    const effort = await fetchRecentEffort();
     const userContent = [
       companyContext?.trim()
         ? `COMPANY CONTEXT (source of truth):\n${companyContext.trim()}\n`
         : "",
+      effort,
       `TODAY'S REAL STATE (JSON):\n${JSON.stringify(rest)}`,
       "\nWrite the brief.",
     ]

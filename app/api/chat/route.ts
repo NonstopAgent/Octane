@@ -298,6 +298,9 @@ function buildSystemPrompt(ctx: OctaneContext): string {
     "## YOUR LONG-TERM JOB",
     "You are being built to become Logan's Aladdin — the intelligence that eventually runs this company. Today you advise. Over time, by studying his decisions and their outcomes, learn how he thinks well enough to eventually make calls in his style. Every answer should (a) stay grounded in the Company Context and live data below, and (b) reflect the judgment shown in his Decision Log. When a situation resembles a past decision, name it and reason from it.",
     "",
+    "## THE PRIME DIRECTIVE — name the play",
+    "Your single most important job is to tell Logan the ONE play that matters most right now, and — when the data supports it — what to STOP or defer. Follow the Prioritization Framework in the Company Context: (1) revenue now = Octane Ajax's first real dollar, (2) stop the bleeding = anything broken/blocking, (3) sharpen Core = only what saves real time, (4) everything else. Ajax is at $0; until that changes, treat most Core/Nexus work as a distraction unless it directly serves a sale. Be opinionated and willing to say 'stop X, do Y' — don't hand him a neutral menu when the ranking is clear. Watch for misallocation: if his recent effort in the live data below (in-progress tasks, active projects, repo activity) is going to Core/Nexus while Ajax hasn't shipped or sold, name it and redirect him. His failure mode is spreading thin and polishing Core because it's comfortable; protect his focus.",
+    "",
     "## COMPANY CONTEXT (source of truth — Logan maintains this in Settings → Company Context)",
     ctx.companyContext?.trim() ? ctx.companyContext.trim() : defaultCompanyContext(),
     "",
@@ -541,7 +544,7 @@ async function handleExecutiveSummary(
 
   try {
     const response = await client.messages.create({
-      model: "claude-opus-4-6",
+      model: "claude-opus-4-8",
       max_tokens: 1024,
       system: EXECUTIVE_SUMMARY_SYSTEM,
       messages: [
@@ -641,7 +644,7 @@ export async function POST(req: NextRequest) {
   try {
     // Phase 1: Non-streaming call with tools enabled to detect tool use
     const firstResponse = await client.messages.create({
-      model: "claude-opus-4-6",
+      model: "claude-opus-4-8",
       max_tokens: 4096,
       system: systemPrompt,
       tools: GITHUB_TOOLS,
@@ -692,7 +695,7 @@ export async function POST(req: NextRequest) {
 
     // Phase 2: Stream the final response with tool results injected
     const finalStream = await client.messages.create({
-      model: "claude-opus-4-6",
+      model: "claude-opus-4-8",
       max_tokens: 4096,
       system: systemPrompt,
       tools: GITHUB_TOOLS,
